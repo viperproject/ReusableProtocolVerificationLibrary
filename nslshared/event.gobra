@@ -1,4 +1,4 @@
-package nsl-shared
+package nslshared
 
 import . "gitlab.inf.ethz.ch/arquintl/prototrace/event"
 import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"

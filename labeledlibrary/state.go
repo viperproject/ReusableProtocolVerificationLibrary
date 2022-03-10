@@ -1,4 +1,4 @@
-package labeled-library
+package labeledlibrary
 
 import (
 	att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
@@ -6,7 +6,7 @@ import (
 	fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
 	"gitlab.inf.ethz.ch/arquintl/prototrace/label"
 	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
-	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
 	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 	tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"

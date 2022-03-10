@@ -1,9 +1,9 @@
-package nsl-initiator
+package nslinitiator
 
 import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library"
+import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary"
 import "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
-import . "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-shared"
+import . "gitlab.inf.ethz.ch/arquintl/prototrace/nslshared"
 import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"

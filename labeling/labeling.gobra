@@ -6,7 +6,7 @@ import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 import u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
-import . "gitlab.inf.ethz.ch/arquintl/prototrace/usage-context"
+import . "gitlab.inf.ethz.ch/arquintl/prototrace/usagecontext"
 
 type DefaultLabelingContext struct {
     usage UsageContext

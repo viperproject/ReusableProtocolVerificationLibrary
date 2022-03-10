@@ -3,7 +3,7 @@ package library
 import (
 	"encoding/binary"
 	"errors"
-	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
 	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 )
 

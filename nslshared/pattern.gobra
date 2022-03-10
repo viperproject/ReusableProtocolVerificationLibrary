@@ -1,4 +1,4 @@
-package nsl-shared
+package nslshared
 
 import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 

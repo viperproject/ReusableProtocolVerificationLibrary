@@ -1,14 +1,14 @@
-package attacker-strength
+package attackerstrength
 
 import att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
-import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library"
-import lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary"
+import lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
 import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 
 
 /**
  * This file shows that the attacker can use the same functionality from the 
- * labeled-library, i.e. the attacker can invoke all library functions with
+ * labeledlibrary, i.e. the attacker can invoke all library functions with
  * bytes known to him (i.e. public/derivable bytes) and will get back bytes
  * (e.g. the ciphertext in the case of encrypt) that are also derivable.
  * DY* calls this attacker typability because "public" is expressed

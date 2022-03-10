@@ -24,16 +24,16 @@
 // - received na, nb, A, and B are as expected
 //(-)messages have to conform to protocol, i.e. encrypted/signed as specified and contain the specified content
 
-package nsl-main
+package nslmain
 
 import (
 	"sync"
-	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
 	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
-	init "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-initiator"
-	resp "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-responder"
-	shared "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-shared"
-	library "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-shared/library"
+	init "gitlab.inf.ethz.ch/arquintl/prototrace/nslinitiator"
+	resp "gitlab.inf.ethz.ch/arquintl/prototrace/nslresponder"
+	shared "gitlab.inf.ethz.ch/arquintl/prototrace/nslshared"
+	library "gitlab.inf.ethz.ch/arquintl/prototrace/nslshared/library"
 	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 	tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
