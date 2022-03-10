@@ -1,9 +1,9 @@
 package attacker
 
-import att "protocols/library/attacker"
-import ll "protocols/library/labeled-library"
-import lib "protocols/library/labeled-library/library"
-import tm "protocols/library/term"
+import att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
+import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library"
+import lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 
 
 /**

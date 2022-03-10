@@ -28,17 +28,17 @@ package nsl
 
 import (
 	"sync"
-	lib "protocols/library/labeled-library/library"
-	"protocols/library/labeling"
-	init "protocols/library/nsl-initiator"
-	resp "protocols/library/nsl-responder"
-	shared "protocols/library/nsl-shared"
-	library "protocols/library/nsl-shared/library"
-	p "protocols/library/principal"
-	tm "protocols/library/term"
-	tr "protocols/library/trace"
-	tman "protocols/library/tracemanager"
-	two "protocols/library/twostate"
+	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
+	init "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-initiator"
+	resp "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-responder"
+	shared "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-shared"
+	library "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-shared/library"
+	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+	tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+	tman "gitlab.inf.ethz.ch/arquintl/prototrace/tracemanager"
+	two "gitlab.inf.ethz.ch/arquintl/prototrace/twostate"
 )
 
 //@ requires root == tr.makeRoot(set[tm.Term]{})

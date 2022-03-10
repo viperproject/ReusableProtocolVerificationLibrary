@@ -1,10 +1,10 @@
 package trace
 
-import . "protocols/library/event"
-import label "protocols/library/label"
-import p "protocols/library/principal"
-import tm "protocols/library/term"
-import u "protocols/library/usage"
+import . "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+import label "gitlab.inf.ethz.ch/arquintl/prototrace/label"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
 
 type TraceContext interface {
     pred eventInv(principal p.Principal, ev Event, prev TraceEntry)

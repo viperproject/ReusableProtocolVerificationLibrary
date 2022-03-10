@@ -1,9 +1,9 @@
 package nslShared
 
-import . "protocols/library/event"
-import p "protocols/library/principal"
-import tm "protocols/library/term"
-import tr "protocols/library/trace"
+import . "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
 // because we cannot declare Event to be an interface
 // we do this indirection by having an event type and

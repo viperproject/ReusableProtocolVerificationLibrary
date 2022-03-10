@@ -1,8 +1,8 @@
 package tracemanager
 
-import p "protocols/library/principal"
-import tm "protocols/library/term"
-import tr "protocols/library/trace"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
 
 type NonceSearcher struct {

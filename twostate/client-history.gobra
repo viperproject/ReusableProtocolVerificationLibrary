@@ -1,9 +1,9 @@
 package twostate
 
 import "sync"
-import fa "protocols/library/forall"
-import p "protocols/library/principal"
-import tr "protocols/library/trace"
+import fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
 // TODO: make TwoStateMutex generic such that it can be instantiated with any value type:
 type ClientId = p.Principal

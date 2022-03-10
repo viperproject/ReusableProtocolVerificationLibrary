@@ -1,12 +1,12 @@
 package labeledLibrary
 
 import (
-	att "protocols/library/attacker"
-	"protocols/library/labeling"
-	lib "protocols/library/labeled-library/library"
-	p "protocols/library/principal"
-	tm "protocols/library/term"
-	tr "protocols/library/trace"
+	att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
+	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
+	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+	tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 )
 
 /** 

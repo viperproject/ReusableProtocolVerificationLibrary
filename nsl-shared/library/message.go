@@ -3,8 +3,8 @@ package library
 import (
 	"encoding/binary"
 	"errors"
-	lib "protocols/library/labeled-library/library"
-	tm "protocols/library/term"
+	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 )
 
 type Msg1 struct {

@@ -1,5 +1,5 @@
 {
-    "gobraSettings.moduleName": "protocols/library",
+    "gobraSettings.moduleName": "gitlab.inf.ethz.ch/arquintl/prototrace",
     "gobraSettings.includeDirs": [
         "."
     ],

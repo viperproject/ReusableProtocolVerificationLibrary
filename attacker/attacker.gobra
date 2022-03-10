@@ -1,7 +1,7 @@
 package attacker
 
-import tm "protocols/library/term"
-import tr "protocols/library/trace"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
 ghost
 decreases

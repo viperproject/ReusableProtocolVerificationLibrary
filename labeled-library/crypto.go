@@ -1,14 +1,14 @@
 package labeledLibrary
 
 import (
-	ev "protocols/library/event"
-	fa "protocols/library/forall"
-	"protocols/library/label"
-	"protocols/library/labeling"
-	lib "protocols/library/labeled-library/library"
-	p "protocols/library/principal"
-	tm "protocols/library/term"
-	u "protocols/library/usage"
+	ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+	fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
+	"gitlab.inf.ethz.ch/arquintl/prototrace/label"
+	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
+	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library/library"
+	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+	u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
 )
 
 //@ requires l.Mem()

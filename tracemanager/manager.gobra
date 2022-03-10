@@ -2,11 +2,11 @@ package tracemanager
 
 // uses twostate mutex to establish the invariant that any older trace is a suffix of the current one
 
-import ev "protocols/library/event"
-import p "protocols/library/principal"
-import tm "protocols/library/term"
-import tr "protocols/library/trace"
-import ts "protocols/library/twostate"
+import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+import ts "gitlab.inf.ethz.ch/arquintl/prototrace/twostate"
 
 
 type TraceManager struct {

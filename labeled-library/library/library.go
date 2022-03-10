@@ -6,13 +6,13 @@ import (
 	fmt "fmt"
 	io "io"
 	box "golang.org/x/crypto/nacl/box"
-	ev "protocols/library/event"
-	"protocols/library/label"
-	"protocols/library/labeling"
-	p "protocols/library/principal"
-	tm "protocols/library/term"
-	tr "protocols/library/trace"
-	u "protocols/library/usage"
+	ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+	"gitlab.inf.ethz.ch/arquintl/prototrace/label"
+	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
+	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+	tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+	u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
 )
 
 type ByteString []byte

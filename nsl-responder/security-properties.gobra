@@ -1,12 +1,12 @@
 package nslResponder
 
-import ev "protocols/library/event"
-import ll "protocols/library/labeled-library"
-import "protocols/library/labeling"
-import . "protocols/library/nsl-shared"
-import p "protocols/library/principal"
-import tm "protocols/library/term"
-import tr "protocols/library/trace"
+import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library"
+import "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
+import . "gitlab.inf.ethz.ch/arquintl/prototrace/nsl-shared"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
 
 ghost

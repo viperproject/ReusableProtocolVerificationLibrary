@@ -1,6 +1,6 @@
 package nslShared
 
-import tm "protocols/library/term"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 
 // TODO add abstract resource to ensure that the pattern properties can only be applied once each
 

@@ -1,8 +1,8 @@
 package tracemanager
 
-import ev "protocols/library/event"
-import p "protocols/library/principal"
-import tr "protocols/library/trace"
+import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
 
 type EventSearcher struct {

@@ -3,7 +3,7 @@ package twostate
 // we use a mutex to implement a mutex with a two state invariant
 
 import "sync"
-import . "protocols/library/trace"
+import . "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
 // TODO: make TwoStateMutex generic such that it can be instantiated with any value type:
 type HistoryValue = TraceEntry

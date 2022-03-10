@@ -11,7 +11,7 @@ scriptDir=$(dirname "$0")
 isCi=$CI
 
 gobraJar="/gobra/gobra.jar"
-additionalGobraArgs="--module protocols/library"
+additionalGobraArgs="--module gitlab.inf.ethz.ch/arquintl/prototrace"
 
 # `-exec basename {} \;` makes sure that the leading "./" is dropped from every package name
 packages=$(find $scriptDir -type d -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)

@@ -1,6 +1,6 @@
 package label
 
-import p "protocols/library/principal"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 
 type SecrecyLabel domain {
     // constructors

@@ -1,12 +1,12 @@
 package labeling
 
-import ev "protocols/library/event"
-import "protocols/library/label"
-import p "protocols/library/principal"
-import tm "protocols/library/term"
-import tr "protocols/library/trace"
-import u "protocols/library/usage"
-import . "protocols/library/usage-context"
+import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+import "gitlab.inf.ethz.ch/arquintl/prototrace/label"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+import u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
+import . "gitlab.inf.ethz.ch/arquintl/prototrace/usage-context"
 
 type DefaultLabelingContext struct {
     usage UsageContext

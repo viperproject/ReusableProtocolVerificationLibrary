@@ -1,4 +1,4 @@
-module protocols/library
+module gitlab.inf.ethz.ch/arquintl/prototrace
 
 go 1.16
 
