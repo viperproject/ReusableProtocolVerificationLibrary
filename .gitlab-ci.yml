@@ -1,0 +1,9 @@
+image:
+  name: ghcr.io/viperproject/gobra:latest
+  # override entrypoint such that we get a shell in the image
+  # as the image would otherwise expect a path to a Gobra file
+  entrypoint: [""]
+
+verify:
+  script:
+    - verify.sh

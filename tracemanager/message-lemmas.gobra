@@ -1,0 +1,74 @@
+package tracemanager
+
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import tr "protocols/library/trace"
+
+
+type MessageSearcher struct {
+    ctx tr.TraceContext
+    sender p.Principal
+    receiver p.Principal
+    payload tm.Term
+}
+MessageSearcher implements TraceSearcher
+
+ghost
+pure func (ms MessageSearcher) Ctx() tr.TraceContext {
+    return ms.ctx
+}
+
+ghost
+decreases
+pure func (ms MessageSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isMessageAt(ms.sender, ms.receiver, ms.payload)
+}
+
+ghost
+decreases
+pure func (ms MessageSearcher) Occurs(entry tr.TraceEntry) bool {
+    return entry.messageOccurs(ms.sender, ms.receiver, ms.payload)
+}
+
+ghost
+// decreases
+pure func (ms MessageSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return tr.messageInv(ms.ctx, ms.sender, ms.receiver, ms.payload, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ms.Occurs(entry)
+ensures  (!entry.isRoot() && ms.Occurs(tr.getPrev(entry))) || ms.Matches(entry)
+func (ms MessageSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires ms.Matches(entry)
+requires acc(tr.validTrace(ms.Ctx(), entry), p)
+ensures  ms.PureEntryInv(entry)
+ensures  acc(tr.validTrace(ms.Ctx(), entry), p)
+func (ms MessageSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    assert unfolding acc(tr.validTrace(ms.Ctx(), entry), p) in true
+}
+// end of MessageSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires (m.Trace(ctx, owner)).messageOccurs(sender, receiver, payload)
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(m.Trace(ctx, owner)) && prev.isMessage()
+ensures  prev.isMessageAt(sender, receiver, payload)
+ensures  tr.messageInv(ctx, sender, receiver, payload, tr.getPrev(prev))
+ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) MessageOccursImpliesMessageInv(ctx tr.TraceContext, owner, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
+    searcher := MessageSearcher{ ctx, sender, receiver, payload }
+    prev = m.findEntryWithPureInv(searcher, owner)
+    prev.getPublicTermsMontonic(m.Trace(ctx, owner))
+}

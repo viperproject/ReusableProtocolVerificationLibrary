@@ -1,0 +1,128 @@
+package twostate
+
+// we use a mutex to implement a mutex with a two state invariant
+
+import "sync"
+import . "protocols/library/trace"
+
+// TODO: make TwoStateMutex generic such that it can be instantiated with any value type:
+type MutexValue = TraceEntry
+
+type TwoStateMutex struct {
+    mutex *sync.Mutex
+    protected *TwoStateMutexProtected
+}
+
+pred (m *TwoStateMutex) twoStateMutexStateInit() {
+    acc(m) && acc(m.mutex) && acc(m.protected) && *m.mutex == sync.Mutex{}
+}
+
+pred (m *TwoStateMutex) twoStateMutexState(inv TwoStateInv, locked bool, p perm) {
+    noPerm < p && p <= writePerm &&
+    acc(m, p) && acc(m.mutex.LockP(), _) && m.mutex.LockInv() == twoStateMutexInv!<inv, m.protected!> &&
+    (locked ==> m.mutex.UnlockP())
+}
+
+type TwoStateMutexProtected struct {
+    prevVal MutexValue
+    curVal MutexValue
+}
+
+pred twoStateMutexInv(inv TwoStateInv, protected *TwoStateMutexProtected) {
+    acc(protected) &&
+    inv.inv(protected.prevVal, protected.curVal)
+}
+
+type TwoStateInv interface {
+    /** two step invariant */
+    pred inv(oldValue, currentValue MutexValue)
+    /** optional invariant to specify properties that hold for all values returned by `getValue` */
+    // ghost pure valueInv(value MutexValue) bool
+    
+    /** proof obligation to show that the two step invariant is reflexive */
+    ghost
+    // requires valueInv(value)
+    ensures inv(value, value)
+    twoStateInvReflexive(value MutexValue)
+
+    /** proof obligation to show that the two step invariant is transitive */
+    /*
+    ghost
+    // requires valueInv(val1) && valueInv(val2) && valueInv(val3)
+    requires inv(val1, val2) && inv(val2, val3)
+    ensures  inv(val1, val3)
+    // we also need the following property in `applyInvTransitivity`:
+    ensures  inv(val2, val3)
+    twoStateInvTransitive(val1, val2, val3 MutexValue)
+    */
+}
+
+ensures  m.twoStateMutexStateInit()
+func NewTwoStateMutex() (m *TwoStateMutex) {
+    m = &TwoStateMutex{}
+    m.mutex = &sync.Mutex{}
+    m.protected = &TwoStateMutexProtected{}
+    fold m.twoStateMutexStateInit()
+}
+
+ghost
+requires m.twoStateMutexStateInit()
+requires isComparable(inv)
+ensures  m.twoStateMutexState(inv, false, writePerm)
+func (m *TwoStateMutex) SetInv(inv TwoStateInv, initVal MutexValue) {
+    unfold m.twoStateMutexStateInit()
+    m.protected.prevVal = initVal
+    m.protected.curVal = initVal
+    inv.twoStateInvReflexive(initVal)
+    fold twoStateMutexInv!<inv, m.protected!>()
+    m.mutex.SetInv(twoStateMutexInv!<inv, m.protected!>)
+    fold m.twoStateMutexState(inv, false, writePerm)
+}
+
+ghost
+requires noPerm < pState && pState <= writePerm
+requires m.twoStateMutexState(inv, false, pState)
+ensures  m.twoStateMutexState(inv, true, pState)
+ensures  unfolding m.twoStateMutexState(inv, true, pState) in m.protected == p
+ensures  twoStateMutexInv(inv, p)
+func (m *TwoStateMutex) Lock(inv TwoStateInv, pState perm) (p *TwoStateMutexProtected) {
+    unfold m.twoStateMutexState(inv, false, pState)
+    m.mutex.Lock()
+    p = m.protected
+    unfold twoStateMutexInv!<inv, p!>()
+    fold twoStateMutexInv(inv, p)
+    fold m.twoStateMutexState(inv, true, pState)
+}
+
+ghost
+requires noPerm < pState && pState <= writePerm
+requires m.twoStateMutexState(inv, true, pState)
+requires unfolding m.twoStateMutexState(inv, true, pState) in m.protected == p
+requires twoStateMutexInv(inv, p)
+requires unfolding twoStateMutexInv(inv, p) in p.curVal == curVal
+requires inv.inv(curVal, newValue)
+ensures  m.twoStateMutexState(inv, false, pState)
+func (m *TwoStateMutex) Unlock(p *TwoStateMutexProtected, inv TwoStateInv, curVal, newValue MutexValue, pState perm) {
+    unfold m.twoStateMutexState(inv, true, pState)
+    unfold twoStateMutexInv(inv, p)
+    p.prevVal = p.curVal
+    p.curVal = newValue
+    fold twoStateMutexInv!<inv, p!>()
+    m.mutex.Unlock()
+    fold m.twoStateMutexState(inv, false, pState)
+}
+
+/** checks whether lock is usable with fractional permissions after initialization */
+ghost
+requires noPerm < p && p <= writePerm
+requires m.twoStateMutexState(inv, false, p)
+func sanityCheck(m *TwoStateMutex, inv TwoStateInv, p perm) {
+    protectedData := m.Lock(inv, p)
+    unfold twoStateMutexInv(inv, protectedData)
+    curVal := protectedData.curVal
+    fold twoStateMutexInv(inv, protectedData)
+    var newValue MutexValue
+    // we assume that there is a newValue that satisfies the invariant:
+    inhale inv.inv(curVal, newValue)
+    m.Unlock(protectedData, inv, curVal, newValue, p)
+}

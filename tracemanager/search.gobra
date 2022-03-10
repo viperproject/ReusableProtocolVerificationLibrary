@@ -1,0 +1,279 @@
+package tracemanager
+
+import p "protocols/library/principal"
+import tr "protocols/library/trace"
+
+
+/** represents the state after acquiring the mutex to then use it prove a lemma */
+pred (m *TraceManager) memLocked(ctx tr.TraceContext, owner p.Principal, lastSeenSnapshot, snapshot tr.TraceEntry) {
+    acc(m) && 0 < m.nClients &&
+    isComparable(ctx) &&
+    m.mutex.clientHistoryMutexState(ManagerInv{ ctx }, owner, true) &&
+    m.mutex.lastSeenValue(ManagerInv{ ctx }, owner, true) == lastSeenSnapshot &&
+    (ManagerInv{ ctx }).clientHistoryInv(lastSeenSnapshot, snapshot) &&
+    unfolding m.mutex.clientHistoryMutexState(ManagerInv{ ctx }, owner, true) in *m.mutex.currentValue == snapshot
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+ensures  tr.validTrace(ctx, snapshot)
+ensures  old(m.Trace(ctx, owner)) == lastSeenSnapshot
+ensures  lastSeenSnapshot.isSuffix(snapshot)
+ensures  m.memLocked(ctx, owner, lastSeenSnapshot, snapshot)
+ensures  old(unfolding m.Mem(ctx, owner) in m.mutex) == unfolding m.memLocked(ctx, owner, lastSeenSnapshot, snapshot) in m.mutex
+/** utility function to lock mutex and get the valid trace predicate */
+func (m *TraceManager) acquireValidTrace(ctx tr.TraceContext, owner p.Principal) (lastSeenSnapshot, snapshot tr.TraceEntry) {
+    // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
+    inv := ManagerInv{ ctx }
+    lastSeenSnapshot := m.Trace(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    snapshot = m.mutex.Lock(inv, owner)
+    unfold inv.clientHistoryValueInv(snapshot)
+    fold m.memLocked(ctx, owner, lastSeenSnapshot, snapshot)
+}
+
+ghost
+decreases
+requires m.memLocked(ctx, owner, lastSeenSnapshot, snapshot)
+requires tr.validTrace(ctx, snapshot)
+ensures  m.Mem(ctx, owner)
+ensures  m.Trace(ctx, owner) == lastSeenSnapshot
+ensures  (unfolding m.Mem(ctx, owner) in m.mutex) == old(unfolding m.memLocked(ctx, owner, lastSeenSnapshot, snapshot) in m.mutex)
+func (m *TraceManager) releaseValidTrace(ctx tr.TraceContext, owner p.Principal, lastSeenSnapshot, snapshot tr.TraceEntry) {
+    inv := ManagerInv{ ctx }
+    unfold m.memLocked(ctx, owner, lastSeenSnapshot, snapshot)
+    fold inv.clientHistoryValueInv(snapshot)
+    // there is no need to update the snapshot
+    m.mutex.UnlockWithSnapshot(inv, owner, snapshot, snapshot, lastSeenSnapshot)
+    fold m.Mem(ctx, owner)
+}
+
+type TraceSearcher interface {
+    ghost
+    pure Ctx() tr.TraceContext
+    
+    // TODO: addition termination to Matches and Occurs results in a failing internal postcondition (i.e. without positional information)
+    ghost
+    // decreases
+    pure Matches(entry tr.TraceEntry) bool
+
+    ghost
+    // decreases
+    pure Occurs(entry tr.TraceEntry) bool
+
+    ghost
+    // decreases
+    pure PureEntryInv(entry tr.TraceEntry) bool
+
+    ghost
+    decreases
+    requires Occurs(entry)
+    ensures  (!entry.isRoot() && Occurs(tr.getPrev(entry))) || Matches(entry)
+    /** 
+     * Occurs implies that either there is a match at the current entry or the right
+     * entry will occur further in the trace's past. This then also implies that we
+     * cannot have reached the root yet
+     */
+    OccursImpliesAnEventualMatch(entry tr.TraceEntry)
+
+    ghost
+    decreases
+    requires noPerm < p && p <= writePerm
+    requires Matches(entry)
+    requires acc(tr.validTrace(Ctx(), entry), p)
+    ensures  PureEntryInv(entry)
+    ensures  acc(tr.validTrace(Ctx(), entry), p)
+    /**
+     * pure component of the `validTrace` invariant that belongs to the entry that
+     * was searched.
+     */
+    ExtractPureEntryInv(entry tr.TraceEntry, p perm)
+}
+
+ghost
+decreases validTraceEntry.traceLen()
+requires noPerm < p && p <= writePerm
+requires acc(tr.validTrace(searcher.Ctx(), validTraceEntry), p)
+requires entry.isSuffix(validTraceEntry)
+requires searcher.Occurs(entry)
+ensures  prev.isSuffix(entry) && searcher.Matches(prev)
+ensures  searcher.PureEntryInv(prev)
+ensures  acc(tr.validTrace(searcher.Ctx(), prev), p)
+ensures  acc(tr.validTrace(searcher.Ctx(), prev), p) --* acc(tr.validTrace(searcher.Ctx(), validTraceEntry), p)
+// this lemma is part of the manager as it requires the validTrace predicate
+// we have two separate TraceEntry args (`validTraceEntry` and `entry`) such that the validTrace predicate instance can be provided for a possibly longer trace
+// this indirectly strengthens the postcondition because `prev` is a suffix of `entry` instead of `validTraceEntry`
+/**
+ * Searches on the trace for an existing entry and returns this entry.
+ * Furthermore, the (impure) valid trace invariant at the time point back then is returned.
+ */
+func (m *TraceManager) findEntryWithInv(searcher TraceSearcher, validTraceEntry, entry tr.TraceEntry, p perm) (prev tr.TraceEntry) {
+    ctx := searcher.Ctx()
+    searcher.OccursImpliesAnEventualMatch(entry)
+    if (validTraceEntry == entry) {
+        if (searcher.Matches(entry)) {
+            prev = entry
+            package acc(tr.validTrace(ctx, prev), p) --* acc(tr.validTrace(ctx, validTraceEntry), p)
+            searcher.ExtractPureEntryInv(prev, p)
+        } else {
+            unfold acc(tr.validTrace(ctx, validTraceEntry), p)
+            prev = m.findEntryWithInv(searcher, tr.getPrev(validTraceEntry), tr.getPrev(entry), p)
+            package acc(tr.validTrace(ctx, prev), p) --* acc(tr.validTrace(ctx, validTraceEntry), p) {
+                apply acc(tr.validTrace(ctx, prev), p) --* acc(tr.validTrace(ctx, tr.getPrev(validTraceEntry)), p)
+                fold acc(tr.validTrace(ctx, validTraceEntry), p)
+            }
+        }
+    } else {
+        unfold acc(tr.validTrace(ctx, validTraceEntry), p)
+        prev = m.findEntryWithInv(searcher, tr.getPrev(validTraceEntry), entry, p)
+        package acc(tr.validTrace(ctx, prev), p) --* acc(tr.validTrace(ctx, validTraceEntry), p) {
+            apply acc(tr.validTrace(ctx, prev), p) --* acc(tr.validTrace(ctx, tr.getPrev(validTraceEntry)), p)
+            fold acc(tr.validTrace(ctx, validTraceEntry), p)
+        }
+    }
+}
+
+ghost
+decreases
+requires m.Mem(searcher.Ctx(), owner)
+requires searcher.Occurs(m.Trace(searcher.Ctx(), owner))
+ensures  m.Mem(searcher.Ctx(), owner)
+ensures  prev.isSuffix(m.Trace(searcher.Ctx(), owner)) && searcher.Matches(prev)
+ensures  searcher.PureEntryInv(prev)
+ensures  old(m.Trace(searcher.Ctx(), owner)) == m.Trace(searcher.Ctx(), owner)
+ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searcher.Ctx(), owner))
+/**
+ * Searches on the trace for an existing entry and returns this entry.
+ * Furthermore, the pure invariant for the located entry is returned.
+ */
+func (m *TraceManager) findEntryWithPureInv(searcher TraceSearcher, owner p.Principal) (prev tr.TraceEntry) {
+    // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
+    lastSeenSnapshot, snapshot := m.acquireValidTrace(searcher.Ctx(), owner)
+    prev = m.findEntryWithInv(searcher, snapshot, lastSeenSnapshot, 1/2)
+    apply acc(tr.validTrace(searcher.Ctx(), prev), 1/2) --* acc(tr.validTrace(searcher.Ctx(), snapshot), 1/2)
+    m.releaseValidTrace(searcher.Ctx(), owner, lastSeenSnapshot, snapshot)
+}
+
+/** this is the same as the `validTrace` predicate but without the recursive component */
+pred localValidTrace(ctx tr.TraceContext, t tr.TraceEntry) {
+    (t.isRoot() ==> tr.publicInv(ctx, tr.getPublicTerms(t), t)) &&
+    (t.isEvent() ==> ctx.eventInv(tr.getPrincipal(t), tr.getEvent(t), tr.getPrev(t))) &&
+    (t.isMessage() ==> tr.messageInv(ctx, tr.getSender(t), tr.getReceiver(t), tr.getPayload(t), tr.getPrev(t))) &&
+    (t.isDropMessage() ==> tr.messageInv(ctx, tr.getSender(t), tr.getReceiver(t), tr.getPayload(t), tr.getPrev(t))) &&
+    (t.isNonce() ==> tr.randInv(ctx, tr.getNonce(t), tr.getPrev(t))) &&
+    (t.isPublic() ==> tr.madePublicInv(ctx, tr.getPayload(t), tr.getPrev(t))) &&
+    (t.isCorrupt() ==> ctx.corruptInv(tr.getId(t), tr.getPrev(t)))
+}
+
+ghost
+decreases
+requires isComparable(searcher1.Ctx())
+requires searcher1.Ctx() == searcher2.Ctx()
+requires tr.validTrace(searcher1.Ctx(), validTraceEntry)
+requires searcher1.Occurs(validTraceEntry)
+requires searcher2.Occurs(validTraceEntry)
+ensures  searcher1.Matches(s1)
+ensures  searcher2.Matches(s2)
+ensures  s1 == s2 ==>
+    localValidTrace(searcher1.Ctx(), s1) &&
+    (localValidTrace(searcher1.Ctx(), s1) --* tr.validTrace(searcher1.Ctx(), validTraceEntry))
+ensures s1 != s2 ==>
+    localValidTrace(searcher1.Ctx(), s1) &&
+    localValidTrace(searcher2.Ctx(), s2)
+// this lemma is part of the manager as it requires the validTrace predicate
+func (m *TraceManager) findEntriesWithInv(searcher1, searcher2 TraceSearcher, validTraceEntry tr.TraceEntry) (s1, s2 tr.TraceEntry) {
+    ctx := searcher1.Ctx()
+    curT := validTraceEntry
+    s1Found := false
+    s2Found := false
+    atSameTime := false
+    done := false
+    package tr.validTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry)
+    
+    invariant  atSameTime == (s1Found && s2Found && s1 == s2)
+    invariant !atSameTime ==> tr.validTrace(ctx, curT)
+    invariant !s1Found ==> searcher1.Occurs(curT)
+    invariant  s1Found ==> searcher1.Matches(s1) &&
+                            localValidTrace(searcher1.Ctx(), s1)
+    invariant !s2Found ==> searcher2.Occurs(curT)
+    invariant  s2Found ==> searcher2.Matches(s2)
+    invariant (s2Found && !atSameTime) ==> localValidTrace(searcher2.Ctx(), s2)
+    // magic wands to later be able to recover `tr.validTrace(ctx, validTraceEntry)` if `atSameTime` is true:
+    invariant !s1Found && !s2Found ==> tr.validTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry)
+    invariant  atSameTime ==> localValidTrace(searcher1.Ctx(), s1) --* tr.validTrace(ctx, validTraceEntry)
+    invariant  s1Found ==> curT.traceLen() < s1.traceLen()
+    invariant  s2Found ==> curT.traceLen() < s2.traceLen()
+    decreases curT.traceLen()
+    for !atSameTime && !curT.isRoot() {
+        unfold tr.validTrace(ctx, curT)
+        if (!s1Found && searcher1.Matches(curT)) {
+            // entry1 has been found
+            s1Found = true
+            s1 = curT
+            fold localValidTrace(searcher1.Ctx(), s1)
+            // check if entry2 happens simultaneously:
+            if (!s2Found && searcher2.Matches(curT)) {
+                s2Found = true
+                s2 = curT
+                atSameTime = true
+                package localValidTrace(searcher1.Ctx(), s1) --* tr.validTrace(ctx, validTraceEntry) {
+                    unfold localValidTrace(searcher1.Ctx(), s1)
+                    fold tr.validTrace(ctx, curT)
+                    apply tr.validTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry)
+                }
+            }
+        }
+        if (!s2Found && searcher2.Matches(curT)) {
+            // entry2 has been found
+            s2Found = true
+            s2 = curT
+            fold localValidTrace(searcher2.Ctx(), s2)
+            // entry2 does not happen simulatenously with entry1 as we would otherwise not reach here
+        }
+
+        if !s1Found {
+            searcher1.OccursImpliesAnEventualMatch(curT)
+        }
+        if !s2Found {
+            searcher2.OccursImpliesAnEventualMatch(curT)
+        }
+
+        prevT := curT
+        curT = tr.getPrev(curT)
+
+        if (!s1Found && !s2Found) {
+            package tr.validTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry) {
+                fold tr.validTrace(ctx, prevT)
+                apply tr.validTrace(ctx, prevT) --* tr.validTrace(ctx, validTraceEntry)
+            }
+        }
+    }
+
+    // we reach here if either the entries have already been found or the root entry has been reached.
+    // The TraceSearcher interface permits that the root entry could be the one we search for. Thus,
+    // the root entry must be checked now:
+    if !atSameTime {
+        if !s1Found {
+            searcher1.OccursImpliesAnEventualMatch(curT)
+            s1Found = true
+            s1 = curT
+        }
+        if !s2Found {
+            searcher2.OccursImpliesAnEventualMatch(curT)
+            s2Found = true
+            s2 = curT
+        }
+
+        unfold tr.validTrace(ctx, curT)
+        fold localValidTrace(ctx, curT)
+        if s1 == curT && s2 == curT {
+            atSameTime = true
+            package localValidTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry) {
+                unfold localValidTrace(ctx, curT)
+                fold tr.validTrace(ctx, curT)
+                apply tr.validTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry)
+            }
+        }
+    }
+}

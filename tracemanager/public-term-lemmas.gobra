@@ -1,0 +1,71 @@
+package tracemanager
+
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import tr "protocols/library/trace"
+
+
+type PublicTermSearcher struct {
+    ctx tr.TraceContext
+    term tm.Term
+}
+PublicTermSearcher implements TraceSearcher
+
+ghost
+pure func (ps PublicTermSearcher) Ctx() tr.TraceContext {
+    return ps.ctx
+}
+
+ghost
+decreases
+pure func (ps PublicTermSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isRoot() && ps.term in entry.getPublicTerms()
+}
+
+ghost
+decreases
+pure func (ps PublicTermSearcher) Occurs(entry tr.TraceEntry) bool {
+    return ps.term in entry.getPublicTerms()
+}
+
+ghost
+// decreases
+pure func (ps PublicTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return entry.isRoot() && tr.publicInv(ps.ctx, entry.getPublicTerms(), entry)
+}
+
+ghost
+decreases
+requires ps.Occurs(entry)
+ensures  (!entry.isRoot() && ps.Occurs(tr.getPrev(entry))) || ps.Matches(entry)
+func (ps PublicTermSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires ps.Matches(entry)
+requires acc(tr.validTrace(ps.Ctx(), entry), p)
+ensures  ps.PureEntryInv(entry)
+ensures  acc(tr.validTrace(ps.Ctx(), entry), p)
+func (ps PublicTermSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    assert unfolding acc(tr.validTrace(ps.Ctx(), entry), p) in true
+}
+// end of PublicTermSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires term in (m.Trace(ctx, owner)).getPublicTerms()
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(m.Trace(ctx, owner)) && prev.isRoot()
+ensures  tr.publicInv(ctx, (m.Trace(ctx, owner)).getPublicTerms(), prev)
+ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) PublicTermImpliesPublicInv(ctx tr.TraceContext, owner p.Principal, term tm.Term) (prev tr.TraceEntry) {
+    searcher := PublicTermSearcher{ ctx, term }
+    prev = m.findEntryWithPureInv(searcher, owner)
+    prev.getPublicTermsMontonic(m.Trace(ctx, owner))
+}

@@ -1,0 +1,242 @@
+package trace
+
+import . "protocols/library/event"
+import "protocols/library/label"
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import u "protocols/library/usage"
+
+ghost
+decreases _ // TODO: show that this function terminates because we are only calling ADT deconstructors
+ensures 0 <= res
+pure func (entry TraceEntry) traceLen() (res int) {
+    return entry.isRoot() ? 0 : 1 + (getPrev(entry)).traceLen()
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+ensures  t1.traceLen() <= t2.traceLen()
+func (t1 TraceEntry) traceLenMontonic(t2 TraceEntry) {
+    if (t1 != t2) {
+        t1.traceLenMontonic(getPrev(t2))
+    }
+}
+
+ghost
+decreases t1.traceLen()
+ensures t0 == t1 ==> res
+// the following postcondition optimizes a very common use case (which requires the postcondition above)
+// without the postcondition, one first needs to call `getPrev(t).isSuffix(getPrev(t))` in order
+// that Gobra is able to deduce that `getPrev(t).isSuffix(t)` holds
+ensures (!t1.isRoot() && t0 == getPrev(t1)) ==> res
+pure func (t0 TraceEntry) isSuffix(t1 TraceEntry) (res bool) {
+    return (t0 == t1) ? true :
+        (t1.isRoot()) ? false :
+            t0.isSuffix(getPrev(t1))
+}
+
+ghost
+decreases t3.traceLen()
+requires t1.isSuffix(t2) && t2.isSuffix(t3)
+ensures  t1.isSuffix(t3)
+func (t1 TraceEntry) isSuffixTransitive(t2, t3 TraceEntry) {
+    if (t2 != t3) {
+        t1.isSuffixTransitive(t2, getPrev(t3))
+    }
+}
+
+// several helper functions to simplify expressing properties about the trace:
+
+/** returns true iff specified event occurs exactly a the current trace entry */
+ghost
+decreases
+pure func (entry TraceEntry) isEventAt(principal p.Principal, ev Event) bool {
+    return entry.isEvent() &&
+        getPrincipal(entry) == principal &&
+        getEvent(entry) == ev
+}
+
+/** returns true iff specified event occurs somewhere on the trace */
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) eventOccurs(principal p.Principal, ev Event) bool {
+    return entry.isRoot() ? false :
+        entry.isEventAt(principal, ev) ? true :
+            (getPrev(entry)).eventOccurs(principal, ev)
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+requires t1.eventOccurs(principal, ev)
+ensures  t2.eventOccurs(principal, ev)
+func (t1 TraceEntry) eventOccursMonotonic(t2 TraceEntry, principal p.Principal, ev Event) {
+    if (t1 != t2) {
+        t1.eventOccursMonotonic(getPrev(t2), principal, ev)
+    }
+}
+
+/** returns the trace length at the point when the specified event occurred */
+ghost
+decreases entry.traceLen()
+requires entry.eventOccurs(principal, ev)
+pure func (entry TraceEntry) eventOccursAtTime(principal p.Principal, ev Event) int {
+    return entry.isEventAt(principal, ev) ? entry.traceLen() :
+            (getPrev(entry)).eventOccursAtTime(principal, ev)
+}
+
+/** returns true iff specified message occurs exactly a the current trace entry */
+ghost
+decreases
+pure func (entry TraceEntry) isMessageAt(sender, receiver p.Principal, payload tm.Term) bool {
+    return entry.isMessage() &&
+        getSender(entry) == sender &&
+        getReceiver(entry) == receiver &&
+        getPayload(entry) == payload
+}
+
+/** returns true iff specified message occurs somewhere on the trace */
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) messageOccurs(sender, receiver p.Principal, payload tm.Term) bool {
+    return entry.isRoot() ? false :
+        entry.isMessageAt(sender, receiver, payload) ? true :
+            (getPrev(entry)).messageOccurs(sender, receiver, payload)
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+requires t1.messageOccurs(sender, receiver, payload)
+ensures  t2.messageOccurs(sender, receiver, payload)
+func (t1 TraceEntry) messageOccursMonotonic(t2 TraceEntry, sender, receiver p.Principal, payload tm.Term) {
+    if (t1 != t2) {
+        t1.messageOccursMonotonic(getPrev(t2), sender, receiver, payload)
+    }
+}
+
+/** returns true iff specified nonce occurs exactly a the current trace entry */
+ghost
+decreases
+pure func (entry TraceEntry) isNonceAt(nonce tm.Term) bool {
+    return entry.isNonce() && getNonce(entry) == nonce
+}
+
+/** returns true iff specified nonce occurs somewhere on the trace */
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) OnlyNonceOccurs(nonce tm.Term) bool {
+    return entry.isRoot() ? false :
+        entry.isNonceAt(nonce) ? true :
+        (getPrev(entry)).OnlyNonceOccurs(nonce)
+}
+
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) nonceOccurs(nonce tm.Term, l label.SecrecyLabel, usage u.Usage) (res bool) {
+    return entry.OnlyNonceOccurs(nonce) &&
+        tm.getRandomLabel(nonce) == l &&
+        tm.getRandomUsage(nonce) == usage
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+requires t1.OnlyNonceOccurs(nonce)
+ensures  t2.OnlyNonceOccurs(nonce)
+func (t1 TraceEntry) OnlyNonceOccursMonotonic(t2 TraceEntry, nonce tm.Term) {
+    if (t1 != t2) {
+        t1.OnlyNonceOccursMonotonic(getPrev(t2), nonce)
+    }
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+requires t1.nonceOccurs(nonce, l, usage)
+ensures  t2.nonceOccurs(nonce, l, usage)
+func (t1 TraceEntry) nonceOccursMonotonic(t2 TraceEntry, nonce tm.Term, l label.SecrecyLabel, usage u.Usage) {
+    t1.OnlyNonceOccursMonotonic(t2, nonce)
+}
+
+/** 
+ * does not consider actions performed by attacker but returns just the initial set 
+ * of public bytes. Values published by the attacker can be obtained by calling `getTermsMadePublic`
+ */
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) getPublicTerms() set[tm.Term] {
+    return entry.isRoot() ?
+        getPublicTerms(entry) :
+        (getPrev(entry)).getPublicTerms()
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+ensures  t1.getPublicTerms() == t2.getPublicTerms()
+func (t1 TraceEntry) getPublicTermsMontonic(t2 TraceEntry) {
+    if t1 != t2 {
+        t1.getPublicTermsMontonic(getPrev(t2))
+    }
+}
+
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) getTermsMadePublic() set[tm.Term] {
+    return (entry.isRoot() ? set[tm.Term]{} : (getPrev(entry)).getTermsMadePublic()) union (
+        entry.isPublic() ? set[tm.Term]{getPayload(entry)} : set[tm.Term]{})
+}
+
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) getCorruptPrincipals() set[p.Principal] {
+    return (entry.isRoot() ? set[p.Principal]{} : (getPrev(entry)).getCorruptPrincipals()) union (
+        entry.isCorrupt() ? set[p.Principal]{(getId(entry)).getPrincipal()} : set[p.Principal]{})
+}
+
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) getCorruptIds() set[p.Id] {
+    return (entry.isRoot() ? set[p.Id]{} : (getPrev(entry)).getCorruptIds()) union (
+        entry.isCorrupt() ? set[p.Id]{getId(entry)} : set[p.Id]{})
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+ensures  t1.getCorruptIds() subset t2.getCorruptIds()
+func (t1 TraceEntry) getCorruptIdsMonotonic(t2 TraceEntry) {
+    if (t1 != t2) {
+        t1.getCorruptIdsMonotonic(getPrev(t2))
+    }
+}
+
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) getMessagePayloads() set[tm.Term] {
+    return (entry.isRoot() ? set[tm.Term]{} : (getPrev(entry)).getMessagePayloads()) union (
+        entry.isMessage() ? set[tm.Term]{getPayload(entry)} : set[tm.Term]{})
+}
+
+ghost
+decreases entry.traceLen()
+requires msg in entry.getMessagePayloads()
+ensures  entry.messageOccurs(sender, receiver, msg)
+func (entry TraceEntry) getMsgSenderReceiver(msg tm.Term) (sender, receiver p.Principal) {
+    if entry.isMessage() && getPayload(entry) == msg {
+        sender = getSender(entry)
+        receiver = getReceiver(entry)
+    } else {
+        sender, receiver = (getPrev(entry)).getMsgSenderReceiver(msg)
+    }
+}
+
+ghost
+decreases entry.traceLen()
+ensures forall msg tm.Term :: { msg in res } msg in res ==> entry.messageOccurs(sender, receiver, msg)
+pure func (entry TraceEntry) getMessagePayloadsForCommChannel(sender, receiver p.Principal) (res set[tm.Term]) {
+    return (entry.isRoot() ? set[tm.Term]{} : (getPrev(entry)).getMessagePayloadsForCommChannel(sender, receiver)) union (
+        (entry.isMessage() && getSender(entry) == sender && getReceiver(entry) == receiver) ? set[tm.Term]{getPayload(entry)} : set[tm.Term]{})
+}

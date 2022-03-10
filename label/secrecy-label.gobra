@@ -1,0 +1,75 @@
+package label
+
+import p "protocols/library/principal"
+
+type SecrecyLabel domain {
+    // constructors
+    // type 0
+    func Public() SecrecyLabel
+    // type 1
+    func Readers(set[p.Id]) SecrecyLabel
+    // type 2
+    func Meet(SecrecyLabel, SecrecyLabel) SecrecyLabel // intersection of labels
+    // type 3
+    func Join(SecrecyLabel, SecrecyLabel) SecrecyLabel // union of labels
+
+    // WARNING: adapt first axiom if another SecrecyLabel is added!
+
+    // deconstructors
+    func GetType(SecrecyLabel) int
+    func GetReaders(SecrecyLabel) set[p.Id]
+    func GetFirstLabel(SecrecyLabel) SecrecyLabel
+    func GetSecondLabel(SecrecyLabel) SecrecyLabel
+
+    axiom { // all labels have a type
+        forall l SecrecyLabel :: { GetType(l) } 0 <= GetType(l) && GetType(l) <= 3
+    }
+    
+    axiom { // public has type 0
+        GetType(Public()) == 0 
+    }
+    axiom { // public type implies its construction
+        forall l SecrecyLabel :: { GetType(l) == 0 } GetType(l) == 0 ==> l == Public()
+    }
+
+    axiom { // readers is injective
+        forall scopes set[p.Id] :: { Readers(scopes) } GetType(Readers(scopes)) == 1 &&
+            GetReaders(Readers(scopes)) == scopes
+    }
+
+    axiom { // meet is injective
+        forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } GetType(Meet(l1, l2)) == 2 &&
+            GetFirstLabel(Meet(l1, l2)) == l1 &&
+            GetSecondLabel(Meet(l1, l2)) == l2
+    }
+
+    axiom { // join is injective
+        forall l1, l2 SecrecyLabel :: { Join(l1, l2) } GetType(Join(l1, l2)) == 3 &&
+            GetFirstLabel(Join(l1, l2)) == l1 &&
+            GetSecondLabel(Join(l1, l2)) == l2
+    }
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsPublic() bool {
+    return GetType(label) == 0
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsReaders() bool {
+    return GetType(label) == 1
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsMeet() bool {
+    return GetType(label) == 2
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsJoin() bool {
+    return GetType(label) == 3
+}

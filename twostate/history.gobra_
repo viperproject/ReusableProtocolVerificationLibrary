@@ -1,0 +1,161 @@
+package twostate
+
+// we use a mutex to implement a mutex with a two state invariant
+
+import "sync"
+import . "protocols/library/trace"
+
+// TODO: make TwoStateMutex generic such that it can be instantiated with any value type:
+type HistoryValue = TraceEntry
+
+type HistoryMutex struct {
+    mutex *sync.Mutex
+    protected *HistoryMutexProtected
+}
+
+pred (m *HistoryMutex) historyMutexStateInit() {
+    acc(m) && acc(m.mutex) && acc(m.protected) && *m.mutex == sync.Mutex{}
+}
+
+pred (m *HistoryMutex) historyMutexState(inv HistoryInv, locked bool, p perm) {
+    noPerm < p && p <= writePerm &&
+    acc(m, p) && acc(m.mutex.LockP(), _) && m.mutex.LockInv() == historyMutexInv!<inv, m.protected!> &&
+    (locked ==> m.mutex.UnlockP())
+}
+
+type HistoryMutexProtected struct {
+    curVal HistoryValue
+    /** newer values are at the end */
+    prevVals []HistoryValue
+}
+
+pred historyMutexInv(inv HistoryInv, protected *HistoryMutexProtected) {
+    acc(protected) &&
+    (forall j int :: 0 <= j && j < len(protected.prevVals) ==>
+        acc(&(protected.prevVals)[j], writePerm) &&
+        (protected.prevVals)[j] != protected.curVal &&
+        inv.inv((protected.prevVals)[j], protected.curVal))
+}
+
+type HistoryInv interface {
+    /** two step invariant */
+    pred inv(oldValue HistoryValue, currentValue HistoryValue)
+    /** optional invariant to specify properties that hold for all values in oldValues */
+    // ghost pure valueInv(value HistoryValue) bool
+    
+    /** proof obligation to show that the two step invariant is reflexive */
+    ghost
+    // requires valueInv(value)
+    ensures inv(value, value)
+    historyInvReflexive(value HistoryValue)
+
+    /** proof obligation to show that the two step invariant is transitive */
+    ghost
+    // requires valueInv(val1) && valueInv(val2) && valueInv(val3)
+    requires inv(val1, val2) && inv(val2, val3)
+    ensures  inv(val1, val3)
+    // we also need the following property in `applyInvTransitivity`:
+    ensures  inv(val2, val3)
+    historyInvTransitive(val1, val2, val3 HistoryValue)
+}
+
+ensures  m.historyMutexStateInit()
+func NewHistoryMutex() (m *HistoryMutex) {
+    m = &HistoryMutex{}
+    m.mutex = &sync.Mutex{}
+    m.protected = &HistoryMutexProtected{}
+    fold m.historyMutexStateInit()
+}
+
+ghost
+requires m.historyMutexStateInit()
+requires isComparable(inv)
+ensures  m.historyMutexState(inv, false, writePerm)
+func (m *HistoryMutex) SetInv(inv HistoryInv, initVal HistoryValue) {
+    unfold m.historyMutexStateInit()
+    *m.protected.prevVals = []HistoryValue { }
+    m.protected.curVal = initVal
+    // inv.HistoryInvReflexive(initVal)
+    fold historyMutexInv!<inv, m.protected!>()
+    m.mutex.SetInv(historyMutexInv!<inv, m.protected!>)
+    fold m.historyMutexState(inv, false, writePerm)
+}
+
+ghost
+requires noPerm < pState && pState <= writePerm
+requires m.historyMutexState(inv, false, pState)
+ensures  m.historyMutexState(inv, true, pState)
+ensures  unfolding m.historyMutexState(inv, true, pState) in m.protected == p
+ensures  historyMutexInv(inv, p)
+func (m *HistoryMutex) Lock(inv HistoryInv, pState perm) (p *HistoryMutexProtected) {
+    unfold m.historyMutexState(inv, false, pState)
+    m.mutex.Lock()
+    p = m.protected
+    unfold historyMutexInv!<inv, p!>()
+    fold historyMutexInv(inv, p)
+    fold m.historyMutexState(inv, true, pState)
+}
+
+ghost
+requires noPerm < pState && pState <= writePerm
+requires m.historyMutexState(inv, true, pState)
+requires unfolding m.historyMutexState(inv, true, pState) in m.protected == p
+requires historyMutexInv(inv, p)
+requires unfolding historyMutexInv(inv, p) in p.curVal == curVal
+requires unfolding historyMutexInv(inv, p) in forall i int :: 0 <= i && i < len(p.prevVals) ==> newValue != (p.prevVals)[i]
+requires curVal != newValue
+requires inv.inv(curVal, newValue)
+ensures  m.historyMutexState(inv, false, pState)
+func (m *HistoryMutex) Unlock(p *HistoryMutexProtected, inv HistoryInv, curVal, newValue HistoryValue, pState perm) {
+    unfold m.historyMutexState(inv, true, pState)
+    unfold historyMutexInv(inv, p)
+    applyInvTransitivity(inv, p.prevVals, p.curVal, newValue, 1/2)
+    // only pass a fractional permission to append such that it can be derived that p.curVal remains unchanged:
+    p.prevVals = append(perm(1)/2, p.prevVals, p.curVal)
+    // assert (p.prevVals)[len(p.prevVals) - 1] == p.curVal // curVal
+    p.curVal = newValue
+    // assert forall i int :: 0 <= i && i < len(p.prevVals) - 1 ==> newValue != (p.prevVals)[i]
+    // assert forall i int :: 0 <= i && i < len(p.prevVals) ==> newValue != (p.prevVals)[i]
+    fold historyMutexInv!<inv, p!>()
+    m.mutex.Unlock()
+    fold m.historyMutexState(inv, false, pState)
+}
+
+/** checks whether lock is usable with fractional permissions after initialization */
+ghost
+requires noPerm < p && p <= writePerm
+requires m.historyMutexState(inv, false, p)
+func historyMutexSanityCheck(m *HistoryMutex, inv HistoryInv, p perm) {
+    protectedData := m.Lock(inv, p)
+    unfold historyMutexInv(inv, protectedData)
+    curVal := protectedData.curVal
+
+    var newValue HistoryValue
+    // we assume that there is a newValue that satisfies the invariant:
+    inhale inv.inv(curVal, newValue) && curVal != newValue && forall j int :: 0 <= j && j < len(protectedData.prevVals) ==> (protectedData.prevVals)[j] != newValue
+
+    fold historyMutexInv(inv, protectedData)
+    m.Unlock(protectedData, inv, curVal, newValue, p)
+}
+
+ghost
+requires noPerm < p && p <= writePerm
+requires forall j int :: 0 <= j && j < len(history) ==> acc(&history[j], p) && history[j] != oldValue && history[j] != newValue
+requires forall j, k int :: 0 <= j && j < k && k < len(history) ==> history[j] != history[k]
+requires forall j int :: 0 <= j && j < len(history) ==> inv.inv(history[j], oldValue)
+requires inv.inv(oldValue, newValue)
+ensures  forall j int :: 0 <= j && j < len(history) ==> acc(&history[j], p) && inv.inv(history[j], newValue)
+ensures  inv.inv(oldValue, newValue)
+func applyInvTransitivity(inv HistoryInv, history []HistoryValue, oldValue, newValue MutexValue, p perm) {
+    invariant 0 <= i && i <= len(history)
+    invariant noPerm < p && p <= writePerm
+    invariant forall j int :: 0 <= j && j < len(history) ==> acc(&history[j], p) && history[j] != oldValue && history[j] != newValue
+    invariant forall j, k int :: 0 <= j && j < k && k < len(history) ==> history[j] != history[k]
+    invariant forall j int :: i <= j && j < len(history) ==> inv.inv(history[j], oldValue)
+    invariant forall j int :: 0 <= j && j < i ==> inv.inv(history[j], newValue)
+    invariant inv.inv(oldValue, newValue)
+    for i := 0; i < len(history); i++ {
+        curVal := history[i]
+        inv.historyInvTransitive(curVal, oldValue, newValue)
+    }
+}

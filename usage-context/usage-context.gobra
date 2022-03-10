@@ -1,0 +1,15 @@
+package usageContext
+
+import tm "protocols/library/term"
+import tr "protocols/library/trace"
+
+type UsageContext interface {
+    ghost
+    pure PkePred(t tr.TraceEntry, usageString string, plaintext, pk tm.Term) bool
+
+    ghost
+    requires t1.isSuffix(t2)
+    requires PkePred(t1, usageString, plaintext, pk)
+    ensures  PkePred(t2, usageString, plaintext, pk)
+    PkePredMonotonic(t1, t2 tr.TraceEntry, usageString string, plaintext, pk tm.Term)
+}

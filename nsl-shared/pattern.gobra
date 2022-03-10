@@ -1,0 +1,20 @@
+package nslShared
+
+import tm "protocols/library/term"
+
+// TODO add abstract resource to ensure that the pattern properties can only be applied once each
+
+ghost
+requires tm.gamma(t) == tm.gamma(tm.encrypt(tm.tuple3(tm.integer32(1), naT, idAT), tm.createPk(skT)))
+ensures  t == tm.encrypt(tm.tuple3(tm.integer32(1), x1, idAT), tm.createPk(skT))
+func PatternPropertyMsg1(naT, idAT, skT, t tm.Term) (x1 tm.Term)
+
+ghost
+requires tm.gamma(t) == tm.gamma(tm.encrypt(tm.tuple4(tm.integer32(2), naT, nbT, idBT), tm.createPk(skT)))
+ensures  t == tm.encrypt(tm.tuple4(tm.integer32(2), naT, x1, idBT), tm.createPk(skT))
+func PatternPropertyMsg2(naT, nbT, idBT, skT, t tm.Term) (x1 tm.Term)
+
+ghost
+requires tm.gamma(t) == tm.gamma(tm.encrypt(tm.tuple2(tm.integer32(3), nbT), tm.createPk(skT)))
+ensures  t == tm.encrypt(tm.tuple2(tm.integer32(3), nbT), tm.createPk(skT))
+func PatternPropertyMsg3(nbT, skT, t tm.Term)

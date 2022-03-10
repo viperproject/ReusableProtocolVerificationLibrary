@@ -1,0 +1,216 @@
+package trace
+
+import . "protocols/library/event"
+import label "protocols/library/label"
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import u "protocols/library/usage"
+
+type TraceContext interface {
+    pred eventInv(principal p.Principal, ev Event, prev TraceEntry)
+
+    ghost
+    /**
+     * Specifies consistency conditions for an event. These conditions
+     * have to be implied by `pureEventInv`
+     */
+    pure EventConsistency(ev Event) bool
+
+    ghost
+    pure pureEventInv(principal p.Principal, ev Event, prev TraceEntry) bool
+
+    ghost
+    decreases
+    requires pureEventInv(principal, ev, prev)
+    ensures  EventConsistency(ev)
+    eventInvImpliesConsistency(principal p.Principal, ev Event, prev TraceEntry)
+    
+    ghost
+    /**
+     * expresses whether an event type does only occur once with 
+     * certain parameters
+     */
+    pure IsUnique(typ EventType) bool
+
+    ghost
+    requires EventConsistency(ev)
+    requires IsUnique(ev.typ)
+    /** 
+     * returns the witness from which event uniqueness can be derived.
+     * This typically is a nonce stored as an event parameter
+     */
+    pure UniquenessWitness(ev Event) tm.Term
+
+    ghost
+    decreases
+    requires IsUnique(ev.typ)
+    requires eventInv(principal, ev, prev)
+    ensures  EventConsistency(ev)
+    ensures  nonce == UniquenessWitness(ev)
+    ensures  (GetLabeling()).NonceForEventIsUnique(nonce, ev.typ)
+    ensures  (GetLabeling()).NonceForEventIsUnique(nonce, ev.typ) --* eventInv(principal, ev, prev)
+    isUniqueImpliesUniqueResource(principal p.Principal, ev Event, prev TraceEntry) (nonce tm.Term)
+
+
+    pred corruptInv(id p.Id, prev TraceEntry)
+
+    ghost
+    decreases
+    requires noPerm < p && p <= writePerm
+    requires acc(eventInv(principal, ev, prev), p)
+    ensures  acc(eventInv(principal, ev, prev), p)
+    ensures  pureEventInv(principal, ev, prev)
+    getPureEventInv(principal p.Principal, ev Event, prev TraceEntry, p perm)
+
+    ghost
+    requires t1.isSuffix(t2)
+    requires eventInv(principal, ev, t1)
+    ensures  eventInv(principal, ev, t2)
+    eventInvTransitive(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
+
+    ghost
+    requires t1.isSuffix(t2)
+    requires corruptInv(id, t1)
+    ensures  corruptInv(id, t2)
+    corruptInvTransitive(id p.Id, t1 TraceEntry, t2 TraceEntry)
+
+    ghost
+    pure GetLabeling() LabelingContext
+}
+
+type LabelingContext interface {
+    pred NonceIsUnique(nonce tm.Term)
+    pred NonceForEventIsUnique(nonce tm.Term, eventType EventType)
+
+    ghost
+    decreases
+    requires acc(NonceForEventIsUnique(nonce, eventType), 2/1)
+    ensures  false
+    NonceForEventContradiction(nonce tm.Term, eventType EventType)
+
+    ghost
+    pure IsSecret(t TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool
+
+    ghost
+    pure IsLabeled(t TraceEntry, term tm.Term, l label.SecrecyLabel) bool
+
+    ghost
+    pure IsPublishable(t TraceEntry, term tm.Term) bool
+
+    ghost
+    decreases
+    requires t1.isSuffix(t2)
+    requires IsSecret(t1, term, l, usage)
+    ensures  IsSecret(t2, term, l, usage)
+    IsSecretMonotonic(t1, t2 TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage)
+
+    ghost
+    decreases
+    requires t1.isSuffix(t2)
+    requires IsLabeled(t1, term, l)
+    ensures  IsLabeled(t2, term, l)
+    IsLabeledMonotonic(t1, t2 TraceEntry, term tm.Term, l label.SecrecyLabel)
+
+    ghost
+    decreases
+    requires t1.isSuffix(t2)
+    requires IsPublishable(t1, term)
+    ensures  IsPublishable(t2, term)
+    IsPublishableMonotonic(t1, t2 TraceEntry, term tm.Term)
+
+    ghost
+    pure CanEncrypt(t TraceEntry, msg, pk tm.Term) bool
+
+    ghost
+    decreases
+    requires CanEncrypt(t, msg, pk) || (IsPublishable(t, msg) && IsPublishable(t, pk))
+    ensures  IsPublishable(t, tm.encrypt(msg, pk))
+    CiphertextIsPublishable(t TraceEntry, msg, pk tm.Term)
+
+    ghost
+    pure CanDecrypt(t TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) bool
+
+    ghost
+    pure WasDecrypted(t TraceEntry, msg, sk tm.Term, skOwner p.Id) bool
+
+    ghost
+    decreases
+    requires CanDecrypt(t, tm.encrypt(msg, tm.createPk(sk)), sk, skOwner)
+    ensures  WasDecrypted(t, msg, sk, skOwner)
+    DecryptSatisfiesInvariant(t TraceEntry, msg, sk tm.Term, skOwner p.Id)
+
+    ghost
+    decreases
+    requires IsLabeled(t, term, l)
+    requires l.IsReaders()
+    requires len(label.GetReaders(l) intersection (t.getCorruptIds())) == 0
+    ensures  !IsPublishable(t, term)
+    PublishableRequiresCorruption(t TraceEntry, term tm.Term, l label.SecrecyLabel)
+
+    // TODO: reduce this interface to the bare minimum (I guess `IsPublishable` & `IsLabeled`) and instead offer
+    // a `ApplyMonotonicity` method that can have arbitrary spec for each labeling implementation
+}
+
+// because Go & Gobra do not allow receivers of interface type, `ctx` becomes the first argument:
+pred validTrace(ctx TraceContext, t TraceEntry) {
+    // invariant holds recursively:
+    (!t.isRoot() ==> validTrace(ctx, getPrev(t))) &&
+
+    (t.isRoot() ==> publicInv(ctx, getPublicTerms(t), t)) &&
+    (t.isEvent() ==> ctx.eventInv(getPrincipal(t), getEvent(t), getPrev(t))) &&
+    (t.isMessage() ==> messageInv(ctx, getSender(t), getReceiver(t), getPayload(t), getPrev(t))) &&
+    (t.isDropMessage() ==> messageInv(ctx, getSender(t), getReceiver(t), getPayload(t), getPrev(t))) &&
+    (t.isNonce() ==> randInv(ctx, getNonce(t), getPrev(t))) &&
+    (t.isPublic() ==> madePublicInv(ctx, getPayload(t), getPrev(t))) &&
+    (t.isCorrupt() ==> ctx.corruptInv(getId(t), getPrev(t)))
+}
+
+ghost
+requires t.isRoot()
+pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
+    // TODO: using t is a bit artificial because using getPrev(t) would make more sense but does not exist
+    return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> (ctx.GetLabeling()).IsPublishable(t, publicTerm)
+}
+
+ghost
+pure func messageInv(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, prev TraceEntry) bool {
+    return (ctx.GetLabeling()).IsPublishable(prev, payload)
+}
+/*
+pred messageInv(ctx TraceContext, sender, receiver Principal, payload Term, prev TraceEntry) {
+    (ctx.GetLabeling()).IsPublishable(prev, payload)
+}
+*/
+
+ghost
+requires t1.isSuffix(t2)
+requires messageInv(ctx, sender, receiver, payload, t1)
+ensures  messageInv(ctx, sender, receiver, payload, t2)
+func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, t1, t2 TraceEntry) {
+    // unfold messageInv(ctx, sender, receiver, payload, t1)
+    (ctx.GetLabeling()).IsPublishableMonotonic(t1, t2, payload)
+    // fold messageInv(ctx, sender, receiver, payload, t2)
+}
+
+pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {
+    pureRandInv(ctx, nonce, prev) &&
+    (ctx.GetLabeling()).NonceIsUnique(nonce)
+}
+
+ghost
+pure func pureRandInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) bool {
+    return nonce.IsRandom()
+}
+
+ghost
+pure func madePublicInv(ctx TraceContext, term tm.Term, prev TraceEntry) bool {
+    return (ctx.GetLabeling()).IsPublishable(prev, term)
+}
+
+ghost
+requires t1.isSuffix(t2)
+requires madePublicInv(ctx, term, t1)
+ensures  madePublicInv(ctx, term, t2)
+func madePublicInvTransitive(ctx TraceContext, term tm.Term, t1, t2 TraceEntry) {
+    (ctx.GetLabeling()).IsPublishableMonotonic(t1, t2, term)
+}

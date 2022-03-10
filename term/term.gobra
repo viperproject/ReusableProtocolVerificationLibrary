@@ -1,0 +1,300 @@
+package term
+
+import "protocols/library/label"
+import u "protocols/library/usage"
+
+type Term domain {
+    // type 0
+    func integer64(uint64) Term
+    func getInt64(Term) uint64
+    // type 1
+    func integer32(uint32) Term
+    func getInt32(Term) uint32
+    // type 2
+    func stringTerm(string) Term
+    func getString(Term) string
+    // type 3
+    func zeroString(int) Term
+    
+    // type 4
+    /** returns the public key associated with a secret key */
+    func createPk(Term) Term
+    func getSk(Term) Term
+
+    // type 5
+    /** plaintext, public key */
+    func encrypt(Term, Term) Term
+    func getPlaintext(Term) Term
+    func getPk(Term) Term
+
+    // type 6
+    func random(Bytes, label.SecrecyLabel, u.Usage) Term
+    func getRandomBytes(Term) Bytes
+    func getRandomLabel(Term) label.SecrecyLabel
+    func getRandomUsage(Term) u.Usage
+
+    // type 7
+    func tuple2(Term, Term) Term
+    func getFirst(Term) Term
+    func getSecond(Term) Term
+
+    // type 8
+    func tuple3(Term, Term, Term) Term
+    func getThird(Term) Term
+
+    // type 9
+    func tuple4(Term, Term, Term, Term) Term
+    func getForth(Term) Term
+
+    // WARNING: adapt first axiom if another Term is added!
+
+    func getTermType(Term) int
+
+    axiom { // every term belongs to a known type
+        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 9
+    }
+
+    axiom { // integer64 is injective
+        forall value uint64 :: { integer64(value) } getTermType(integer64(value)) == 0 &&
+            getInt64(integer64(value)) == value
+    }
+
+    axiom { // integer32 is injective
+        forall value uint32 :: { integer32(value) } getTermType(integer32(value)) == 1 &&
+            getInt32(integer32(value)) == value
+    }
+
+    axiom { // stringTerm is injective
+        forall s string :: { stringTerm(s) } getTermType(stringTerm(s)) == 2 &&
+            getString(stringTerm(s)) == s
+    }
+
+    axiom { // zero string has type
+        forall l int :: { zeroString(l) } getTermType(zeroString(l)) == 3
+    }
+
+    // TODO `getPk` is currently total, should any argument be acceptable?
+    axiom { // createPk is injective
+        forall sk Term :: { createPk(sk) } getTermType(createPk(sk)) == 4 &&
+            getSk(createPk(sk)) == sk
+    }
+    axiom { // pk implies its construction
+        forall t Term :: { getTermType(t) == 4 } (getTermType(t) == 4) ==> t == createPk(getSk(t))
+    }
+
+    axiom { // encrypt is injective
+        forall plaintext Term, pk Term :: { encrypt(plaintext, pk) } getTermType(encrypt(plaintext, pk)) == 5 &&
+            getPlaintext(encrypt(plaintext, pk)) == plaintext &&
+            getPk(encrypt(plaintext, pk)) == pk
+    }
+    axiom { // encrypt implies its constructions
+        forall t Term :: getTermType(t) == 5 ==>
+            t == encrypt(getPlaintext(t), getPk(t))
+    }
+
+    /* decrypt is no longer a domain function but we added it below as a heap-dependent function
+    axiom decrypt_encrypt {
+        forall plaintext: Term, sk: Term :: { encrypt(plaintext, getPk(sk)) }
+            decrypt(encrypt(plaintext, getPk(sk)), sk) == Success(plaintext)
+    }
+    // the following 2 axioms is inspired from CrytoLib.fst line 193-198
+    axiom int_ctxt {
+        forall plaintext: Term, ciphertext: Term, sk: Term ::
+            // the other direction is already in decrypt_encrypt
+            decrypt(ciphertext, sk) == Success(plaintext) ==> 
+                ciphertext == encrypt(plaintext, getPk(sk))
+    }
+    axiom decrypt_wrong_key {
+        forall ciphertext: Term, sk1: Term, sk2: Term :: { decrypt(ciphertext, sk1), decrypt(ciphertext, sk2) }
+            isEncrypt(ciphertext) && getPk(ciphertext) == getPk(sk1) && sk1 != sk2 ==>
+                decrypt(ciphertext, sk2) == Failure()
+    }
+    */
+
+    axiom { // random is injective
+        forall b Bytes, l label.SecrecyLabel, usage u.Usage :: { random(b, l, usage) } getTermType(random(b, l, usage)) == 6 &&
+            getRandomBytes(random(b, l, usage)) == b &&
+            getRandomLabel(random(b, l, usage)) == l &&
+            getRandomUsage(random(b, l, usage)) == usage
+    }
+
+    axiom { // tuple2 is injective
+        forall t1, t2 Term :: { tuple2(t1, t2) } getTermType(tuple2(t1, t2)) == 7 &&
+            getFirst(tuple2(t1, t2)) == t1 &&
+            getSecond(tuple2(t1, t2)) == t2
+    }
+
+    axiom { // tuple3 is injective
+        forall t1, t2, t3 Term :: { tuple3(t1, t2, t3) } getTermType(tuple3(t1, t2, t3)) == 8 &&
+            getFirst(tuple3(t1, t2, t3)) == t1 &&
+            getSecond(tuple3(t1, t2, t3)) == t2 &&
+            getThird(tuple3(t1, t2, t3)) == t3
+    }
+
+    axiom { // tuple4 is injective
+        forall t1, t2, t3, t4 Term :: { tuple4(t1, t2, t3, t4) } getTermType(tuple4(t1, t2, t3, t4)) == 9 &&
+            getFirst(tuple4(t1, t2, t3, t4)) == t1 &&
+            getSecond(tuple4(t1, t2, t3, t4)) == t2 &&
+            getThird(tuple4(t1, t2, t3, t4)) == t3 &&
+            getForth(tuple4(t1, t2, t3, t4)) == t4
+    }
+}
+
+ghost
+decreases
+pure func (term Term) IsInteger64() bool {
+    return getTermType(term) == 0
+}
+
+ghost
+decreases
+pure func (term Term) IsInteger32() bool {
+    return getTermType(term) == 1
+}
+
+ghost
+decreases
+pure func (term Term) IsString() bool {
+    return getTermType(term) == 2
+}
+
+ghost
+decreases
+pure func (term Term) IsZeroString() bool {
+    return getTermType(term) == 3
+}
+
+ghost
+decreases
+pure func (term Term) IsPk() bool {
+    return getTermType(term) == 4
+}
+
+ghost
+decreases
+pure func (term Term) IsEncrypt() bool {
+    return getTermType(term) == 5
+}
+
+ghost
+decreases
+pure func (term Term) IsRandom() bool {
+    return getTermType(term) == 6
+}
+
+ghost
+decreases
+pure func (term Term) IsTuple2() bool {
+    return getTermType(term) == 7
+}
+
+ghost
+decreases
+pure func (term Term) IsTuple3() bool {
+    return getTermType(term) == 8
+}
+
+ghost
+decreases
+pure func (term Term) IsTuple4() bool {
+    return getTermType(term) == 9
+}
+
+
+// inspired from CrytoLib.fst line 193-198
+ghost
+decreases
+pure func decrypt(ciphertext Term, sk Term) TermOption {
+    return ciphertext.IsEncrypt() ?
+        (getPk(ciphertext) == createPk(sk) ?
+            SomeTerm(getPlaintext(ciphertext)) :
+            // sk does not match:
+            NoneTerm()) :
+        NoneTerm() // not a ciphertext
+}
+
+requires decrypt(ciphertext, sk) == SomeTerm(plaintext)
+ensures  ciphertext == encrypt(plaintext, createPk(sk))
+func pkeDecLemma(sk Term, ciphertext Term, plaintext Term) {
+    // no body needed
+}
+
+requires sk1 != sk2
+requires ciphertext == encrypt(plaintext, createPk(sk1))
+ensures  decrypt(ciphertext, sk1) == SomeTerm(plaintext)
+ensures  decrypt(ciphertext, sk2) == NoneTerm()
+func keyMismatchResultsInFailure(sk1, sk2, ciphertext, plaintext Term) {
+    // no body needed
+}
+
+type TermOption domain {
+    // type 0
+    func SomeTerm(Term) TermOption
+    // type 1
+    func NoneTerm() TermOption
+    func getTerm(TermOption) Term
+    func getTermOptionType(TermOption) int
+
+    axiom { // all types covers
+        forall o TermOption :: { getTermOptionType(o) } 0 <= getTermOptionType(o) && getTermOptionType(o) <= 1
+    }
+
+    axiom { // SomeTerm is injective
+        forall t Term :: { SomeTerm(t) } getTermOptionType(SomeTerm(t)) == 0 &&
+            getTerm(SomeTerm(t)) == t
+    }
+
+    axiom { // success implies its construction
+        forall o TermOption :: { getTermOptionType(o) } getTermOptionType(o) == 0 ==>
+            o == SomeTerm(getTerm(o))
+    }
+
+    axiom { // type of NoneTerm
+        getTermOptionType(NoneTerm()) == 1
+    }
+}
+
+ghost
+decreases
+pure func (o TermOption) isSome() bool {
+    return getTermOptionType(o) == 0
+}
+
+requires res.isSome()
+requires getTerm(res) == t
+ensures  SomeTerm(t) == res
+func successLemma(res TermOption, t Term) {
+    // no body needed
+}
+/*
+type TermOption interface {
+    pure isDefined() bool
+
+    requires isDefined()
+    pure getTerm() Term
+}
+
+
+type SomeTerm struct {
+    term Term
+}
+
+pure func (t SomeTerm) isDefined() bool { return true }
+
+requires t.isDefined()
+pure func (t SomeTerm) getTerm() Term { return t.term }
+
+decreases
+pure func makeSomeTerm(t Term) TermOption { return SomeTerm{t} }
+
+
+type NoneTerm struct {}
+
+pure func (t NoneTerm) isDefined() bool { return false }
+
+requires t.isDefined()
+pure func (t NoneTerm) getTerm() Term
+
+decreases
+pure func makeNoneTerm() TermOption { return NoneTerm{} }
+*/

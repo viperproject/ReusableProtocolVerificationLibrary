@@ -1,0 +1,133 @@
+package trace
+
+import . "protocols/library/event"
+import "protocols/library/label"
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import u "protocols/library/usage"
+
+type TraceEntry domain {
+    // constructors
+    // type 0
+    func makeRoot(set[tm.Term]) TraceEntry
+    // type 1
+    func makeEvent(TraceEntry, p.Principal, Event) TraceEntry
+    // type 2
+    func makeMessage(TraceEntry, p.Principal, p.Principal, tm.Term) TraceEntry
+    // type 3
+    func makeDropMessage(TraceEntry, p.Principal, p.Principal, tm.Term) TraceEntry
+    // type 4
+    func makeNonce(TraceEntry, tm.Term) TraceEntry
+    // type 5
+    func makePublic(TraceEntry, tm.Term) TraceEntry
+    // type 6
+    func makeCorrupt(TraceEntry, p.Id) TraceEntry
+
+    // WARNING: adapt first axiom if another TraceEntry is added!
+
+    // deconstructors
+    func getPrev(TraceEntry) TraceEntry
+    func getPublicTerms(TraceEntry) set[tm.Term]
+    func getPrincipal(TraceEntry) p.Principal
+    func getEvent(TraceEntry) Event
+    func getSender(TraceEntry) p.Principal
+    func getReceiver(TraceEntry) p.Principal
+    func getPayload(TraceEntry) tm.Term
+    func getNonce(TraceEntry) tm.Term
+    func getId(TraceEntry) p.Id
+
+    // each entry has a unique type
+    func getType(TraceEntry) int
+
+    axiom { // all entries have a type
+        forall t TraceEntry :: { getType(t) } 0 <= getType(t) && getType(t) <= 6
+    }
+
+    axiom { // root entry is injective
+        forall terms set[tm.Term] :: { makeRoot(terms) } getType(makeRoot(terms)) == 0 &&
+            getPublicTerms(makeRoot(terms)) == terms
+    }
+
+    axiom { // event entry is injective 
+        forall prev TraceEntry, principal p.Principal, ev Event :: { makeEvent(prev, principal, ev) } getType(makeEvent(prev, principal, ev)) == 1 &&
+            getPrev(makeEvent(prev, principal, ev)) == prev &&
+            getPrincipal(makeEvent(prev, principal, ev)) == principal &&
+            getEvent(makeEvent(prev, principal, ev)) == ev
+    }
+
+    axiom { // message entry is injective
+        forall prev TraceEntry, sender, receiver p.Principal, payload tm.Term :: { makeMessage(prev, sender, receiver, payload) } getType(makeMessage(prev, sender, receiver, payload)) == 2 &&
+            getPrev(makeMessage(prev, sender, receiver, payload)) == prev &&
+            getSender(makeMessage(prev, sender, receiver, payload)) == sender &&
+            getReceiver(makeMessage(prev, sender, receiver, payload)) == receiver &&
+            getPayload(makeMessage(prev, sender, receiver, payload)) == payload
+    }
+
+    axiom { // drop message entry is injective
+        forall prev TraceEntry, sender, receiver p.Principal, payload tm.Term :: { makeDropMessage(prev, sender, receiver, payload) } getType(makeDropMessage(prev, sender, receiver, payload)) == 3 &&
+            getPrev(makeDropMessage(prev, sender, receiver, payload)) == prev &&
+            getSender(makeDropMessage(prev, sender, receiver, payload)) == sender &&
+            getReceiver(makeDropMessage(prev, sender, receiver, payload)) == receiver &&
+            getPayload(makeDropMessage(prev, sender, receiver, payload)) == payload 
+    }
+
+    axiom { // nonce entry is injective
+        forall prev TraceEntry, nonce tm.Term :: { makeNonce(prev, nonce) } getType(makeNonce(prev, nonce)) == 4 &&
+            getPrev(makeNonce(prev, nonce)) == prev &&
+            getNonce(makeNonce(prev, nonce)) == nonce
+    }
+
+    axiom { // public entry is injective
+        forall prev TraceEntry, publicTerm tm.Term :: { makePublic(prev, publicTerm) } getType(makePublic(prev, publicTerm)) == 5 &&
+            getPrev(makePublic(prev, publicTerm)) == prev &&
+            getPayload(makePublic(prev, publicTerm)) == publicTerm
+    }
+
+    axiom { // corrupt entry is injective
+        forall prev TraceEntry, id p.Id :: { makeCorrupt(prev, id) } getType(makeCorrupt(prev, id)) == 6 &&
+            getPrev(makeCorrupt(prev, id)) == prev &&
+            getId(makeCorrupt(prev, id)) == id
+    }
+}
+
+ghost
+decreases
+pure func (entry TraceEntry) isRoot() (res bool) {
+    return getType(entry) == 0
+}
+
+ghost
+decreases
+pure func (entry TraceEntry) isEvent() (res bool) {
+    return getType(entry) == 1
+}
+
+ghost
+decreases
+pure func (entry TraceEntry) isMessage() bool {
+    return getType(entry) == 2
+}
+
+ghost
+decreases
+pure func (entry TraceEntry) isDropMessage() bool {
+    return getType(entry) == 3
+}
+
+ghost
+decreases
+pure func (entry TraceEntry) isNonce() bool {
+    return getType(entry) == 4
+}
+
+ghost
+decreases
+pure func (entry TraceEntry) isPublic() bool {
+    return getType(entry) == 5
+}
+
+ghost
+decreases
+pure func (entry TraceEntry) isCorrupt() bool {
+    return getType(entry) == 6
+}

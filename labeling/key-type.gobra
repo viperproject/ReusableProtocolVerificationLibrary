@@ -1,0 +1,5 @@
+package labeling
+
+type KeyType domain {
+    func KeyTypePke() KeyType
+}

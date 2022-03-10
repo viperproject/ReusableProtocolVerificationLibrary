@@ -1,0 +1,45 @@
+package attacker
+
+import att "protocols/library/attacker"
+import ll "protocols/library/labeled-library"
+import lib "protocols/library/labeled-library/library"
+import tm "protocols/library/term"
+
+
+/**
+ * This file shows that the attacker can use the same functionality from the 
+ * labeled-library, i.e. the attacker can invoke all library functions with
+ * bytes known to him (i.e. public/derivable bytes) and will get back bytes
+ * (e.g. the ciphertext in the case of encrypt) that are also derivable.
+ * DY* calls this attacker typability because "public" is expressed
+ * as a dependent type. In Tamarin, the adversary derivation rules
+ * modulo equational theories express derivability of the attacker.
+ * No similar proof to attacker typability is given for Tamarin, as
+ * it (to my knowledge) follows from the equational theories.
+ */
+
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), recvPublicKey)
+requires att.attackerKnows(l.Snapshot(), plaintext)
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), ciphertext)
+func pkeEnc(l *ll.LabeledLibrary, recvPublicKey, senderPrivateKey, plaintext tm.Term) (ciphertext tm.Term, err error) {
+    recvPublicKeyBytes := lib.NewByteString(tm.gamma(recvPublicKey))
+    senderPrivateKeyBytes := lib.NewByteString(tm.gamma(senderPrivateKey))
+    plaintextBytes := lib.NewByteString(tm.gamma(plaintext))
+    // TODO do we need to introduce a length on terms? Would this be a valid precondition for this function?
+    if lib.Size(recvPublicKeyBytes) == 32 &&
+        lib.Size(senderPrivateKeyBytes) == 32 {
+        l.AttackerOnlyKnowsPublishableValues(recvPublicKey)
+        l.AttackerOnlyKnowsPublishableValues(plaintext)
+        _, err = l.Enc(plaintextBytes, recvPublicKeyBytes, senderPrivateKeyBytes, plaintext, recvPublicKey)
+        if err == nil {
+            ciphertext = tm.encrypt(plaintext, recvPublicKey)
+            l.Publish(ciphertext)
+        }
+    } else {
+        // key material has invalid length and is thus not accepted by the encryption function
+        err = lib.NewError("encryption failed due to key length mismatch")
+    }
+}

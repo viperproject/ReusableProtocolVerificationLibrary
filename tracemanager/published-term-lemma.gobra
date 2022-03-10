@@ -1,0 +1,71 @@
+package tracemanager
+
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import tr "protocols/library/trace"
+
+
+type PublishedTermSearcher struct {
+    ctx tr.TraceContext
+    term tm.Term
+}
+PublishedTermSearcher implements TraceSearcher
+
+ghost
+pure func (ps PublishedTermSearcher) Ctx() tr.TraceContext {
+    return ps.ctx
+}
+
+ghost
+decreases
+pure func (ps PublishedTermSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isPublic() && ps.term == tr.getPayload(entry)
+}
+
+ghost
+decreases
+pure func (ps PublishedTermSearcher) Occurs(entry tr.TraceEntry) bool {
+    return ps.term in entry.getTermsMadePublic()
+}
+
+ghost
+// decreases
+pure func (ps PublishedTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return tr.madePublicInv(ps.ctx, ps.term, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ps.Occurs(entry)
+ensures  (!entry.isRoot() && ps.Occurs(tr.getPrev(entry))) || ps.Matches(entry)
+func (ps PublishedTermSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires ps.Matches(entry)
+requires acc(tr.validTrace(ps.Ctx(), entry), p)
+ensures  ps.PureEntryInv(entry)
+ensures  acc(tr.validTrace(ps.Ctx(), entry), p)
+func (ps PublishedTermSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    assert unfolding acc(tr.validTrace(ps.Ctx(), entry), p) in true
+}
+// end of PublishedTermSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires term in (m.Trace(ctx, owner)).getTermsMadePublic()
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(m.Trace(ctx, owner))
+ensures  prev.isPublic()
+ensures  tr.madePublicInv(ctx, term, tr.getPrev(prev))
+ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) PublishedTermImpliesMadePublicInv(ctx tr.TraceContext, owner p.Principal, term tm.Term) (prev tr.TraceEntry) {
+    searcher := PublishedTermSearcher{ ctx, term }
+    prev = m.findEntryWithPureInv(searcher, owner)
+}

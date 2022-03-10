@@ -1,0 +1,173 @@
+package labeledLibrary
+
+import (
+    att "protocols/library/attacker"
+	ev "protocols/library/event"
+	fa "protocols/library/forall"
+    "protocols/library/label"
+    "protocols/library/labeling"
+    tm "protocols/library/term"
+	tr "protocols/library/trace"
+	p "protocols/library/principal"
+)
+
+
+// #region Security Properties
+ghost
+requires acc(l.Mem(), _)
+// A term is secret if it is either unknown to the attacker or one of its readers (i.e. `honestIds`)
+// has been corrupted. Currently, this property is restricted to the `Readers` label
+// but could in principle be extended if necessary.
+pure func (l *LabeledLibrary) Secrecy(term tm.Term, honestIds set[p.Id]) bool {
+    // roughly follows property as specified in Tamarin
+    return ((l.LabelCtx()).IsLabeled(l.Snapshot(), term, label.Readers(honestIds)) &&
+        att.isUnknownToAttacker(l.Snapshot(), term)) ||
+            labeling.containsCorruptId((l.Snapshot()).getCorruptIds(), honestIds)
+}
+
+ghost
+requires acc(l.Mem(), _)
+pure func (l *LabeledLibrary) NonInjectiveAgreement(actor, peer p.Principal, commit, running ev.Event, honestIds set[p.Id]) bool {
+    return (l.Ctx()).EventConsistency(running) &&
+        (l.Ctx()).EventConsistency(commit) &&
+        (l.Ctx()).IsUnique(commit.typ) &&
+        (l.Snapshot()).eventOccurs(actor, commit) &&
+        ( // there is another running session with the same parameters...
+            (l.Snapshot()).eventOccurs(peer, running)) ||
+        ( // ... or corruption has occurred:
+            labeling.containsCorruptId((l.Snapshot()).getCorruptIds(), honestIds))
+}
+
+ghost
+requires acc(l.Mem(), _)
+pure func (l *LabeledLibrary) InjectiveAgreement(actor, peer p.Principal, commit, running ev.Event, honestIds set[p.Id]) bool {
+    return l.NonInjectiveAgreement(actor, peer, commit, running, honestIds) &&
+        (!labeling.containsCorruptId((l.Snapshot()).getCorruptIds(), honestIds)) ==>
+            // if no corruption has occurred, then there is no other commit with the same parameters:
+            l.EventIsUnique(actor, commit)
+}
+
+ghost
+requires acc(l.Mem(), _)
+pure func (l *LabeledLibrary) EventIsUnique(principal p.Principal, event ev.Event) bool {
+    return (l.Ctx()).EventConsistency(event) &&
+        (l.Ctx()).IsUnique(event.typ) &&
+        (l.Snapshot()).eventOccurs(principal, event) &&
+        forall principal2 p.Principal, event2 ev.Event :: { (l.Snapshot()).eventOccurs(principal2, event2) } !(event.typ == event2.typ && (l.Ctx()).EventConsistency(event2) && (l.Ctx()).UniquenessWitness(event) == (l.Ctx()).UniquenessWitness(event2) && (l.Snapshot()).eventOccurs(principal2, event2) && (l.Snapshot()).eventOccursAtTime(principal, event) != (l.Snapshot()).eventOccursAtTime(principal2, event2))
+}
+// #endregion
+
+
+// #region Lemmas related to the Security Properties
+ghost
+decreases
+requires l.Mem()
+requires len(readers) > 0
+requires (l.LabelCtx()).IsLabeled(l.Snapshot(), term, label.Readers(readers)) ||
+	labeling.containsCorruptId((l.Snapshot()).getCorruptIds(), readers)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  l.Secrecy(term, readers)
+// the following postcondition provides additional insights regarding the returned witness
+ensures  optCorruptedId == none[p.Id] ?
+	att.isUnknownToAttacker(l.Snapshot(), term) :
+    (get(optCorruptedId) in readers && get(optCorruptedId) in (l.Snapshot()).getCorruptIds())
+func (l *LabeledLibrary) SecrecyLemma(term tm.Term, readers set[p.Id]) (optCorruptedId option[p.Id]) {
+	if att.attackerKnows(l.Snapshot(), term) {
+		// we can call the optimized secrecy lemma only if no corruption has
+        // occurred as we get the correct labeling of `term` only in this case due to the disjunction in the
+		// precondition
+		if !labeling.containsCorruptId((l.Snapshot()).getCorruptIds(), readers) {
+			optCorruptedId = some(l.secrecyLemmaHelper(term, readers))
+		} else {
+			// pick the corruptId:
+			corruptedReaders := ((l.Snapshot()).getCorruptIds() intersection readers)
+			assert len(corruptedReaders) >= 1
+            witness := fa.GetArbId()
+			assume witness in corruptedReaders
+            optCorruptedId = some(witness)
+		}
+	} else {
+		optCorruptedId = none[p.Id]
+	}
+}
+
+ghost
+decreases
+requires l.Mem()
+requires (l.LabelCtx()).IsLabeled(l.Snapshot(), term, label.Readers(readers))
+requires att.attackerKnows(l.Snapshot(), term)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  corruptedId in readers
+ensures  corruptedId in (l.Snapshot()).getCorruptIds()
+func (l *LabeledLibrary) secrecyLemmaHelper(term tm.Term, readers set[p.Id]) (corruptedId p.Id) {
+	corruptedIds := (l.Snapshot()).getCorruptIds()
+	if labeling.containsCorruptId(corruptedIds, readers) {
+		// pick the corruptId:
+		corruptedReaders := (corruptedIds intersection readers)
+		assert len(corruptedReaders) >= 1
+		corruptedId = fa.GetArbId()
+		assume corruptedId in corruptedReaders
+	} else {
+		l.AttackerOnlyKnowsPublishableValues(term)
+		(l.LabelCtx()).PublishableRequiresCorruption(l.Snapshot(), term, label.Readers(readers))
+		// this branch is a contradiction:
+		// the preconditions state that `term` has a certain labeling and the
+		// branch condition states that no reader is corrupted.
+		// The lemma call's postcondition however expresses that `term` is publishable.
+		// This in turn implies that a reader must have been corrupted (based on `canFlowInternal`),
+		// which contradicts the branch condition.
+	}
+}
+
+
+
+ghost
+decreases
+requires l.Mem()
+requires (l.Snapshot()).eventOccurs(principal, event)
+requires (l.Ctx()).IsUnique(event.typ)
+requires (l.Ctx()).EventConsistency(event)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  l.EventIsUnique(principal, event)
+// all events with the same type and same uniqueness witness are guaranteed to occur only once on the trace
+func (l *LabeledLibrary) UniqueEventIsUnique(principal p.Principal, event ev.Event) {
+    // we do a forall introduction, i.e. we show for an arbitrary arbPrincipal, arbEvent that the postcondition holds:
+    arbPrincipal := fa.GetArbPrincipal()
+    arbEvent := fa.GetArbEvent()
+    if event.typ == arbEvent.typ &&
+        (l.Ctx()).EventConsistency(arbEvent) &&
+        (l.Ctx()).UniquenessWitness(event) == (l.Ctx()).UniquenessWitness(arbEvent) &&
+        (l.Snapshot()).eventOccurs(arbPrincipal, arbEvent) {
+        l.UniqueEventsAreUnique(principal, arbPrincipal, event, arbEvent)
+    }
+    assert !(event.typ == arbEvent.typ && (l.Ctx()).EventConsistency(arbEvent) && (l.Ctx()).UniquenessWitness(event) == (l.Ctx()).UniquenessWitness(arbEvent) && (l.Snapshot()).eventOccurs(arbPrincipal, arbEvent) && (l.Snapshot()).eventOccursAtTime(principal, event) != (l.Snapshot()).eventOccursAtTime(arbPrincipal, arbEvent))
+    // due to forall introduction
+    assume forall principal2 p.Principal, event2 ev.Event :: { (l.Snapshot()).eventOccurs(principal2, event2) } !(event.typ == event2.typ && (l.Ctx()).EventConsistency(event2) && (l.Ctx()).UniquenessWitness(event) == (l.Ctx()).UniquenessWitness(event2) && (l.Snapshot()).eventOccurs(principal2, event2) && (l.Snapshot()).eventOccursAtTime(principal, event) != (l.Snapshot()).eventOccursAtTime(principal2, event2))
+}
+
+ghost
+decreases
+requires l.Mem()
+requires (l.Snapshot()).eventOccurs(principal1, event1)
+requires (l.Snapshot()).eventOccurs(principal2, event2)
+requires event1.typ == event2.typ
+requires (l.Ctx()).IsUnique(event1.typ)
+requires (l.Ctx()).EventConsistency(event1) && (l.Ctx()).EventConsistency(event2)
+requires (l.Ctx()).UniquenessWitness(event1) == (l.Ctx()).UniquenessWitness(event2)
+ensures  l.Mem()
+ensures  principal1 == principal2
+ensures  event1 == event2
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+func (l *LabeledLibrary) UniqueEventsAreUnique(principal1, principal2 p.Principal, event1, event2 ev.Event) {
+    unfold l.Mem()
+    l.manager.UniqueEventsAreUnique(l.ctx, l.owner, principal1, principal2, event1, event2)
+    fold l.Mem()
+}
+// #endregion

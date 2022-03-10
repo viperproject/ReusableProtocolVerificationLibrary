@@ -1,0 +1,47 @@
+package nslShared
+
+import . "protocols/library/event"
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import tr "protocols/library/trace"
+
+// because we cannot declare Event to be an interface
+// we do this indirection by having an event type and
+// some parameters
+const Initiate = EventType(1)
+const Respond = EventType(2)
+const FinishI = EventType(3)
+const FinishR = EventType(4)
+
+type InitiateParams struct {
+	a p.Principal
+	b p.Principal
+	na tm.Term
+}
+
+type RespondParams struct {
+	a p.Principal
+	b p.Principal
+	na tm.Term
+	nb tm.Term
+}
+
+type FinishIParams struct {
+	a p.Principal
+	b p.Principal
+	na tm.Term
+	nb tm.Term
+}
+
+type FinishRParams struct {
+	a p.Principal
+	b p.Principal
+	na tm.Term
+	nb tm.Term
+}
+
+// optional declaration of subtypes:
+InitiateParams implements EventParams
+RespondParams implements EventParams
+FinishIParams implements EventParams
+FinishRParams implements EventParams

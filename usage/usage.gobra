@@ -1,0 +1,87 @@
+package usage
+
+
+type Usage domain {
+    // constructors
+    // type 0
+    func PkeKey(string) Usage
+    // type 1
+    func Nonce(string) Usage
+
+    // WARNING: adapt first axiom if another Usage is added!
+
+    // deconstructors
+    func GetUsageType(Usage) int
+    func GetUsageString(Usage) string
+
+    axiom { // every usage belongs to a known type
+        forall u Usage :: { GetUsageType(u) } 0 <= GetUsageType(u) && GetUsageType(u) <= 1
+    }
+
+    axiom { // PkeKey is injective
+        forall s string :: { PkeKey(s) } GetUsageType(PkeKey(s)) == 0 &&
+            GetUsageString(PkeKey(s)) == s
+    }
+    axiom { // PkeKey implies its construction
+        forall u Usage :: { GetUsageType(u) == 0 } GetUsageType(u) == 0 ==> u == PkeKey(GetUsageString(u))
+    }
+
+    axiom { // Nonce is injective
+        forall s string :: { Nonce(s) } GetUsageType(Nonce(s)) == 1 &&
+            GetUsageString(Nonce(s)) == s
+    }
+    axiom { // Nonce implies its construction
+        forall u Usage :: { GetUsageType(u) == 1 } GetUsageType(u) == 1 ==> u == Nonce(GetUsageString(u))
+    }
+}
+
+ghost
+pure func (u Usage) IsPkeKey() bool {
+    return GetUsageType(u) == 0
+}
+
+ghost
+pure func (u Usage) IsNonce() bool {
+    return GetUsageType(u) == 1
+}
+
+
+type UsageOption domain {
+    // type 0
+    func SomeUsage(Usage) UsageOption
+    // type 1
+    func NoneUsage() UsageOption
+    func getUsage(UsageOption) Usage
+    func getUsageOptionType(UsageOption) int
+
+    axiom { // all types covers
+        forall o UsageOption :: { getUsageOptionType(o) } 0 <= getUsageOptionType(o) && getUsageOptionType(o) <= 1
+    }
+
+    axiom { // SomeUsage is injective
+        forall u Usage :: { SomeUsage(u) } getUsageOptionType(SomeUsage(u)) == 0 &&
+            getUsage(SomeUsage(u)) == u
+    }
+
+    axiom { // success implies its construction
+        forall o UsageOption :: { getUsageOptionType(o) } getUsageOptionType(o) == 0 ==>
+            o == SomeUsage(getUsage(o))
+    }
+
+    axiom { // type of NoneTerm
+        getUsageOptionType(NoneUsage()) == 1
+    }
+}
+
+ghost
+decreases
+pure func (o UsageOption) isSome() bool {
+    return getUsageOptionType(o) == 0
+}
+
+requires res.isSome()
+requires getUsage(res) == u
+ensures  SomeUsage(u) == res
+func usageSuccessLemma(res UsageOption, u Usage) {
+    // no body needed
+}

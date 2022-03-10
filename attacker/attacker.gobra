@@ -1,0 +1,22 @@
+package attacker
+
+import tm "protocols/library/term"
+import tr "protocols/library/trace"
+
+ghost
+decreases
+pure func attackerKnows(entry tr.TraceEntry, term tm.Term) bool {
+    return term in attackerKnowledge(entry)
+}
+
+ghost
+decreases
+pure func isUnknownToAttacker(entry tr.TraceEntry, term tm.Term) bool {
+    return !attackerKnows(entry, term)
+}
+
+ghost
+decreases
+pure func attackerKnowledge(entry tr.TraceEntry) set[tm.Term] {
+    return entry.getPublicTerms() union entry.getMessagePayloads() union entry.getTermsMadePublic()
+}

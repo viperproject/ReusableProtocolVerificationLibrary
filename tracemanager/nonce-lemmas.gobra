@@ -1,0 +1,73 @@
+package tracemanager
+
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import tr "protocols/library/trace"
+
+
+type NonceSearcher struct {
+    ctx tr.TraceContext
+    nonce tm.Term
+}
+NonceSearcher implements TraceSearcher
+
+ghost
+pure func (ns NonceSearcher) Ctx() tr.TraceContext {
+    return ns.ctx
+}
+
+ghost
+decreases
+pure func (ns NonceSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isNonceAt(ns.nonce)
+}
+
+ghost
+decreases
+pure func (ns NonceSearcher) Occurs(entry tr.TraceEntry) bool {
+    return entry.OnlyNonceOccurs(ns.nonce)
+}
+
+ghost
+// decreases
+pure func (ns NonceSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return tr.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ns.Occurs(entry)
+ensures  (!entry.isRoot() && ns.Occurs(tr.getPrev(entry))) || ns.Matches(entry)
+func (ns NonceSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires ns.Matches(entry)
+requires acc(tr.validTrace(ns.Ctx(), entry), p)
+ensures  ns.PureEntryInv(entry)
+ensures  acc(tr.validTrace(ns.Ctx(), entry), p)
+func (ns NonceSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    unfold acc(tr.validTrace(ns.Ctx(), entry), p)
+    assert unfolding acc(tr.randInv(ns.Ctx(), ns.nonce, tr.getPrev(entry)), p) in true
+    fold acc(tr.validTrace(ns.Ctx(), entry), p)
+}
+// end of NonceSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires (m.Trace(ctx, owner)).OnlyNonceOccurs(nonce)
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(m.Trace(ctx, owner)) && prev.isNonce()
+ensures  prev.isNonceAt(nonce)
+ensures  tr.pureRandInv(ctx, nonce, tr.getPrev(prev))
+ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) NonceOccursImpliesRandInv(ctx tr.TraceContext, owner p.Principal, nonce tm.Term) (prev tr.TraceEntry) {
+    searcher := NonceSearcher{ ctx, nonce }
+    prev = m.findEntryWithPureInv(searcher, owner)
+}

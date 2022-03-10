@@ -1,0 +1,23 @@
+package event
+
+// type Event interface {}
+// comparing interface values in axioms is not yet supported
+// type Event int
+
+type EventParams interface {
+    // ghost
+    // pure getTerms() set[tr.Term]
+}
+
+type EventType int
+type Event struct {
+    typ EventType
+    params EventParams
+}
+
+ghost
+requires isComparable(params)
+ensures  res.typ == typ && res.params == params
+pure func NewEvent(typ EventType, params EventParams) (res Event) {
+    return Event{ typ, params }
+}

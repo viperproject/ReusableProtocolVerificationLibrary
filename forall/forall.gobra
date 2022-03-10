@@ -1,0 +1,42 @@
+package forall
+
+import ev "protocols/library/event"
+import "protocols/library/label"
+import p "protocols/library/principal"
+import tm "protocols/library/term"
+import tr "protocols/library/trace"
+import u "protocols/library/usage"
+
+// utility package to return an arbitrary value which can then be used for forall introductions.
+// these Go functions correspond to Viper methods that do not have any postcondition and thus do not constrain
+// their return value.
+
+decreases
+func GetArbTerm() tm.Term
+
+decreases
+func GetArbTraceEntry() tr.TraceEntry
+
+decreases
+func GetArbLabel() label.SecrecyLabel
+
+decreases
+func GetArbPrincipal() p.Principal
+
+decreases
+func GetArbId() p.Id
+
+decreases
+func GetArbEvent() ev.Event
+
+decreases
+func GetArbUsage() u.Usage
+
+/*
+func sanityCheck() {
+    term1 := GetArbTerm()
+    term2 := GetArbTerm()
+    // the following assertion should fail:
+    assert term1 == term2
+}
+*/

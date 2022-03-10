@@ -1,0 +1,145 @@
+package tracemanager
+
+import ev "protocols/library/event"
+import p "protocols/library/principal"
+import tr "protocols/library/trace"
+
+
+type EventSearcher struct {
+    ctx tr.TraceContext
+    principal p.Principal
+    event ev.Event
+}
+EventSearcher implements TraceSearcher
+
+ghost
+pure func (es EventSearcher) Ctx() tr.TraceContext {
+    return es.ctx
+}
+
+ghost
+decreases
+pure func (es EventSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isEventAt(es.principal, es.event)
+}
+
+ghost
+decreases
+pure func (es EventSearcher) Occurs(entry tr.TraceEntry) bool {
+    return entry.eventOccurs(es.principal, es.event)
+}
+
+ghost
+// decreases
+pure func (es EventSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return (es.ctx).pureEventInv(es.principal, es.event, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires es.Occurs(entry)
+ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(entry)
+func (es EventSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires es.Matches(entry)
+requires acc(tr.validTrace(es.Ctx(), entry), p)
+ensures  es.PureEntryInv(entry)
+ensures  acc(tr.validTrace(es.Ctx(), entry), p)
+func (es EventSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    unfold acc(tr.validTrace(es.Ctx(), entry), p)
+    (es.Ctx()).getPureEventInv(es.principal, es.event, tr.getPrev(entry), p)
+    fold acc(tr.validTrace(es.Ctx(), entry), p)
+}
+// end of EventSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires (m.Trace(ctx, owner)).eventOccurs(principal, event)
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(m.Trace(ctx, owner)) && prev.isEvent()
+ensures  prev.isEventAt(principal, event)
+ensures  ctx.pureEventInv(principal, event, tr.getPrev(prev))
+ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) EventOccursImpliesEventInv(ctx tr.TraceContext, owner p.Principal, principal p.Principal, event ev.Event) (prev tr.TraceEntry) {
+    searcher := EventSearcher{ ctx, principal, event }
+    prev = m.findEntryWithPureInv(searcher, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires (m.Trace(ctx, owner)).eventOccurs(principal1, event1)
+requires (m.Trace(ctx, owner)).eventOccurs(principal2, event2)
+requires ctx.IsUnique(event1.typ)
+requires event1.typ == event2.typ
+requires ctx.EventConsistency(event1) && ctx.EventConsistency(event2)
+requires ctx.UniquenessWitness(event1) == ctx.UniquenessWitness(event2)
+ensures  m.Mem(ctx, owner)
+ensures  principal1 == principal2
+ensures  event1 == event2
+ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+// this lemma is part of the manager as it requires the validTrace predicate
+func (m *TraceManager) UniqueEventsAreUnique(ctx tr.TraceContext, owner p.Principal, principal1, principal2 p.Principal, event1, event2 ev.Event) {
+    // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Trace(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    trace := m.mutex.Lock(inv, owner)
+    unfold inv.clientHistoryValueInv(trace)
+    lastSeenTrace.eventOccursMonotonic(trace, principal1, event1)
+    lastSeenTrace.eventOccursMonotonic(trace, principal2, event2)
+    s1, s2 := m.findEvents(ctx, trace, principal1, principal2, event1, event2)
+    if (s1 != s2) {
+        // derive contradiction
+        nonce1 := ctx.isUniqueImpliesUniqueResource(principal1, event1, tr.getPrev(s1))
+        nonce2 := ctx.isUniqueImpliesUniqueResource(principal2, event2, tr.getPrev(s2))
+        (ctx.GetLabeling()).NonceForEventContradiction(nonce1, event1.typ)
+    }
+    // the following assertion would hold:
+    // assert s1 == s2
+    apply ctx.eventInv(principal1, event1, tr.getPrev(s1)) --* tr.validTrace(ctx, trace)
+    fold inv.clientHistoryValueInv(trace)
+    // there is no need to update the snapshot
+    m.mutex.UnlockWithSnapshot(inv, owner, trace, trace, lastSeenTrace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires isComparable(ctx)
+requires tr.validTrace(ctx, validTraceEntry)
+requires validTraceEntry.eventOccurs(principal1, event1)
+requires validTraceEntry.eventOccurs(principal2, event2)
+ensures  s1.isEventAt(principal1, event1)
+ensures  s2.isEventAt(principal2, event2)
+ensures  s1 == s2 ==>
+    principal1 == principal2 &&
+    event1 == event2 &&
+    ctx.eventInv(principal1, event1, tr.getPrev(s1)) &&
+    (ctx.eventInv(principal1, event1, tr.getPrev(s1)) --* tr.validTrace(ctx, validTraceEntry))
+ensures s1 != s2 ==>
+    ctx.eventInv(principal1, event1, tr.getPrev(s1)) &&
+    ctx.eventInv(principal2, event2, tr.getPrev(s2))
+func (m *TraceManager) findEvents(ctx tr.TraceContext, validTraceEntry tr.TraceEntry, principal1, principal2 p.Principal, event1, event2 ev.Event) (s1, s2 tr.TraceEntry) {
+    searcher1 := EventSearcher{ ctx, principal1, event1 }
+    searcher2 := EventSearcher{ ctx, principal2, event2 }
+    s1, s2 = m.findEntriesWithInv(searcher1, searcher2, validTraceEntry)
+    unfold localValidTrace(ctx, s1)
+    if s1 == s2 {
+        package ctx.eventInv(principal1, event1, tr.getPrev(s1)) --* tr.validTrace(ctx, validTraceEntry) {
+            fold localValidTrace(ctx, s1)
+            apply localValidTrace(ctx, s1) --* tr.validTrace(ctx, validTraceEntry)
+        }
+    } else {
+        unfold localValidTrace(ctx, s2) 
+    }
+}
