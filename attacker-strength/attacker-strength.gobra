@@ -1,4 +1,4 @@
-package attacker
+package attacker-strength
 
 import att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
 import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeled-library"

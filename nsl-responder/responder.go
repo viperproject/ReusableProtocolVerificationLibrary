@@ -1,4 +1,4 @@
-package nslResponder
+package nsl-responder
 
 import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
 import fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"

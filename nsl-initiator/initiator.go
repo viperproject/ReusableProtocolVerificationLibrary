@@ -1,4 +1,4 @@
-package nslInitiator
+package nsl-initiator
 
 import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
 import "gitlab.inf.ethz.ch/arquintl/prototrace/label"

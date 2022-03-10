@@ -24,7 +24,7 @@
 // - received na, nb, A, and B are as expected
 //(-)messages have to conform to protocol, i.e. encrypted/signed as specified and contain the specified content
 
-package nsl
+package nsl-main
 
 import (
 	"sync"

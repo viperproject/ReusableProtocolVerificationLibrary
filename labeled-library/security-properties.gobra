@@ -1,4 +1,4 @@
-package labeledLibrary
+package labeled-library
 
 import (
     att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"

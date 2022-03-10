@@ -1,4 +1,4 @@
-package labeledLibrary
+package labeled-library
 
 import (
 	ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"

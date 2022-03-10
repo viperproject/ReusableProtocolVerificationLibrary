@@ -1,4 +1,4 @@
-package usageContext
+package usage-context
 
 import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
