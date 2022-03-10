@@ -1,18 +1,19 @@
 package library
 
 import (
+	bytes "bytes"
 	rand "crypto/rand"
 	"errors"
 	fmt "fmt"
 	io "io"
 	box "golang.org/x/crypto/nacl/box"
-	ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-	"gitlab.inf.ethz.ch/arquintl/prototrace/label"
-	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
+	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
+	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
 	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-	tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
-	u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
+	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+	//@ u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
 )
 
 type ByteString []byte
@@ -63,7 +64,7 @@ func (l *LibraryState) Send(idSender, idReceiver p.Principal, msg ByteString) er
 //@ ensures  err == nil ==> Mem(msg)
 func (l *LibraryState) Recv(idSender, idReceiver p.Principal) (msg ByteString, err error) {
 	channel := (l.channels)[ChannelKey{idSender, idReceiver}]
-	msg := <-channel
+	msg = <-channel
 	return msg, nil
 }
 
@@ -81,7 +82,10 @@ pred IsNonce(b tm.Bytes)
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 func (l *LibraryState) GenerateKey(/*@ ghost ctx tr.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
-	return box.GenerateKey(rand.Reader)
+	pkArr, skArr, err := box.GenerateKey(rand.Reader)
+	pk = pkArr[:]
+	sk = skArr[:]
+	return
 }
 
 //@ requires acc(l.LibMem(), 1/16)
@@ -112,7 +116,13 @@ func (l *LibraryState) Enc(msg, recv_pk, sender_sk ByteString) (ciphertext ByteS
 	if err != nil {
 		return nil, err
 	}
-	ciphertext = box.Seal(nonce[:], msg, &nonce, recv_pk, sender_sk)
+	var nonceArr [24]byte
+	copy(nonceArr[:], nonce)
+	var pkArr [32]byte
+	copy(pkArr[:], recv_pk)
+	var skArr [32]byte
+	copy(skArr[:], sender_sk)
+	ciphertext = box.Seal(nonce[:], msg, &nonceArr, &pkArr, &skArr)
 	// first NonceLength bytes of ciphertext are the nonce
 	return ciphertext, nil
 }
@@ -131,8 +141,12 @@ func (l *LibraryState) Enc(msg, recv_pk, sender_sk ByteString) (ciphertext ByteS
 func (l *LibraryState) Dec(ciphertext, sender_pk, recv_sk ByteString) (msg ByteString, err error) {
 	var nonce/*@@@*/ [NonceLength]byte
 	copy(nonce[:], ciphertext[:NonceLength] /*@, perm(1)/2 @*/)
+	var pkArr [32]byte
+	copy(pkArr[:], sender_pk)
+	var skArr [32]byte
+	copy(skArr[:], recv_sk)
 	var res bool
-	msg, res = box.Open(nil, ciphertext[NonceLength:], &nonce, sender_pk, recv_sk)
+	msg, res = box.Open(nil, ciphertext[NonceLength:], &nonce, &pkArr, &skArr)
 	if res {
 		err = nil
 	} else {
@@ -208,20 +222,3 @@ pure func SafeAbs(b ByteString, l int) (res tm.Bytes)
 func Size(b ByteString) (res int) {
 	return len(b)
 }
-
-//@ requires noPerm < p && p <= writePerm
-//@ requires len1 < len(s)
-// requires forall i int :: { s[i] } 0 <= i && i < len(s) ==> acc(&s[i], p)
-//@ requires acc(Mem(s), p)
-//@ ensures  len(part1) == len1 && len(part2) == len(s) - len1
-// ensures  forall i int :: { part1[i] } 0 <= i && i < len(part1) ==> acc(&part1[i], p) && part1[i] == old(s[i])
-// ensures  forall i int :: { part2[i] } 0 <= i && i < len(part2) ==> acc(&part2[i], p) && part2[i] == old(s[i + len1])
-//@ ensures  acc(Mem(part1), p)
-//@ ensures  acc(Mem(part2), p)
-func sliceHelper(s ByteString, len1 int /*@, ghost p perm @*/) (part1, part2 ByteString) /*{
-	//@ unfold acc(Mem(s), p)
-	part1 = s[:len1] // TODO: why might this slicing fail with Gobra?
-	part2 = s[len1:]
-	//@ fold acc(Mem(part1), p)
-	//@ fold acc(Mem(part2), p)
-}*/

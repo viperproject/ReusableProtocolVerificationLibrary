@@ -10,18 +10,18 @@ import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
 
 ghost
-requires a.Mem(naT, nbT) && a.Version(naT, nbT) == 2
-ensures  a.Mem(naT, nbT) && a.Version(naT, nbT) == 3
+requires a.Mem(naT, nbT) && a.Vers(naT, nbT) == 2
+ensures  a.Mem(naT, nbT) && a.Vers(naT, nbT) == 3
 func (a *A) proveSecurityProperties(naT, nbT tm.Term) {
 	// we show that the authentication properties' precondition is satisfied:
 	unfold a.Mem(naT, nbT)
-	initiatorInjectiveAgreement(a.llib, a.idA, a.idB, naT, nbT)
+	initiatorInjectiveAgreement(a.llib, a.IdA, a.IdB, naT, nbT)
 	
 	// we show now that the same naT & nbT are also secret:
-	a.llib.SecrecyLemma(naT, set[p.Id]{ p.principalId(a.idA), p.principalId(a.idB) })
-	a.llib.SecrecyLemma(nbT, set[p.Id]{ p.principalId(a.idA), p.principalId(a.idB) })
+	a.llib.SecrecyLemma(naT, set[p.Id]{ p.principalId(a.IdA), p.principalId(a.IdB) })
+	a.llib.SecrecyLemma(nbT, set[p.Id]{ p.principalId(a.IdA), p.principalId(a.IdB) })
 
-	a.version = 3
+	a.Version = 3
 	fold a.Mem(naT, nbT)
 }
 

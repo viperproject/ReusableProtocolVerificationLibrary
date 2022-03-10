@@ -1,12 +1,12 @@
 package labeledlibrary
 
 import (
-	att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
-	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
+	//@ att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
+	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
 	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
 	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-	tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 )
 
 /** 
@@ -30,6 +30,7 @@ func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteStri
 	err = l.s.Send(idSender, idReceiver, msg)
 	//@ fold l.Mem()
 	//@ assert (l.Snapshot()).isMessageAt(idSender, idReceiver, msgT)
+	return
 }
 
 //@ requires l.Mem()
@@ -53,6 +54,7 @@ func (l *LabeledLibrary) Recv(idSender, idReceiver p.Principal) (msg lib.ByteStr
 		msgT in (l.Snapshot()).getMessagePayloadsForCommChannel(idSender, idReceiver) &&
 		(l.LabelCtx()).IsPublishable(l.Snapshot(), msgT))
 	@*/
+	return
 }
 
 /*@

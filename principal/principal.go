@@ -2,6 +2,7 @@ package principal
 
 type Principal = string
 
+/*@
 type Id domain {
 	// constructors
 	func principalId(Principal) Id
@@ -34,3 +35,4 @@ decreases
 pure func (id Id) getPrincipal() Principal {
 	return getIdPrincipal(id)
 }
+@*/

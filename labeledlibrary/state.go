@@ -1,18 +1,18 @@
 package labeledlibrary
 
 import (
-	att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
-	ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-	fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
-	"gitlab.inf.ethz.ch/arquintl/prototrace/label"
-	"gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
+	//@ att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
+	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+	//@ fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
+	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
+	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
 	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
-	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-	tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-	tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
-	tman "gitlab.inf.ethz.ch/arquintl/prototrace/tracemanager"
-	ts "gitlab.inf.ethz.ch/arquintl/prototrace/twostate"
-	u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
+	//@ p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+	//@ tman "gitlab.inf.ethz.ch/arquintl/prototrace/tracemanager"
+	//@ ts "gitlab.inf.ethz.ch/arquintl/prototrace/twostate"
+	//@ u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
 )
 
 // TODO ghost fields should be ghost
