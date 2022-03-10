@@ -5,7 +5,7 @@
 # gather all top-level directories which we will consider as 
 # packages that should be verified:
 
-goDir=$(dirname "$0")
+scriptDir=$(dirname "$0")
 
 # flag whether this script is currently executed as part of a CI
 isCi=$CI
@@ -14,7 +14,7 @@ gobraJar="/gobra/gobra.jar"
 additionalGobraArgs="--module protocols/library"
 
 # `-exec basename {} \;` makes sure that the leading "./" is dropped from every package name
-packages=$(find $goDir -type d -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
+packages=$(find $scriptDir -type d -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
 
 # catch ctrl+c such that not only verification of current package is aborted but all verifications:
 trap "exit" SIGHUP SIGINT SIGTERM
@@ -25,12 +25,16 @@ TXT_BLUE="\033[34m"
 TXT_CLEAR="\033[0m"
 overallExitCode=0
 for package in $packages; do
+    # skip folders starting with '.':
+    if [[ $package == .* ]]; then
+        continue
+    fi
     if [ $isCi ]; then
         echo -e "\033[0Ksection_start:`date +%s`:verify_$package[collapsed=true]\r\033[0KVerifying package ${TXT_BLUE}$package${TXT_CLEAR}"
     else
         echo -e "Verifying package ${TXT_BLUE}$package${TXT_CLEAR}"
     fi
-    java -Xss128m -jar $gobraJar -i "$goDir/$package" -I "$goDir/$package" -I $goDir $additionalGobraArgs
+    java -Xss128m -jar $gobraJar -i "$scriptDir/$package" -I "$scriptDir/$package" -I $scriptDir $additionalGobraArgs
     exitCode=$?
     if [ $isCi ]; then
         echo -e "\033[0Ksection_end:`date +%s`:verify_$package\r\033[0K"

@@ -6,4 +6,4 @@ image:
 
 verify:
   script:
-    - verify.sh
+    - ./verify.sh
