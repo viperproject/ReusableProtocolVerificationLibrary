@@ -21,7 +21,7 @@ type ByteString []byte
 // wraps IO calls and crypto
 
 // number of bytes that should be used for nonces
-const NonceLength = 24 // 8 // TODO switch to 24
+const NonceLength = 24
 
 
 type LibraryState struct {
@@ -95,6 +95,8 @@ func (l *LibraryState) GenerateKey(/*@ ghost ctx tr.LabelingContext, ghost keyLa
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 func (l *LibraryState) CreateNonce(/*@ ghost ctx tr.LabelingContext, ghost nonceLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce ByteString, err error) {
+	var nonceArr [NonceLength]byte
+	nonce = nonceArr[:]
 	io.ReadFull(rand.Reader, nonce)
 	// inhale `NonceIsUnique` and `NonceForEventIsUnique` instances
 	return nonce, nil
