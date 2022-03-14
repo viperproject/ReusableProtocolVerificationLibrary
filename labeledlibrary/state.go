@@ -1,9 +1,9 @@
 package labeledlibrary
 
 import (
+	//@ arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
 	//@ att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
 	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-	//@ fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
 	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
@@ -112,17 +112,17 @@ ensures  forall oldSnap tr.TraceEntry, nonce tm.Term :: { oldSnap.OnlyNonceOccur
 ensures  forall oldSnap tr.TraceEntry, nonce tm.Term, nonceLabel label.SecrecyLabel, nonceUsage u.Usage :: { oldSnap.nonceOccurs(nonce, nonceLabel, nonceUsage) } oldSnap.isSuffix(l.Snapshot()) && oldSnap.nonceOccurs(nonce, nonceLabel, nonceUsage) ==>  (l.Snapshot()).nonceOccurs(nonce, nonceLabel, nonceUsage)
 func (l *LabeledLibrary) ApplyMonotonicity() {
 	// forall introduction
-	arbSnap := fa.GetArbTraceEntry()
-	arbTerm := fa.GetArbTerm()
-	arbLabel := fa.GetArbLabel()
-	arbUsage := fa.GetArbUsage()
-	arbPrincipal := fa.GetArbPrincipal()
-	arbEvent := fa.GetArbEvent()
-	arbSender := fa.GetArbPrincipal()
-	arbReceiver := fa.GetArbPrincipal()
-	arbPayload := fa.GetArbTerm()
-	arbNonceLabel := fa.GetArbLabel()
-	arbNonceUsage := fa.GetArbUsage()
+	arbSnap := arb.GetArbTraceEntry()
+	arbTerm := arb.GetArbTerm()
+	arbLabel := arb.GetArbLabel()
+	arbUsage := arb.GetArbUsage()
+	arbPrincipal := arb.GetArbPrincipal()
+	arbEvent := arb.GetArbEvent()
+	arbSender := arb.GetArbPrincipal()
+	arbReceiver := arb.GetArbPrincipal()
+	arbPayload := arb.GetArbTerm()
+	arbNonceLabel := arb.GetArbLabel()
+	arbNonceUsage := arb.GetArbUsage()
 	if (arbSnap.isSuffix(l.Snapshot())) {
 		arbSnap.getCorruptIdsMonotonic(l.Snapshot())
 		if ((l.LabelCtx()).IsSecret(arbSnap, arbTerm, arbLabel, arbUsage)) {
@@ -185,16 +185,16 @@ ensures  forall oldSnap tr.TraceEntry, nonce tm.Term, nonceLabel label.SecrecyLa
 // TODO reuse `ApplyMonotonicity`
 func (l *LabeledLibrary) ApplyMonotonicityDflt(labelCtx labeling.DefaultLabelingContext) {
 	// forall introduction
-	arbSnap := fa.GetArbTraceEntry()
-	arbTerm := fa.GetArbTerm()
-	arbLabel := fa.GetArbLabel()
-	arbPrincipal := fa.GetArbPrincipal()
-	arbEvent := fa.GetArbEvent()
-	arbSender := fa.GetArbPrincipal()
-	arbReceiver := fa.GetArbPrincipal()
-	arbPayload := fa.GetArbTerm()
-	arbNonceLabel := fa.GetArbLabel()
-	arbNonceUsage := fa.GetArbUsage()
+	arbSnap := arb.GetArbTraceEntry()
+	arbTerm := arb.GetArbTerm()
+	arbLabel := arb.GetArbLabel()
+	arbPrincipal := arb.GetArbPrincipal()
+	arbEvent := arb.GetArbEvent()
+	arbSender := arb.GetArbPrincipal()
+	arbReceiver := arb.GetArbPrincipal()
+	arbPayload := arb.GetArbTerm()
+	arbNonceLabel := arb.GetArbLabel()
+	arbNonceUsage := arb.GetArbUsage()
 	if (arbSnap.isSuffix(l.Snapshot())) {
 		arbSnap.getCorruptIdsMonotonic(l.Snapshot())
 		if (labelCtx.IsValid(arbSnap, arbTerm)) {

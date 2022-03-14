@@ -1,9 +1,9 @@
 package labeledlibrary
 
 import (
+    arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
     att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
 	ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-	fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
     "gitlab.inf.ethz.ch/arquintl/prototrace/label"
     "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
     tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
@@ -84,7 +84,7 @@ func (l *LabeledLibrary) SecrecyLemma(term tm.Term, readers set[p.Id]) (optCorru
 			// pick the corruptId:
 			corruptedReaders := ((l.Snapshot()).getCorruptIds() intersection readers)
 			assert len(corruptedReaders) >= 1
-            witness := fa.GetArbId()
+            witness := arb.GetArbId()
 			assume witness in corruptedReaders
             optCorruptedId = some(witness)
 		}
@@ -109,7 +109,7 @@ func (l *LabeledLibrary) secrecyLemmaHelper(term tm.Term, readers set[p.Id]) (co
 		// pick the corruptId:
 		corruptedReaders := (corruptedIds intersection readers)
 		assert len(corruptedReaders) >= 1
-		corruptedId = fa.GetArbId()
+		corruptedId = arb.GetArbId()
 		assume corruptedId in corruptedReaders
 	} else {
 		l.AttackerOnlyKnowsPublishableValues(term)
@@ -138,8 +138,8 @@ ensures  l.EventIsUnique(principal, event)
 // all events with the same type and same uniqueness witness are guaranteed to occur only once on the trace
 func (l *LabeledLibrary) UniqueEventIsUnique(principal p.Principal, event ev.Event) {
     // we do a forall introduction, i.e. we show for an arbitrary arbPrincipal, arbEvent that the postcondition holds:
-    arbPrincipal := fa.GetArbPrincipal()
-    arbEvent := fa.GetArbEvent()
+    arbPrincipal := arb.GetArbPrincipal()
+    arbEvent := arb.GetArbEvent()
     if event.typ == arbEvent.typ &&
         (l.Ctx()).EventConsistency(arbEvent) &&
         (l.Ctx()).UniquenessWitness(event) == (l.Ctx()).UniquenessWitness(arbEvent) &&

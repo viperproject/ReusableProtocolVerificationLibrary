@@ -1,8 +1,8 @@
 package labeledlibrary
 
 import (
+	//@ arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
 	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-	//@ fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
 	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
@@ -112,7 +112,7 @@ func (l *LabeledLibrary) Dec(ciphertext, sender_pk, recv_sk lib.ByteString /*@, 
 
 		// we choose an arbitrary msgT and then show that if we assume that it's the correct
 		// we can call `decHelper` which then gives us an implication with the given quantifier
-		arbMsgT := fa.GetArbTerm()
+		arbMsgT := arb.GetArbTerm()
 		if (ciphertextT == tm.encrypt(arbMsgT, pkT)) {
 			(l.LabelCtx()).DecryptSatisfiesInvariant(l.Snapshot(), arbMsgT, recv_skT, skOwner)
 		}

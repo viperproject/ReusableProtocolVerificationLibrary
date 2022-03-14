@@ -1,7 +1,7 @@
 package twostate
 
 import "sync"
-import fa "gitlab.inf.ethz.ch/arquintl/prototrace/forall"
+import arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
 import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
@@ -262,7 +262,7 @@ ensures  forall snapshot *ClientHistoryValue :: { inv.clientHistoryInv(*snapshot
     acc(snapshot, p) && inv.clientHistoryInv(*snapshot, newValue)
 func (m *ClientHistoryMutex) applyInvTransitivity(inv ClientHistoryInv, snapshots set[*ClientHistoryValue], currentValue, newValue ClientHistoryValue, p perm) {
     // non-deterministically choose a snapshot
-    arbitrarySnapshot@ := fa.GetArbTraceEntry()
+    arbitrarySnapshot@ := arb.GetArbTraceEntry()
     if &arbitrarySnapshot in snapshots {
         m.applyInvTransitivitySingle(inv, &arbitrarySnapshot, currentValue, newValue, p)
         assert inv.clientHistoryInv(arbitrarySnapshot, newValue)
