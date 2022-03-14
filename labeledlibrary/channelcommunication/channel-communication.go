@@ -1,6 +1,6 @@
 package channelcommunication
 
-import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary"
+//@ import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary"
 import lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
 import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 //@ import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
