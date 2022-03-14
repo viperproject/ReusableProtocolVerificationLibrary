@@ -10,7 +10,8 @@ import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 type ChannelCommunicaton struct {
 	channels map[ChannelKey]chan []byte
 }
-(* ChannelCommunicaton) implements ll.Communication
+// the following statement is not necessary but makes subtyping explicit (for documentation purposes)
+//@ (* ChannelCommunicaton) implements ll.Communication
 
 type ChannelKey struct {
 	idSender   p.Principal
