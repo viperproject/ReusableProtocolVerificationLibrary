@@ -1,20 +1,18 @@
 package library
 
 import (
-	bytes "bytes"
 	rand "crypto/rand"
 	"errors"
-	fmt "fmt"
 	io "io"
 	box "golang.org/x/crypto/nacl/box"
 	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
-	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
 	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 	//@ u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
 )
+
 
 type ByteString []byte
 
@@ -25,12 +23,8 @@ const NonceLength = 24
 
 
 type LibraryState struct {
-	channels map[ChannelKey]chan []byte
-}
-
-type ChannelKey struct {
-	idSender   p.Principal
-	idReceiver p.Principal
+	// we need at least a field to not run into unknown equality issues
+	dummy int
 }
 
 /*@
@@ -42,36 +36,40 @@ pred (l *LibraryState) LibMem() {
 //@ ensures res.LibMem()
 func NewLibrary(initiator, responder p.Principal) (res *LibraryState) {
 	res = &LibraryState{}
-	res.channels = make(map[ChannelKey]chan []byte)
-	// create a channel per communication direction:
-	(res.channels)[ChannelKey{initiator, responder}] = make(chan []byte)
-	(res.channels)[ChannelKey{responder, initiator}] = make(chan []byte)
+	//@ fold res.LibMem()
 	return res
 }
 
-//@ requires acc(l.LibMem(), 1/16)
-//@ requires acc(Mem(msg), 1/16)
-//@ ensures  acc(l.LibMem(), 1/16)
-//@ ensures  acc(Mem(msg), 1/16)
-func (l *LibraryState) Send(idSender, idReceiver p.Principal, msg ByteString) error {
-	channel := (l.channels)[ChannelKey{idSender, idReceiver}]
-	channel <- msg
-	return nil
-}
-
-//@ requires acc(l.LibMem(), 1/16)
-//@ ensures  acc(l.LibMem(), 1/16)
-//@ ensures  err == nil ==> Mem(msg)
-func (l *LibraryState) Recv(idSender, idReceiver p.Principal) (msg ByteString, err error) {
-	channel := (l.channels)[ChannelKey{idSender, idReceiver}]
-	msg = <-channel
-	return msg, nil
-}
-
 /*@
+pred Mem(s ByteString) // {
+	// forall i int :: 0 <= i && i < len(s) ==> acc(&s[i])
+// }
+
+ghost
+requires acc(Mem(b), _)
+ensures  Size(b) == 0 ==> res == tm.zeroStringB(0)
+pure func Abs(b ByteString) (res tm.Bytes)
+
+ghost
+ensures Mem(res) && Abs(res) == bytes
+// allocates a new slice of bytes and sets the elements according to `bytes`
+func NewByteString(bytes tm.Bytes) (res ByteString)
+
+ghost
+requires b != nil ==> acc(Mem(b), _)
+ensures  b != nil ? res == Abs(b) : res == tm.zeroStringB(l)
+pure func SafeAbs(b ByteString, l int) (res tm.Bytes)
+
 // abstract resource to mark nonces as such
 pred IsNonce(b tm.Bytes)
 @*/
+
+//@ requires acc(Mem(b), _)
+//@ ensures res >= 0 && res == len(b)
+//@ pure
+func Size(b ByteString) (res int) {
+	return len(b)
+}
 
 //@ requires acc(l.LibMem(), 1/16)
 //@ ensures  acc(l.LibMem(), 1/16)
@@ -155,72 +153,4 @@ func (l *LibraryState) Dec(ciphertext, sender_pk, recv_sk ByteString) (msg ByteS
 		err = errors.New("Decryption failed")
 	}
 	return msg, err
-}
-
-//@ requires acc(Mem(s1), 1/16)
-//@ requires acc(Mem(s2), 1/16)
-//@ ensures  acc(Mem(s1), 1/16)
-//@ ensures  acc(Mem(s2), 1/16)
-// ensures  res ==> Size(s1) == Size(s2)
-//@ ensures  res == (Abs(s1) == Abs(s2))
-// ensures  res ==> unfolding acc(Mem(s1), 1/16) in unfolding acc(Mem(s2), 1/16) in forall i int :: { s1[i], s2[i] } 0 <= i && i < len(s1) ==> s1[i] == s2[i]
-func Compare(s1, s2 ByteString) (res bool) {
-	return bytes.Compare(s1, s2) == 0
-}
-
-//@ ensures res != nil
-func NewError(desc string) (res error) {
-	return errors.New("idB does not match")
-}
-
-func Println(msg string) {
-	fmt.Println(msg)
-}
-
-//@ requires acc(Mem(na), 1/16)
-//@ requires acc(Mem(receivedNb), 1/16)
-//@ ensures  acc(Mem(na), 1/16)
-//@ ensures  acc(Mem(receivedNb), 1/16)
-func PrintInitiatorSuccess(na, receivedNb ByteString) {
-	fmt.Println("A has successfully finished the protocol run")
-	fmt.Println("A.na: ", na)
-	fmt.Println("A.nb: ", receivedNb)
-}
-
-//@ requires acc(Mem(receivedNa), 1/16)
-//@ requires acc(Mem(nb), 1/16)
-//@ ensures  acc(Mem(receivedNa), 1/16)
-//@ ensures  acc(Mem(nb), 1/16)
-func PrintResponderSuccess(receivedNa, nb ByteString) {
-	fmt.Println("B has successfully finished the protocol run")
-	fmt.Println("B.na: ", receivedNa)
-	fmt.Println("B.nb: ", nb)
-}
-
-/*@
-pred Mem(s ByteString) // {
-	// forall i int :: 0 <= i && i < len(s) ==> acc(&s[i])
-// }
-
-ghost
-requires acc(Mem(b), _)
-ensures  Size(b) == 0 ==> res == tm.zeroStringB(0)
-pure func Abs(b ByteString) (res tm.Bytes)
-
-ghost
-ensures Mem(res) && Abs(res) == bytes
-// allocates a new slice of bytes and sets the elements according to `bytes`
-func NewByteString(bytes tm.Bytes) (res ByteString)
-
-ghost
-requires b != nil ==> acc(Mem(b), _)
-ensures  b != nil ? res == Abs(b) : res == tm.zeroStringB(l)
-pure func SafeAbs(b ByteString, l int) (res tm.Bytes)
-@*/
-
-//@ requires acc(Mem(b), _)
-//@ ensures res >= 0 && res == len(b)
-//@ pure
-func Size(b ByteString) (res int) {
-	return len(b)
 }

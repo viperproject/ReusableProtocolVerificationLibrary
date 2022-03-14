@@ -9,6 +9,28 @@ import (
 	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 )
 
+
+/** abstracts over different communication channels */
+type Communication interface {
+	pred LibMem()
+
+	//@ requires acc(LibMem(), 1/16)
+	//@ requires acc(lib.Mem(msg), 1/16)
+	//@ requires lib.Abs(msg) == tm.gamma(msgT)
+	//@ requires snapshot.isMessageAt(idSender, idReceiver, msgT)
+	//@ ensures  acc(LibMem(), 1/16)
+	//@ ensures  acc(lib.Mem(msg), 1/16)
+	Send(idSender, idReceiver p.Principal, msg lib.ByteString /*@, ghost msgT tm.Term, ghost snapshot tr.TraceEntry @*/) error
+
+	//@ requires acc(LibMem(), 1/16)
+	//@ ensures  acc(LibMem(), 1/16)
+	//@ ensures  err == nil ==> lib.Mem(msg)
+	//@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
+	//@ ensures  err == nil ==> snapshot.messageOccurs(idSender, idReceiver, msgT)
+	Recv(idSender, idReceiver p.Principal /*@, ghost snapshot tr.TraceEntry @*/) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/)
+}
+
+
 /** 
  * acts as a middleware between participant implementation and the library:
  * it not only delegates the call to the library but also creates a corresponding
@@ -27,9 +49,9 @@ import (
 func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteString /*@, ghost msgT tm.Term @*/) (err error) {
 	//@ unfold l.Mem()
 	//@ l.manager.LogSend(l.ctx, idSender, idReceiver, msgT)
-	err = l.s.Send(idSender, idReceiver, msg)
+	//@ snapshot := l.manager.Trace(l.ctx, l.owner)
+	err = l.com.Send(idSender, idReceiver, msg /*@, msgT, snapshot @*/)
 	//@ fold l.Mem()
-	//@ assert (l.Snapshot()).isMessageAt(idSender, idReceiver, msgT)
 	return
 }
 
@@ -42,17 +64,17 @@ func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteStri
 //@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
 //@ ensures  err == nil ==> tr.messageInv(l.Ctx(), idSender, idReceiver, msgT, l.Snapshot())
 //@ ensures  err == nil ==> (l.Snapshot()).messageOccurs(idSender, idReceiver, msgT)
-func (l *LabeledLibrary) Recv(idSender, idReceiver p.Principal) (msg lib.ByteString, err error /*@, msgT tm.Term @*/) {
+func (l *LabeledLibrary) Recv(idSender, idReceiver p.Principal) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/) {
+	//@ snapshot := l.Snapshot()
 	//@ unfold l.Mem()
-	msg, err = l.s.Recv(idSender, idReceiver)
+	msg, err /*@, msgT @*/ = l.com.Recv(idSender, idReceiver /*@, snapshot @*/)
 	//@ fold l.Mem()
-	/////////
-	// TODO how do we make sure the following assumption is justified?
-	/////////
-	/*@ assume err == nil ==> (
-		lib.Abs(msg) == tm.gamma(msgT) &&
-		msgT in (l.Snapshot()).getMessagePayloadsForCommChannel(idSender, idReceiver) &&
-		(l.LabelCtx()).IsPublishable(l.Snapshot(), msgT))
+	/*@
+	ghost if err == nil {
+		prev := l.MessageOccursImpliesMessageInv(idSender, idReceiver, msgT)
+		(tr.getPrev(prev)).isSuffixTransitive(prev, l.Snapshot())
+		tr.messageInvTransitive(l.Ctx(), idSender, idReceiver, msgT, tr.getPrev(prev), l.Snapshot())
+	}
 	@*/
 	return
 }

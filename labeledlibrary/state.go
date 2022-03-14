@@ -18,6 +18,7 @@ import (
 // TODO ghost fields should be ghost
 type LabeledLibrary struct {
 	s *lib.LibraryState
+	com Communication
 	//@ ctx tr.TraceContext
 	//@ manager *tman.TraceManager
 	//@ owner p.Principal
@@ -27,6 +28,7 @@ type LabeledLibrary struct {
 pred (l *LabeledLibrary) Mem() {
 	acc(l) &&
 	acc(l.s.LibMem(), 1/8) &&
+	acc(l.com.LibMem(), 1/8) && isComparable(l.com) &&
 	isComparable(l.ctx) &&
 	typeOf(l.ctx.GetLabeling()) == labeling.DefaultLabelingContext &&
 	l.manager.Mem(l.ctx, l.owner)
@@ -78,6 +80,7 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 @*/
 
 //@ requires acc(s.LibMem(), 1/8)
+//@ requires acc(com.LibMem(), 1/8) && isComparable(com)
 //@ requires manager.Mem(ctx, owner)
 //@ requires isComparable(ctx)
 //@ requires typeOf(ctx.GetLabeling()) == labeling.DefaultLabelingContext
@@ -88,8 +91,8 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Trace(ctx, owner))
 // TODO manager, ctx, owner should be ghost
-func NewLabeledLibrary(s *lib.LibraryState /*@, manager *tman.TraceManager, ctx tr.TraceContext, owner p.Principal @*/) (res *LabeledLibrary) {
-	res = &LabeledLibrary{ s /*@, ctx, manager, owner @*/ }
+func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tr.TraceContext, owner p.Principal @*/) (res *LabeledLibrary) {
+	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
 	//@ fold res.Mem()
 	return
 }
