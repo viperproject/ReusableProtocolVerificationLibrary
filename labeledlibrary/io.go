@@ -12,7 +12,7 @@ import (
 
 /** abstracts over different communication channels */
 type Communication interface {
-	pred LibMem()
+	//@ pred LibMem()
 
 	//@ requires acc(LibMem(), 1/16)
 	//@ requires acc(lib.Mem(msg), 1/16)
