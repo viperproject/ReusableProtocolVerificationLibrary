@@ -5,90 +5,193 @@ import u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
 
 type Term domain {
     // type 0
-    func integer64(uint64) Term
-    func getInt64(Term) uint64
-    // type 1
-    func integer32(uint32) Term
-    func getInt32(Term) uint32
-    // type 2
-    func stringTerm(string) Term
-    func getString(Term) string
-    // type 3
-    func zeroString(int) Term
-    
-    // type 4
-    /** returns the public key associated with a secret key */
-    func createPk(Term) Term
-    func getSk(Term) Term
-
-    // type 5
-    /** plaintext, public key */
-    func encrypt(Term, Term) Term
-    func getPlaintext(Term) Term
-    func getPk(Term) Term
-
-    // type 6
     func random(Bytes, label.SecrecyLabel, u.Usage) Term
     func getRandomBytes(Term) Bytes
     func getRandomLabel(Term) label.SecrecyLabel
     func getRandomUsage(Term) u.Usage
 
-    // type 7
+    // type 1
     func tuple2(Term, Term) Term
-    func getFirst(Term) Term
-    func getSecond(Term) Term
+    func getTupleElem(Term, int) Term
+
+    // type 2
+    func tuple3(Term, Term, Term) Term
+
+    // type 3
+    func tuple4(Term, Term, Term, Term) Term
+
+    // type 4
+    func tuple5(Term, Term, Term, Term, Term) Term
+
+    // type 5
+    func tuple7(Term, Term, Term, Term, Term, Term, Term) Term
+
+    // type 6
+    func hash(Term) Term
+    func getInput(Term) Term
+
+    // type 7
+    func kdf1(Term) Term
 
     // type 8
-    func tuple3(Term, Term, Term) Term
-    func getThird(Term) Term
+    func kdf2(Term) Term
 
     // type 9
-    func tuple4(Term, Term, Term, Term) Term
-    func getForth(Term) Term
+    func kdf3(Term) Term
+
+    // type 10
+    /** returns the public key associated with a secret key */
+    func createPk(Term) Term
+    func getSk(Term) Term
+
+    // type 11
+    /** plaintext, public key */
+    func encrypt(Term, Term) Term
+    func getPlaintext(Term) Term
+    func getPk(Term) Term
+
+    // type 12
+    // TODO remove
+    func ok() Term
+
+    // type 13
+    /** symmetric key, nonce, plaintext, auth text (i.e. text to be authenticated but not encrypted) */
+    func aead(Term, Term, Term, Term) Term
+    func getAeadKey(Term) Term
+    func getAeadNonce(Term) Term
+    func getAuthtext(Term) Term
+    
+    // type 14
+    func const1() Term
+
+    // type 15
+    func exp(Term, Term) Term
+    func getBase(Term) Term
+    func getExponent(Term) Term
+
+    // type 16
+    func mult(Term, Term) Term
+
+    // type 17
+    func stringTerm(string) Term
+    func getString(Term) string
+
+    // type 18
+    func zeroString(int) Term
+
+    // type 19
+    func integer64(uint64) Term
+    func getInt64(Term) uint64
+
+    // type 20
+    func integer32(uint32) Term
+    func getInt32(Term) uint32
+
+    // type 21
+    func infoTerm() Term
+
+    // type 22
+    func prologueTerm() Term
+
+    // type 23
+    func generator() Term
+
+    // type 24
+    func subsequent(Term) Term
 
     // WARNING: adapt first axiom if another Term is added!
 
     func getTermType(Term) int
 
     axiom { // every term belongs to a known type
-        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 9
+        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 24
     }
 
-    axiom { // integer64 is injective
-        forall value uint64 :: { integer64(value) } getTermType(integer64(value)) == 0 &&
-            getInt64(integer64(value)) == value
+
+    axiom { // random is injective
+        forall b Bytes, l label.SecrecyLabel, usage u.Usage :: { random(b, l, usage) } getTermType(random(b, l, usage)) == 0 &&
+            getRandomBytes(random(b, l, usage)) == b &&
+            getRandomLabel(random(b, l, usage)) == l &&
+            getRandomUsage(random(b, l, usage)) == usage
     }
 
-    axiom { // integer32 is injective
-        forall value uint32 :: { integer32(value) } getTermType(integer32(value)) == 1 &&
-            getInt32(integer32(value)) == value
+    axiom { // tuple2 is injective
+        forall t1, t2 Term :: { tuple2(t1, t2) } getTermType(tuple2(t1, t2)) == 1 &&
+            getTupleElem(tuple2(t1, t2), 0) == t1 &&
+            getTupleElem(tuple2(t1, t2), 1) == t2
     }
 
-    axiom { // stringTerm is injective
-        forall s string :: { stringTerm(s) } getTermType(stringTerm(s)) == 2 &&
-            getString(stringTerm(s)) == s
+    axiom { // tuple3 is injective
+        forall t1, t2, t3 Term :: { tuple3(t1, t2, t3) } getTermType(tuple3(t1, t2, t3)) == 2 &&
+            getTupleElem(tuple3(t1, t2, t3), 0) == t1 &&
+            getTupleElem(tuple3(t1, t2, t3), 1) == t2 &&
+            getTupleElem(tuple3(t1, t2, t3), 2) == t3
     }
 
-    axiom { // zero string has type
-        forall l int :: { zeroString(l) } getTermType(zeroString(l)) == 3
+    axiom { // tuple4 is injective
+        forall t1, t2, t3, t4 Term :: { tuple4(t1, t2, t3, t4) } getTermType(tuple4(t1, t2, t3, t4)) == 3 &&
+            getTupleElem(tuple4(t1, t2, t3, t4), 0) == t1 &&
+            getTupleElem(tuple4(t1, t2, t3, t4), 1) == t2 &&
+            getTupleElem(tuple4(t1, t2, t3, t4), 2) == t3 &&
+            getTupleElem(tuple4(t1, t2, t3, t4), 3) == t4
+    }
+
+    axiom { // tuple5 is injective
+        forall t1, t2, t3, t4, t5 Term :: { tuple5(t1, t2, t3, t4, t5) } getTermType(tuple5(t1, t2, t3, t4, t5)) == 4 &&
+            getTupleElem(tuple5(t1, t2, t3, t4, t5), 0) == t1 &&
+            getTupleElem(tuple5(t1, t2, t3, t4, t5), 1) == t2 &&
+            getTupleElem(tuple5(t1, t2, t3, t4, t5), 2) == t3 &&
+            getTupleElem(tuple5(t1, t2, t3, t4, t5), 3) == t4 &&
+            getTupleElem(tuple5(t1, t2, t3, t4, t5), 4) == t5
+    }
+
+    axiom { // tuple7 is injective
+        forall t1, t2, t3, t4, t5, t6, t7 Term :: { tuple7(t1, t2, t3, t4, t5, t6, t7) } getTermType(tuple7(t1, t2, t3, t4, t5, t6, t7)) == 5 &&
+            getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 0) == t1 &&
+            getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 1) == t2 &&
+            getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 2) == t3 &&
+            getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 3) == t4 &&
+            getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 4) == t5 &&
+            getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 5) == t6 &&
+            getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 6) == t7
+    }
+
+    axiom { // hash is injective
+        forall t Term :: { hash(t) } getTermType(hash(t)) == 6 &&
+            getInput(hash(t)) == t
+    }
+
+    axiom { // kdf1 is injective
+        forall t Term :: { kdf1(t) } getTermType(kdf1(t)) == 7 &&
+            getInput(kdf1(t)) == t
+    }
+
+    axiom { // kdf2 is injective
+        forall t Term :: { kdf2(t) } getTermType(kdf2(t)) == 8 &&
+            getInput(kdf2(t)) == t
+    }
+
+    axiom { // kdf3 is injective
+        forall t Term :: { kdf3(t) } getTermType(kdf3(t)) == 9 &&
+            getInput(kdf3(t)) == t
     }
 
     // TODO `getPk` is currently total, should any argument be acceptable?
     axiom { // createPk is injective
-        forall sk Term :: { createPk(sk) } getTermType(createPk(sk)) == 4 &&
+        forall sk Term :: { createPk(sk) } getTermType(createPk(sk)) == 10 &&
             getSk(createPk(sk)) == sk
     }
     axiom { // pk implies its construction
-        forall t Term :: { getTermType(t) == 4 } (getTermType(t) == 4) ==> t == createPk(getSk(t))
+        forall t Term :: { getTermType(t) == 10 } (getTermType(t) == 10) ==> t == createPk(getSk(t))
     }
 
     axiom { // encrypt is injective
-        forall plaintext Term, pk Term :: { encrypt(plaintext, pk) } getTermType(encrypt(plaintext, pk)) == 5 &&
+        forall plaintext Term, pk Term :: { encrypt(plaintext, pk) } getTermType(encrypt(plaintext, pk)) == 11 &&
             getPlaintext(encrypt(plaintext, pk)) == plaintext &&
             getPk(encrypt(plaintext, pk)) == pk
     }
     axiom { // encrypt implies its constructions
-        forall t Term :: getTermType(t) == 5 ==>
+        forall t Term :: { getTermType(t) == 11 } getTermType(t) == 11 ==>
             t == encrypt(getPlaintext(t), getPk(t))
     }
 
@@ -111,109 +214,317 @@ type Term domain {
     }
     */
 
-    axiom { // random is injective
-        forall b Bytes, l label.SecrecyLabel, usage u.Usage :: { random(b, l, usage) } getTermType(random(b, l, usage)) == 6 &&
-            getRandomBytes(random(b, l, usage)) == b &&
-            getRandomLabel(random(b, l, usage)) == l &&
-            getRandomUsage(random(b, l, usage)) == usage
+    axiom {
+        getTermType(ok()) == 12
     }
 
-    axiom { // tuple2 is injective
-        forall t1, t2 Term :: { tuple2(t1, t2) } getTermType(tuple2(t1, t2)) == 7 &&
-            getFirst(tuple2(t1, t2)) == t1 &&
-            getSecond(tuple2(t1, t2)) == t2
+    axiom { // aead is injective
+        forall key, nonce, plaintext, authtext Term :: { aead(key, nonce, plaintext, authtext) } getTermType(aead(key, nonce, plaintext, authtext)) == 13 &&
+            getAeadKey(aead(key, nonce, plaintext, authtext)) == key &&
+            getAeadNonce(aead(key, nonce, plaintext, authtext)) == nonce &&
+            getPlaintext(aead(key, nonce, plaintext, authtext)) == plaintext &&
+            getAuthtext(aead(key, nonce, plaintext, authtext)) == authtext
+    }
+    axiom { // aead implies its constructions
+        forall t Term :: { getTermType(t) == 13 } getTermType(t) == 13 ==>
+            t == aead(getAeadKey(t), getAeadNonce(t), getPlaintext(t), getAuthtext(t))
+    }
+    // decrypt & verify aead with same key and nonce
+    /*
+    axiom {
+        forall key, nonce, plaintext, additionalData Term :: { aead(key, nonce, plaintext, additionalData) } getTermType(aead(key, nonce, plaintext, additionalData)) == 13 &&
+            aeadDecrypt(key, nonce, aead(key, nonce, plaintext, additionalData)) == plaintext &&
+            aeadVerify(key, nonce, additionalData, aead(key, nonce, plaintext, additionalData)) == ok()
+    }
+    */
+
+    axiom {
+        getTermType(const1()) == 14
     }
 
-    axiom { // tuple3 is injective
-        forall t1, t2, t3 Term :: { tuple3(t1, t2, t3) } getTermType(tuple3(t1, t2, t3)) == 8 &&
-            getFirst(tuple3(t1, t2, t3)) == t1 &&
-            getSecond(tuple3(t1, t2, t3)) == t2 &&
-            getThird(tuple3(t1, t2, t3)) == t3
+    axiom { // exp has type
+        forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 15
+    }
+    /* this does not hold as we can construct the same term by using exp and mult!
+    axiom { // exp is injective
+        forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 15 &&
+            getBase(exp(t1, t2)) == t1 &&
+            getExponent(exp(t1, t2)) == t2
+    }
+    
+    axiom { // exp implies its construction
+        forall t Term :: { getTermType(t) == 15 } (getTermType(t) == 15) ==> t == exp(getBase(t), getExponent(t))
+    }
+    */
+
+    axiom { // mult has type
+        forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 16
+    }
+    /* does not hold as mult is commutative!
+    axiom { // mult is injective
+        forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 16 &&
+            getTupleElem(mult(t1, t2), 0) == t1 &&
+            getTupleElem(mult(t1, t2), 1) == t2
+    }
+    */
+
+    // (x^y)^z == x^(y*z)
+    axiom {
+        forall x, y, z Term :: { exp(exp(x, y), z) } { exp(x, mult(y, z)) } exp(exp(x, y), z) == exp(x, mult(y, z))
     }
 
-    axiom { // tuple4 is injective
-        forall t1, t2, t3, t4 Term :: { tuple4(t1, t2, t3, t4) } getTermType(tuple4(t1, t2, t3, t4)) == 9 &&
-            getFirst(tuple4(t1, t2, t3, t4)) == t1 &&
-            getSecond(tuple4(t1, t2, t3, t4)) == t2 &&
-            getThird(tuple4(t1, t2, t3, t4)) == t3 &&
-            getForth(tuple4(t1, t2, t3, t4)) == t4
+    // // x^1 == x
+    // axiom {
+    //     forall x Term :: { exp(x, const1()) } exp(x, const1()) == x
+    // }
+
+    // mult is commutative
+    axiom {
+        forall x, y Term :: { mult(x, y) } mult(x, y) == mult(y, x)
     }
-}
 
-ghost
-decreases
-pure func (term Term) IsInteger64() bool {
-    return getTermType(term) == 0
-}
+    // // mult is associative
+    // axiom {
+    //     forall x, y, z Term :: { mult(mult(x, y), z) } { mult(x, mult(y, z)) } mult(mult(x, y), z) == mult(x, mult(y, z))
+    // }
 
-ghost
-decreases
-pure func (term Term) IsInteger32() bool {
-    return getTermType(term) == 1
-}
+    // // x*1 == x
+    // axiom {
+    //     forall x Term :: { mult(x, const1()) } mult(x, const1()) == x
+    // }
 
-ghost
-decreases
-pure func (term Term) IsString() bool {
-    return getTermType(term) == 2
-}
+    // // x * inv(x) == 1
+    // axiom {
+    //     forall x Term :: { mult(x, inv(x)) } mult(x, inv(x)) == const1()
+    // }
 
-ghost
-decreases
-pure func (term Term) IsZeroString() bool {
-    return getTermType(term) == 3
-}
+    axiom { // stringTerm is injective
+        forall s string :: { stringTerm(s) } getTermType(stringTerm(s)) == 17 &&
+            getString(stringTerm(s)) == s
+    }
 
-ghost
-decreases
-pure func (term Term) IsPk() bool {
-    return getTermType(term) == 4
-}
+    axiom { // zero string has type
+        forall l int :: { zeroString(l) } getTermType(zeroString(l)) == 18
+    }
 
-ghost
-decreases
-pure func (term Term) IsEncrypt() bool {
-    return getTermType(term) == 5
+    axiom { // integer64 is injective
+        forall value uint64 :: { integer64(value) } getTermType(integer64(value)) == 19 &&
+            getInt64(integer64(value)) == value
+    }
+
+    axiom { // integer32 is injective
+        forall value uint32 :: { integer32(value) } getTermType(integer32(value)) == 20 &&
+            getInt32(integer32(value)) == value
+    }
+
+    axiom {
+        getTermType(infoTerm()) == 21
+    }
+
+    axiom {
+        getTermType(prologueTerm()) == 22
+    }
+
+    axiom {
+        getTermType(generator()) == 23
+    }
+    axiom { // generator implies its construction
+        forall t Term :: { getTermType(t) == 23 } (getTermType(t) == 23) ==> t == generator()
+    }
+
+    axiom {
+        forall t Term :: { subsequent(t) } getTermType(subsequent(t)) == 24
+    }
 }
 
 ghost
 decreases
 pure func (term Term) IsRandom() bool {
-    return getTermType(term) == 6
+    return getTermType(term) == 0
+}
+
+ghost
+decreases
+pure func (term Term) IsTuple() bool {
+    return term.IsTuple2() || term.IsTuple3() || term.IsTuple4() || term.IsTuple5() || /*term.IsTuple6() ||*/ term.IsTuple7()
+}
+
+ghost
+decreases
+pure func (term Term) GetTupleArity() int {
+    return term.IsTuple2() ? 2 :
+        term.IsTuple3() ? 3 :
+        term.IsTuple4() ? 4 :
+        term.IsTuple5() ? 5 :
+        // term.IsTuple6() ? 6:
+            7
 }
 
 ghost
 decreases
 pure func (term Term) IsTuple2() bool {
-    return getTermType(term) == 7
+    return getTermType(term) == 1
 }
 
 ghost
 decreases
 pure func (term Term) IsTuple3() bool {
-    return getTermType(term) == 8
+    return getTermType(term) == 2
 }
 
 ghost
 decreases
 pure func (term Term) IsTuple4() bool {
+    return getTermType(term) == 3
+}
+
+ghost
+decreases
+pure func (term Term) IsTuple5() bool {
+    return getTermType(term) == 4
+}
+
+ghost
+decreases
+pure func (term Term) IsTuple7() bool {
+    return getTermType(term) == 5
+}
+
+ghost
+decreases
+pure func (term Term) IsHash() bool {
+    return getTermType(term) == 6
+}
+
+ghost
+decreases
+pure func (term Term) IsKdf() bool {
+    return term.IsKdf1() || term.IsKdf2() || term.IsKdf3()
+}
+
+ghost
+decreases
+pure func (term Term) IsKdf1() bool {
+    return getTermType(term) == 7
+}
+
+ghost
+decreases
+pure func (term Term) IsKdf2() bool {
+    return getTermType(term) == 8
+}
+
+ghost
+decreases
+pure func (term Term) IsKdf3() bool {
     return getTermType(term) == 9
 }
+
+ghost
+decreases
+pure func (term Term) IsPk() bool {
+    return getTermType(term) == 10
+}
+
+ghost
+decreases
+pure func (term Term) IsEncrypt() bool {
+    return getTermType(term) == 11
+}
+
+ghost
+decreases
+pure func (term Term) IsOk() bool {
+    return getTermType(term) == 12
+}
+
+ghost
+decreases
+pure func (term Term) IsAead() bool {
+    return getTermType(term) == 13
+}
+
+ghost
+decreases
+pure func (term Term) IsConst1() bool {
+    return getTermType(term) == 14
+}
+
+ghost
+decreases
+pure func (term Term) IsExp() bool {
+    return getTermType(term) == 15
+}
+
+ghost
+decreases
+pure func (term Term) IsMult() bool {
+    return getTermType(term) == 16
+}
+
+ghost
+decreases
+pure func (term Term) IsString() bool {
+    return getTermType(term) == 17
+}
+
+ghost
+decreases
+pure func (term Term) IsZeroString() bool {
+    return getTermType(term) == 18
+}
+
+ghost
+decreases
+pure func (term Term) IsInteger64() bool {
+    return getTermType(term) == 19
+}
+
+ghost
+decreases
+pure func (term Term) IsInteger32() bool {
+    return getTermType(term) == 20
+}
+
+ghost
+decreases
+pure func (term Term) IsInfo() bool {
+    return getTermType(term) == 21
+}
+
+ghost
+decreases
+pure func (term Term) IsPrologue() bool {
+    return getTermType(term) == 22
+}
+
+ghost
+decreases
+pure func (term Term) IsGenerator() bool {
+    return getTermType(term) == 23
+}
+
+ghost
+decreases
+pure func (term Term) IsSubsequent() bool {
+    return getTermType(term) == 24
+}
+
 
 
 // inspired from CrytoLib.fst line 193-198
 ghost
 decreases
-pure func decrypt(ciphertext Term, sk Term) TermOption {
+pure func decrypt(ciphertext, sk Term) option[Term] {
     return ciphertext.IsEncrypt() ?
         (getPk(ciphertext) == createPk(sk) ?
-            SomeTerm(getPlaintext(ciphertext)) :
+            some(getPlaintext(ciphertext)) :
             // sk does not match:
-            NoneTerm()) :
-        NoneTerm() // not a ciphertext
+            none[Term]) :
+        none[Term] // not a ciphertext
 }
 
-requires decrypt(ciphertext, sk) == SomeTerm(plaintext)
+requires decrypt(ciphertext, sk) == some(plaintext)
 ensures  ciphertext == encrypt(plaintext, createPk(sk))
 func pkeDecLemma(sk Term, ciphertext Term, plaintext Term) {
     // no body needed
@@ -221,80 +532,36 @@ func pkeDecLemma(sk Term, ciphertext Term, plaintext Term) {
 
 requires sk1 != sk2
 requires ciphertext == encrypt(plaintext, createPk(sk1))
-ensures  decrypt(ciphertext, sk1) == SomeTerm(plaintext)
-ensures  decrypt(ciphertext, sk2) == NoneTerm()
+ensures  decrypt(ciphertext, sk1) == some(plaintext)
+ensures  decrypt(ciphertext, sk2) == none[Term]
 func keyMismatchResultsInFailure(sk1, sk2, ciphertext, plaintext Term) {
     // no body needed
 }
 
-type TermOption domain {
-    // type 0
-    func SomeTerm(Term) TermOption
-    // type 1
-    func NoneTerm() TermOption
-    func getTerm(TermOption) Term
-    func getTermOptionType(TermOption) int
-
-    axiom { // all types covers
-        forall o TermOption :: { getTermOptionType(o) } 0 <= getTermOptionType(o) && getTermOptionType(o) <= 1
-    }
-
-    axiom { // SomeTerm is injective
-        forall t Term :: { SomeTerm(t) } getTermOptionType(SomeTerm(t)) == 0 &&
-            getTerm(SomeTerm(t)) == t
-    }
-
-    axiom { // success implies its construction
-        forall o TermOption :: { getTermOptionType(o) } getTermOptionType(o) == 0 ==>
-            o == SomeTerm(getTerm(o))
-    }
-
-    axiom { // type of NoneTerm
-        getTermOptionType(NoneTerm()) == 1
-    }
+ghost
+decreases
+pure func AeadDecrypt(ciphertext, key, nonce Term) option[Term] {
+    return ciphertext.IsAead() ?
+        ((getAeadKey(ciphertext) == key && getAeadNonce(ciphertext) == nonce) ?
+            some(getPlaintext(ciphertext)) :
+            // key or nonce does not match:
+            none[Term]) :
+        none[Term] // not an AEAD ciphertext
 }
 
 ghost
 decreases
-pure func (o TermOption) isSome() bool {
-    return getTermOptionType(o) == 0
+pure func AeadVerify(ciphertext, key, nonce, authtext Term) bool {
+    return ciphertext.IsAead() ?
+        (getAeadKey(ciphertext) == key &&
+            getAeadNonce(ciphertext) == nonce &&
+            getAuthtext(ciphertext) == authtext) :
+        false // not an AEAD ciphertext
 }
 
-requires res.isSome()
-requires getTerm(res) == t
-ensures  SomeTerm(t) == res
-func successLemma(res TermOption, t Term) {
-    // no body needed
-}
-/*
-type TermOption interface {
-    pure isDefined() bool
-
-    requires isDefined()
-    pure getTerm() Term
-}
-
-
-type SomeTerm struct {
-    term Term
-}
-
-pure func (t SomeTerm) isDefined() bool { return true }
-
-requires t.isDefined()
-pure func (t SomeTerm) getTerm() Term { return t.term }
-
+ghost
 decreases
-pure func makeSomeTerm(t Term) TermOption { return SomeTerm{t} }
-
-
-type NoneTerm struct {}
-
-pure func (t NoneTerm) isDefined() bool { return false }
-
-requires t.isDefined()
-pure func (t NoneTerm) getTerm() Term
-
-decreases
-pure func makeNoneTerm() TermOption { return NoneTerm{} }
-*/
+requires ciphertext.IsAead()
+pure func AeadExtract(ciphertext Term) Term {
+    return getAuthtext(ciphertext)
+}

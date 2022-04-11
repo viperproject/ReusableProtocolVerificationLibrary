@@ -6,7 +6,14 @@ type Usage domain {
     // type 0
     func PkeKey(string) Usage
     // type 1
+    func DhKey(string) Usage
+    // type 2
     func Nonce(string) Usage
+    // type 3
+    func AeadKey(string) Usage
+    // type 4
+    /** denotes that a key is meant as input to a KDF function */
+    func KdfKey(string) Usage
 
     // WARNING: adapt first axiom if another Usage is added!
 
@@ -15,7 +22,7 @@ type Usage domain {
     func GetUsageString(Usage) string
 
     axiom { // every usage belongs to a known type
-        forall u Usage :: { GetUsageType(u) } 0 <= GetUsageType(u) && GetUsageType(u) <= 1
+        forall u Usage :: { GetUsageType(u) } 0 <= GetUsageType(u) && GetUsageType(u) <= 4
     }
 
     axiom { // PkeKey is injective
@@ -26,12 +33,36 @@ type Usage domain {
         forall u Usage :: { GetUsageType(u) == 0 } GetUsageType(u) == 0 ==> u == PkeKey(GetUsageString(u))
     }
 
+    axiom { // DhKey is injective
+        forall s string :: { DhKey(s) } GetUsageType(DhKey(s)) == 1 &&
+            GetUsageString(DhKey(s)) == s
+    }
+    axiom { // DhKey implies its construction
+        forall u Usage :: { GetUsageType(u) == 1 } GetUsageType(u) == 1 ==> u == DhKey(GetUsageString(u))
+    }
+
     axiom { // Nonce is injective
-        forall s string :: { Nonce(s) } GetUsageType(Nonce(s)) == 1 &&
+        forall s string :: { Nonce(s) } GetUsageType(Nonce(s)) == 2 &&
             GetUsageString(Nonce(s)) == s
     }
     axiom { // Nonce implies its construction
-        forall u Usage :: { GetUsageType(u) == 1 } GetUsageType(u) == 1 ==> u == Nonce(GetUsageString(u))
+        forall u Usage :: { GetUsageType(u) == 2 } GetUsageType(u) == 2 ==> u == Nonce(GetUsageString(u))
+    }
+
+    axiom { // AeadKey is injective
+        forall s string :: { AeadKey(s) } GetUsageType(AeadKey(s)) == 3 &&
+            GetUsageString(AeadKey(s)) == s
+    }
+    axiom { // AeadKey implies its construction
+        forall u Usage :: { GetUsageType(u) == 3 } GetUsageType(u) == 3 ==> u == AeadKey(GetUsageString(u))
+    }
+
+    axiom { // KdfKey is injective
+        forall s string :: { KdfKey(s) } GetUsageType(KdfKey(s)) == 4 &&
+            GetUsageString(KdfKey(s)) == s
+    }
+    axiom { // KdfKey implies its construction
+        forall u Usage :: { GetUsageType(u) == 4 } GetUsageType(u) == 4 ==> u == KdfKey(GetUsageString(u))
     }
 }
 
@@ -41,47 +72,21 @@ pure func (u Usage) IsPkeKey() bool {
 }
 
 ghost
-pure func (u Usage) IsNonce() bool {
+pure func (u Usage) IsDhKey() bool {
     return GetUsageType(u) == 1
 }
 
-
-type UsageOption domain {
-    // type 0
-    func SomeUsage(Usage) UsageOption
-    // type 1
-    func NoneUsage() UsageOption
-    func getUsage(UsageOption) Usage
-    func getUsageOptionType(UsageOption) int
-
-    axiom { // all types covers
-        forall o UsageOption :: { getUsageOptionType(o) } 0 <= getUsageOptionType(o) && getUsageOptionType(o) <= 1
-    }
-
-    axiom { // SomeUsage is injective
-        forall u Usage :: { SomeUsage(u) } getUsageOptionType(SomeUsage(u)) == 0 &&
-            getUsage(SomeUsage(u)) == u
-    }
-
-    axiom { // success implies its construction
-        forall o UsageOption :: { getUsageOptionType(o) } getUsageOptionType(o) == 0 ==>
-            o == SomeUsage(getUsage(o))
-    }
-
-    axiom { // type of NoneTerm
-        getUsageOptionType(NoneUsage()) == 1
-    }
+ghost
+pure func (u Usage) IsNonce() bool {
+    return GetUsageType(u) == 2
 }
 
 ghost
-decreases
-pure func (o UsageOption) isSome() bool {
-    return getUsageOptionType(o) == 0
+pure func (u Usage) IsAeadKey() bool {
+    return GetUsageType(u) == 3
 }
 
-requires res.isSome()
-requires getUsage(res) == u
-ensures  SomeUsage(u) == res
-func usageSuccessLemma(res UsageOption, u Usage) {
-    // no body needed
+ghost
+pure func (u Usage) IsKdfKey() bool {
+    return GetUsageType(u) == 4
 }

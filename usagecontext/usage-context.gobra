@@ -2,8 +2,15 @@ package usagecontext
 
 import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+import u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
+
+
+type UsageOption = option[u.Usage]
 
 type UsageContext interface {
+    ghost
+    pure GetUsage(t tm.Term) UsageOption
+
     ghost
     pure PkePred(t tr.TraceEntry, usageString string, plaintext, pk tm.Term) bool
 
@@ -13,3 +20,19 @@ type UsageContext interface {
     ensures  PkePred(t2, usageString, plaintext, pk)
     PkePredMonotonic(t1, t2 tr.TraceEntry, usageString string, plaintext, pk tm.Term)
 }
+
+// ghost
+// pure func GetUsage(ctx UsageContext, t tm.Term) option[u.Usage] {
+//     return t.IsRandom() ? some(tm.getRandomUsage(t)) :
+//         (t.IsKdf() && HasKdfUsage(ctx, tm.getInput(t))) ? ctx.KdfUsage(t, u.GetUsageString(get(GetUsage(ctx, tm.getInput(t))))) :
+//         t.IsTuple2() ? ctx.Tuple2Usage(t) :
+//         // TODO add other usages e.g. for DH or key expansion
+//         none[u.Usage]
+// }
+
+// ghost
+// /** input is the term that is used as key argument to a KDF function */
+// pure func HasKdfUsage(ctx UsageContext, t tm.Term) bool {
+//     return GetUsage(ctx, t) != none[u.Usage] &&
+//         get(GetUsage(ctx, t)).IsKdfKey()
+// }

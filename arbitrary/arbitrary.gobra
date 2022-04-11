@@ -32,6 +32,9 @@ func GetArbEvent() ev.Event
 decreases
 func GetArbUsage() u.Usage
 
+decreases
+func GetArbString() string
+
 /*
 func sanityCheck() {
     term1 := GetArbTerm()

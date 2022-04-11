@@ -54,7 +54,7 @@ func (com *ChannelCommunicaton) Send(idSender, idReceiver p.Principal, msg lib.B
 //@ ensures  err == nil ==> lib.Mem(msg)
 //@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
 //@ ensures  err == nil ==> snapshot.messageOccurs(idSender, idReceiver, msgT)
-func (com *ChannelCommunicaton) Recv(idSender, idReceiver p.Principal /*@, ghost snapshot tr.TraceEntry @*/) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/) {
+func (com *ChannelCommunicaton) Receive(idSender, idReceiver p.Principal /*@, ghost snapshot tr.TraceEntry @*/) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/) {
 	channel := (com.channels)[ChannelKey{idSender, idReceiver}]
 	msg = <-channel
 	return msg, nil /*@, tm.oneTerm(msg) @*/

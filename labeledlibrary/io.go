@@ -27,7 +27,7 @@ type Communication interface {
 	//@ ensures  err == nil ==> lib.Mem(msg)
 	//@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
 	//@ ensures  err == nil ==> snapshot.messageOccurs(idSender, idReceiver, msgT)
-	Recv(idSender, idReceiver p.Principal /*@, ghost snapshot tr.TraceEntry @*/) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/)
+	Receive(idSender, idReceiver p.Principal /*@, ghost snapshot tr.TraceEntry @*/) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/)
 }
 
 
@@ -64,10 +64,10 @@ func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteStri
 //@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
 //@ ensures  err == nil ==> tr.messageInv(l.Ctx(), idSender, idReceiver, msgT, l.Snapshot())
 //@ ensures  err == nil ==> (l.Snapshot()).messageOccurs(idSender, idReceiver, msgT)
-func (l *LabeledLibrary) Recv(idSender, idReceiver p.Principal) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/) {
+func (l *LabeledLibrary) Receive(idSender, idReceiver p.Principal) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/) {
 	//@ snapshot := l.Snapshot()
 	//@ unfold l.Mem()
-	msg, err /*@, msgT @*/ = l.com.Recv(idSender, idReceiver /*@, snapshot @*/)
+	msg, err /*@, msgT @*/ = l.com.Receive(idSender, idReceiver /*@, snapshot @*/)
 	//@ fold l.Mem()
 	/*@
 	ghost if err == nil {

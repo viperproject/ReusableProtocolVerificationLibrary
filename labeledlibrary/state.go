@@ -27,7 +27,7 @@ type LabeledLibrary struct {
 /*@
 pred (l *LabeledLibrary) Mem() {
 	acc(l) &&
-	acc(l.s.LibMem(), 1/8) &&
+	acc(l.s.Mem(), 1/8) &&
 	acc(l.com.LibMem(), 1/8) && isComparable(l.com) &&
 	isComparable(l.ctx) &&
 	typeOf(l.ctx.GetLabeling()) == labeling.DefaultLabelingContext &&
@@ -79,7 +79,7 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 }
 @*/
 
-//@ requires acc(s.LibMem(), 1/8)
+//@ requires acc(s.Mem(), 1/8)
 //@ requires acc(com.LibMem(), 1/8) && isComparable(com)
 //@ requires manager.Mem(ctx, owner)
 //@ requires isComparable(ctx)
@@ -174,10 +174,12 @@ ensures  l.Snapshot() == old(l.Snapshot())
 ensures  forall oldSnap tr.TraceEntry :: { oldSnap.getCorruptIds() } oldSnap.isSuffix(l.Snapshot()) ==> oldSnap.getCorruptIds() subset (l.Snapshot()).getCorruptIds()
 ensures  forall oldSnap tr.TraceEntry, term tm.Term :: { labelCtx.IsValid(oldSnap, term) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsValid(oldSnap, term) ==> labelCtx.IsValid(l.Snapshot(), term)
 ensures  forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel :: { labelCtx.IsLabeled(oldSnap, term, sLabel) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsLabeled(oldSnap, term, sLabel) ==> labelCtx.IsLabeled(l.Snapshot(), term, sLabel)
+ensures  forall oldSnap tr.TraceEntry, l1, l2 label.SecrecyLabel :: { labelCtx.CanFlow(oldSnap, l1, l2) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.CanFlow(oldSnap, l1, l2) ==> labelCtx.CanFlow(l.Snapshot(), l1, l2)
 ensures  forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel, usage u.Usage :: { labelCtx.IsSecret(oldSnap, term, sLabel, usage) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsSecret(oldSnap, term, sLabel, usage) ==> labelCtx.IsSecret(l.Snapshot(), term, sLabel, usage)
 ensures  forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel :: { labelCtx.IsMsg(oldSnap, term, sLabel) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsMsg(oldSnap, term, sLabel) ==> labelCtx.IsMsg(l.Snapshot(), term, sLabel)
 ensures  forall oldSnap tr.TraceEntry, owner p.Id, sk tm.Term, keyType labeling.KeyType, usage string :: { labelCtx.IsSecretKey(oldSnap, owner, sk, keyType, usage) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsSecretKey(oldSnap, owner, sk, keyType, usage) ==> labelCtx.IsSecretKey(l.Snapshot(), owner, sk, keyType, usage)
 ensures  forall oldSnap tr.TraceEntry, owner p.Id, pk, sk tm.Term, keyType labeling.KeyType, usage string :: { labelCtx.IsPublicKey(oldSnap, owner, pk, sk, keyType, usage) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsPublicKey(oldSnap, owner, pk, sk, keyType, usage) ==> labelCtx.IsPublicKey(l.Snapshot(), owner, pk, sk, keyType, usage)
+ensures  forall oldSnap tr.TraceEntry, owner p.Id, pk tm.Term, keyType labeling.KeyType, usage string :: { labelCtx.IsPublicKeyExistential(oldSnap, owner, pk, keyType, usage) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsPublicKeyExistential(oldSnap, owner, pk, keyType, usage) ==> labelCtx.IsPublicKeyExistential(l.Snapshot(), owner, pk, keyType, usage)
 ensures  forall oldSnap tr.TraceEntry, principal p.Principal, event ev.Event :: { oldSnap.eventOccurs(principal, event) } oldSnap.isSuffix(l.Snapshot()) &&oldSnap.eventOccurs(principal, event) ==>  (l.Snapshot()).eventOccurs(principal, event)
 ensures  forall oldSnap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term :: { oldSnap.messageOccurs(sender, receiver, payload) } oldSnap.isSuffix(l.Snapshot()) &&oldSnap.messageOccurs(sender, receiver, payload) ==>  (l.Snapshot()).messageOccurs(sender, receiver, payload)
 ensures  forall oldSnap tr.TraceEntry, nonce tm.Term :: { oldSnap.OnlyNonceOccurs(nonce) } oldSnap.isSuffix(l.Snapshot()) && oldSnap.OnlyNonceOccurs(nonce) ==>  (l.Snapshot()).OnlyNonceOccurs(nonce)
@@ -188,6 +190,7 @@ func (l *LabeledLibrary) ApplyMonotonicityDflt(labelCtx labeling.DefaultLabeling
 	arbSnap := arb.GetArbTraceEntry()
 	arbTerm := arb.GetArbTerm()
 	arbLabel := arb.GetArbLabel()
+	arbLabel2 := arb.GetArbLabel()
 	arbPrincipal := arb.GetArbPrincipal()
 	arbEvent := arb.GetArbEvent()
 	arbSender := arb.GetArbPrincipal()
@@ -199,6 +202,9 @@ func (l *LabeledLibrary) ApplyMonotonicityDflt(labelCtx labeling.DefaultLabeling
 		arbSnap.getCorruptIdsMonotonic(l.Snapshot())
 		if (labelCtx.IsValid(arbSnap, arbTerm)) {
 			labelCtx.IsValidMonotonic(arbSnap, l.Snapshot(), arbTerm)
+		}
+		if (labelCtx.CanFlow(arbSnap, arbLabel, arbLabel2)) {
+			labelCtx.CanFlowMonotonic(arbSnap, l.Snapshot(), arbLabel, arbLabel2)
 		}
 		if (labelCtx.IsMsg(arbSnap, arbTerm, arbLabel)) {
 			labelCtx.IsMsgMonotonic(arbSnap, l.Snapshot(), arbTerm, arbLabel)
@@ -220,6 +226,8 @@ func (l *LabeledLibrary) ApplyMonotonicityDflt(labelCtx labeling.DefaultLabeling
 	assume forall oldSnap tr.TraceEntry :: { oldSnap.getCorruptIds() } oldSnap.isSuffix(l.Snapshot()) ==> oldSnap.getCorruptIds() subset (l.Snapshot()).getCorruptIds()
 	assert arbSnap.isSuffix(l.Snapshot()) && labelCtx.IsValid(arbSnap, arbTerm) ==> labelCtx.IsValid(l.Snapshot(), arbTerm)
 	assume forall oldSnap tr.TraceEntry, term tm.Term :: { labelCtx.IsValid(oldSnap, term) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsValid(oldSnap, term) ==> labelCtx.IsValid(l.Snapshot(), term)
+	assert arbSnap.isSuffix(l.Snapshot()) && labelCtx.CanFlow(arbSnap, arbLabel, arbLabel2) ==> labelCtx.CanFlow(l.Snapshot(), arbLabel, arbLabel2)
+	assume forall oldSnap tr.TraceEntry, l1, l2 label.SecrecyLabel :: { labelCtx.CanFlow(oldSnap, l1, l2) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.CanFlow(oldSnap, l1, l2) ==> labelCtx.CanFlow(l.Snapshot(), l1, l2)
 	assert arbSnap.isSuffix(l.Snapshot()) && labelCtx.IsMsg(arbSnap, arbTerm, arbLabel) ==> labelCtx.IsMsg(l.Snapshot(), arbTerm, arbLabel)
 	assume forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel :: { labelCtx.IsMsg(oldSnap, term, sLabel) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsMsg(oldSnap, term, sLabel) ==> labelCtx.IsMsg(l.Snapshot(), term, sLabel)
 	assert arbSnap.isSuffix(l.Snapshot()) && arbSnap.eventOccurs(arbPrincipal, arbEvent) ==> (l.Snapshot()).eventOccurs(arbPrincipal, arbEvent)
@@ -230,6 +238,19 @@ func (l *LabeledLibrary) ApplyMonotonicityDflt(labelCtx labeling.DefaultLabeling
 	assume forall oldSnap tr.TraceEntry, nonce tm.Term :: { oldSnap.OnlyNonceOccurs(nonce) } oldSnap.isSuffix(l.Snapshot()) && oldSnap.OnlyNonceOccurs(nonce) ==> (l.Snapshot()).OnlyNonceOccurs(nonce)
 	assert arbSnap.isSuffix(l.Snapshot()) && arbSnap.nonceOccurs(arbTerm, arbNonceLabel, arbNonceUsage) ==> (l.Snapshot()).nonceOccurs(arbTerm, arbNonceLabel, arbNonceUsage)
 	assume forall oldSnap tr.TraceEntry, nonce tm.Term, nonceLabel label.SecrecyLabel, nonceUsage u.Usage :: { oldSnap.nonceOccurs(nonce, nonceLabel, nonceUsage) } oldSnap.isSuffix(l.Snapshot()) && oldSnap.nonceOccurs(nonce, nonceLabel, nonceUsage) ==> (l.Snapshot()).nonceOccurs(nonce, nonceLabel, nonceUsage)
+
+	// IsPublicKey does not require any proof steps but IsPublicKeyExistential does:
+	arbOwner := arb.GetArbId()
+	arbPk := arb.GetArbTerm()
+	arbKeyType := labeling.GetArbKeyType()
+	arbUsageString := arb.GetArbString()
+	if (arbSnap.isSuffix(l.Snapshot()) &&
+		labelCtx.IsPublicKeyExistential(arbSnap, arbOwner, arbPk, arbKeyType, arbUsageString)) {
+		assert exists sk tm.Term :: { labelCtx.IsPublicKey(arbSnap, arbOwner, arbPk, sk, arbKeyType, arbUsageString) } labelCtx.IsPublicKey(arbSnap, arbOwner, arbPk, sk, arbKeyType, arbUsageString)
+		// get witness
+		skWitness := arb.GetArbTerm()
+		assume labelCtx.IsPublicKey(arbSnap, arbOwner, arbPk, skWitness, arbKeyType, arbUsageString)
+	}
 }
 
 ghost

@@ -1,0 +1,1201 @@
+package labeling
+
+import arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
+import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
+import "gitlab.inf.ethz.ch/arquintl/prototrace/label"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+import u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
+import . "gitlab.inf.ethz.ch/arquintl/prototrace/usagecontext"
+
+type DefaultLabelingContext struct {
+    usage UsageContext
+}
+DefaultLabelingContext implements tr.LabelingContext
+
+// TODO make ghost
+pure func GetDefaultLabelingContext(usage UsageContext) (res DefaultLabelingContext) {
+    return DefaultLabelingContext{ usage }
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bool {
+    return (term.IsInteger64() ==> true) &&
+        (term.IsInteger32() ==> true) &&
+        (term.IsConst1() ==> true) &&
+        (term.IsString() ==> true) &&
+        (term.IsZeroString() ==> true) &&
+        (term.IsInfo() ==> true) &&
+        (term.IsPrologue() ==> true) &&
+        (term.IsGenerator() ==> true) &&
+        (term.IsPk() ==> ctx.IsValid(t, tm.getSk(term))) &&
+        (term.IsEncrypt() ==>
+            ctx.IsValidEncrypt(t, tm.getPk(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)))) &&
+        (term.IsAead() ==>
+            ctx.IsValidAead(t, tm.getAeadKey(term), tm.getAeadNonce(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)), tm.getAuthtext(term))) &&
+        (term.IsRandom() ==>
+            // (tm.getRandomTrace(term)).traceLen() <= t.traceLen() &&
+            // TODO isn't the following expression trivially true?
+            // (tm.getRandomTrace(term)).isNonceAt(term) &&
+            // (tm.getRandomTrace(term)).isNonce() && tr.getNonce(tm.getRandomTrace(term)) == tm.gamma(term)) &&
+            // this is equivalent to saying that `term` occurs in a nonce entry on the trace because
+            // the random term determines its label and usage. However, `nonceOccurs` saves us from
+            // writing yet another function to simply state that `term` is on the trace
+            // t.nonceOccurs(term, tm.getRandomLabel(term), tm.getRandomUsage(term))) &&
+            t.OnlyNonceOccurs(term)) &&
+        (term.IsExp() ==> exists base, e tm.Term :: { tm.exp(base, e) } term == tm.exp(base, e) && ctx.IsValid(t, base) && ctx.IsValid(t, e)) &&
+        ((term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> ctx.IsValid(t, tm.getInput(term))) &&
+        (term.IsTuple() ==> forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsValid(t, tm.getTupleElem(term, i)))
+}
+
+ghost
+requires ctx.GetLabel(plaintext) == plaintextLabel
+pure func (ctx DefaultLabelingContext) IsValidEncrypt(t tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel) bool {
+    return ctx.IsValid(t, pk) &&
+        ctx.IsValid(t, plaintext) &&
+        // message has to flow to secrecy label of secret key
+        ctx.CanFlow(t, plaintextLabel, ctx.GetSimplifiedSkLabel(pk)) &&
+        (
+            // either the plaintext is public ...
+            ctx.CanFlow(t, plaintextLabel, label.Public()) ||
+            // ... or pkePred holds
+            (
+                pk.IsPk() &&
+                ctx.IsPkeKey(tm.getSk(pk)) &&
+                ctx.usage.PkePred(t, u.GetUsageString(get(ctx.GetUsage(tm.getSk(pk)))), plaintext, pk)))
+}
+
+ghost
+requires ctx.GetLabel(plaintext) == plaintextLabel
+pure func (ctx DefaultLabelingContext) IsValidAead(t tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term) bool {
+    return ctx.IsValid(t, key) &&
+        ctx.IsValid(t, nonce) &&
+        ctx.IsValid(t, plaintext) &&
+        ctx.IsValid(t, authtext) &&
+        // authtext has to flow to public
+        ctx.CanFlow(t, ctx.GetLabel(authtext), label.Public()) // &&
+        // message has to flow to secrecy label of key
+        // ctx.CanFlow(t, plaintextLabel, ctx.GetLabel(key))
+        // TODO add something similar to pkePred above
+}
+
+ghost
+decreases _ // TODO decreases because we apply an term ADT constructor in each recursive call
+requires t1.isSuffix(t2)
+requires ctx.IsValid(t1, term)
+ensures  ctx.IsValid(t2, term)
+func (ctx DefaultLabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term) {
+    if (term.IsRandom()) {
+        t1.OnlyNonceOccursMonotonic(t2, term)
+    } else if (term.IsPk()) {
+        ctx.IsValidMonotonic(t1, t2, tm.getSk(term))
+    } else if (term.IsEncrypt()) {
+        pk := tm.getPk(term)
+        plaintext := tm.getPlaintext(term)
+        ctx.IsValidEncryptMonotonic(t1, t2, pk, plaintext, ctx.GetLabel(plaintext))
+    } else if term.IsAead() {
+        key := tm.getAeadKey(term)
+        nonce := tm.getAeadNonce(term)
+        plaintext := tm.getPlaintext(term)
+        authtext := tm.getAuthtext(term)
+        ctx.IsValidAeadMonotonic(t1, t2, key, nonce, plaintext, ctx.GetLabel(plaintext), authtext)
+    } else if term.IsExp() {
+        assert exists base, e tm.Term :: { tm.exp(base, e) } term == tm.exp(base, e) && ctx.IsValid(t1, base) && ctx.IsValid(t1, e)
+        base, e := arb.GetArbTerm(), arb.GetArbTerm()
+        assume term == tm.exp(base, e) && ctx.IsValid(t1, base) && ctx.IsValid(t1, e)
+        ctx.IsValidMonotonic(t1, t2, base)
+        ctx.IsValidMonotonic(t1, t2, e)
+    } else if (term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) {
+        ctx.IsValidMonotonic(t1, t2, tm.getInput(term))
+    } else if term.IsTuple() {
+        invariant 0 <= i && i <= term.GetTupleArity()
+        invariant forall j int :: { tm.getTupleElem(term, j) } 0 <= j && j < term.GetTupleArity() ==> ctx.IsValid(t1, tm.getTupleElem(term, j))
+        invariant forall j int :: { tm.getTupleElem(term, j) } 0 <= j && j < i ==> ctx.IsValid(t2, tm.getTupleElem(term, j))
+        for i := 0; i < term.GetTupleArity(); i++ {
+            ctx.IsValidMonotonic(t1, t2, tm.getTupleElem(term, i))
+        }
+    }
+}
+
+ghost
+decreases _ // TODO decreases because we apply an term ADT constructor in each recursive call
+requires t1.isSuffix(t2)
+requires ctx.GetLabel(plaintext) == plaintextLabel
+requires ctx.IsValidEncrypt(t1, pk, plaintext, plaintextLabel)
+ensures  ctx.IsValidEncrypt(t2, pk, plaintext, plaintextLabel)
+func (ctx DefaultLabelingContext) IsValidEncryptMonotonic(t1, t2 tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel) {
+    ctx.IsValidMonotonic(t1, t2, pk)
+    ctx.IsValidMonotonic(t1, t2, plaintext)
+    skLabel := ctx.GetSimplifiedSkLabel(pk)
+    ctx.CanFlowMonotonic(t1, t2, plaintextLabel, skLabel)
+    if (ctx.CanFlow(t1, plaintextLabel, label.Public())) {
+        ctx.CanFlowMonotonic(t1, t2, plaintextLabel, label.Public())
+    } else {
+        ctx.usage.PkePredMonotonic(t1, t2, u.GetUsageString(get(ctx.GetUsage(tm.getSk(pk)))), plaintext, pk)
+    }
+}
+
+ghost
+decreases _ // TODO decreases because we apply an term ADT constructor in each recursive call
+requires t1.isSuffix(t2)
+requires ctx.GetLabel(plaintext) == plaintextLabel
+requires ctx.IsValidAead(t1, key, nonce, plaintext, plaintextLabel, authtext)
+ensures  ctx.IsValidAead(t2, key, nonce, plaintext, plaintextLabel, authtext)
+func (ctx DefaultLabelingContext) IsValidAeadMonotonic(t1, t2 tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term) {
+    ctx.IsValidMonotonic(t1, t2, key)
+    ctx.IsValidMonotonic(t1, t2, nonce)
+    ctx.IsValidMonotonic(t1, t2, plaintext)
+    ctx.IsValidMonotonic(t1, t2, authtext)
+    ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(authtext), label.Public())
+    // ctx.CanFlowMonotonic(t1, t2, plaintextLabel, ctx.GetLabel(key))
+}
+
+ghost
+/** expresses that a term is valid and that its simplified label is `l` */
+pure func (ctx DefaultLabelingContext) IsLabeled(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
+    return ctx.IsValid(t, term) &&
+        ctx.GetLabel(term).GetSet() == l.GetSet()
+        // ctx.Simplify(ctx.GetLabel(term)) == l
+        // ctx.GetLabel(term) == l
+}
+
+ghost
+decreases
+requires t1.isSuffix(t2)
+requires ctx.IsLabeled(t1, term, l)
+ensures  ctx.IsLabeled(t2, term, l)
+func (ctx DefaultLabelingContext) IsLabeledMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+    ctx.IsValidMonotonic(t1, t2, term)
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsSecret(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
+    return ctx.IsLabeled(t, term, l) &&
+        ctx.GetUsage(term) == some(usage)
+}
+
+ghost
+decreases
+requires t1.isSuffix(t2)
+requires ctx.IsSecret(t1, term, l, usage)
+ensures  ctx.IsSecret(t2, term, l, usage)
+func (ctx DefaultLabelingContext) IsSecretMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
+    ctx.IsLabeledMonotonic(t1, t2, term, l)
+}
+/*
+ghost
+pure func (ctx DefaultLabelingContext) GetLabel(term tm.Term) label.SecrecyLabel {
+    return ctx.Simplify(ctx.GetLabelOld(term))
+}
+*/
+
+ghost
+/**
+  * WARNING:
+  * 2 terms that are equal based on the equational theory must return the same label!
+  */
+pure func (ctx DefaultLabelingContext) GetLabel(term tm.Term) label.SecrecyLabel {
+    return term.IsInteger64() ? label.Public() :
+        term.IsInteger32() ? label.Public() :
+        term.IsConst1() ? label.Public() :
+        term.IsString() ? label.Public() :
+        term.IsZeroString() ? label.Public() :
+        term.IsInfo() ? label.Public() :
+        term.IsPrologue() ? label.Public() :
+        term.IsGenerator() ? label.Public() :
+        term.IsPk() ? label.Public() :
+        term.IsEncrypt() ? label.Public() :
+        term.IsAead() ? label.Public() :
+        term.IsRandom() ? tm.getRandomLabel(term) :
+        // DH exponentiation is special cased:
+        // if a term is `(g^x)^y` or equivalently `g^(x*y)` it results in the join label of x and y
+        // i.e. the DH key can be read by all readers of x and y (set union) since it's sufficient
+        // to either know x or y as the public key is public.
+        // this could be extended to `((g^x)^y)^z` where it is sufficient to know two out of the three
+        // secret keys x, y, and z and a public key. The resulting label would be:
+        // `(l(x) ∩ l(y)) ∪ (l(x) ∩ l(z)) ∪ (l(y) ∩ l(z))` where `l(w)` denotes the label of term `w`.
+        // Since this case does not occur in any case study considered so far, we over-approximate the
+        // label (i.e. underapproximate the set of readers) by using `l((g^x)^y) ∩ l(z)` which is equivalent
+        // to `(l(x) ∪ l(y)) ∩ l(z)`.
+        // the `IsDHExp` cases also handles `g^(x*y)` as the terms are equal.
+        ctx.IsDHExp(term) ? ctx.Simplify(label.Join(ctx.GetLabel(ctx.GetDHExpSk1(term)), ctx.GetLabel(ctx.GetDHExpSk2(term)))) :
+        ctx.IsDHPk(term) ? label.Public() :
+        // what follows now are the cases for `exp` and `mult` that do not match DH exponentiation:
+        ctx.IsExp(term) ? label.Meet(ctx.GetLabel(ctx.GetExpBase(term)), ctx.GetLabel(ctx.GetExpExp(term))) :
+        ctx.IsMult(term) ? label.Meet(ctx.GetLabel(ctx.GetMultT1(term)), ctx.GetLabel(ctx.GetMultT2(term))) :
+        // hash, kdf1, kdf2, and kdf3 are considered one-way functions
+        // such that they are of any use (applying a KDF to a secret value), their return value's label corresponds to the one of the argument:
+        // TODO: why are hashes not considered public?
+        (term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ? ctx.GetLabel(tm.getInput(term)) :
+        term.IsTuple() ? ctx.nestedMeet(getTupleSeq(term), 0) : // intersection of audience is allowed to read
+            label.Readers(set[p.Id]{}) // this is most restrictive label, i.e. no one is allowed to read
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsDHExp(term tm.Term) bool {
+    return term.IsExp() &&
+        exists sk1, sk2 tm.Term :: { tm.exp(tm.exp(tm.generator(), sk1), sk2) } term == tm.exp(tm.exp(tm.generator(), sk1), sk2)
+}
+
+ghost
+requires ctx.IsDHExp(term)
+ensures  term == tm.exp(tm.exp(tm.generator(), res), ctx.GetDHExpSk2(term))
+/** returns witness */
+pure func (ctx DefaultLabelingContext) GetDHExpSk1(term tm.Term) (res tm.Term)
+
+ghost
+requires ctx.IsDHExp(term)
+ensures  term == tm.exp(tm.exp(tm.generator(), ctx.GetDHExpSk1(term)), res)
+/** returns witness */
+pure func (ctx DefaultLabelingContext) GetDHExpSk2(term tm.Term) (res tm.Term)
+
+ghost
+pure func (ctx DefaultLabelingContext) IsDHPk(term tm.Term) bool {
+    return term.IsExp() && exists sk tm.Term :: { tm.exp(tm.generator(), sk) } term == tm.exp(tm.generator(), sk)
+}
+
+ghost
+requires ctx.IsDHPk(term)
+ensures  term == tm.exp(tm.generator(), res)
+pure func (ctx DefaultLabelingContext) GetDHSk(term tm.Term) (res tm.Term)
+
+ghost
+pure func (ctx DefaultLabelingContext) IsExp(term tm.Term) bool {
+    return term.IsExp() &&
+        exists base, exp tm.Term :: { tm.exp(base, exp) } term == tm.exp(base, exp)
+}
+
+ghost
+requires ctx.IsExp(term)
+ensures  term == tm.exp(res, ctx.GetExpExp(term))
+/** returns witness */
+pure func (ctx DefaultLabelingContext) GetExpBase(term tm.Term) (res tm.Term)
+
+ghost
+requires ctx.IsExp(term)
+ensures  term == tm.exp(ctx.GetExpBase(term), res)
+/** returns witness */
+pure func (ctx DefaultLabelingContext) GetExpExp(term tm.Term) (res tm.Term)
+
+ghost
+pure func (ctx DefaultLabelingContext) IsMult(term tm.Term) bool {
+    return term.IsMult() &&
+        exists t1, t2 tm.Term :: { tm.mult(t1, t2) } term == tm.mult(t1, t2)
+}
+
+ghost
+requires ctx.IsMult(term)
+ensures  term == tm.mult(res, ctx.GetMultT2(term))
+/** returns witness */
+pure func (ctx DefaultLabelingContext) GetMultT1(term tm.Term) (res tm.Term)
+
+ghost
+requires ctx.IsMult(term)
+ensures  term == tm.mult(ctx.GetMultT1(term), res)
+/** returns witness */
+pure func (ctx DefaultLabelingContext) GetMultT2(term tm.Term) (res tm.Term)
+
+// ghost
+// /**
+//   * WARNING:
+//   * 2 terms that are equal based on the equational theory must return the same label!
+//   */
+// pure func (ctx DefaultLabelingContext) GetLabel(term tm.Term) label.SecrecyLabel {
+//     return term.IsInteger64() ? label.Public() :
+//         term.IsInteger32() ? label.Public() :
+//         term.IsConst1() ? label.Public() :
+//         term.IsString() ? label.Public() :
+//         term.IsZeroString() ? label.Public() :
+//         term.IsInfo() ? label.Public() :
+//         term.IsPrologue() ? label.Public() :
+//         term.IsGenerator() ? label.Public() :
+//         term.IsPk() ? label.Public() :
+//         term.IsEncrypt() ? label.Public() :
+//         term.IsAead() ? label.Public() :
+//         term.IsRandom() ? tm.getRandomLabel(term) :
+//         // result of a DH exponentiation is public:
+//         // note that it's not sufficient to just look at `tm.getBase(term)` but we have to
+//         // consider recursively whether there is a generator base due to the equational theory that
+//         // `((w^x)^y)^z == w^(x*y*z)` and the fact that we must return equal labels for equal terms
+//         (term.IsExp() && ctx.HasGeneratorBase(term)) ? label.Public() :
+//         term.IsExp() ? label.Meet(ctx.GetLabel(tm.getBase(term)), ctx.GetLabel(tm.getExponent(term))) :
+//         term.IsMult() ? label.Meet(ctx.GetLabel(tm.getTupleElem(term, 0)), ctx.GetLabel(tm.getTupleElem(term, 1))) :
+//         // hash, kdf1, kdf2, and kdf3 are considered one-way functions
+//         // such that they are of any use (applying a KDF to a secret value), their return value's label corresponds to the one of the argument:
+//         // TODO: why are hashes not considered public?
+//         (term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ? ctx.GetLabel(tm.getInput(term)) :
+//         term.IsTuple() ? ctx.nestedMeet(getTupleSeq(term), 0) : // intersection of audience is allowed to read
+//             label.Readers(set[p.Id]{}) // this is most restrictive label, i.e. no one is allowed to read
+// }
+
+// ghost
+// pure func (ctx DefaultLabelingContext) HasGeneratorBase(term tm.Term) bool {
+//     return term.IsExp() && exists e tm.Term :: { tm.exp(tm.generator(), e) } term == tm.exp(tm.generator(), e)
+//     /*
+//     return term.IsExp() && (
+//         tm.getBase(term) == tm.generator() ||
+//         ctx.HasGeneratorBase(tm.getBase(term)))
+//     */
+// }
+
+ghost
+pure func (ctx DefaultLabelingContext) Simplify(l label.SecrecyLabel) label.SecrecyLabel{
+    /*
+    return (l.IsJoin() && ctx.Simplify(label.GetFirstLabel(l)).IsReaders() && ctx.Simplify(label.GetSecondLabel(l)).IsReaders()) ?
+            label.Readers(label.GetReaders(ctx.Simplify(label.GetFirstLabel(l))) union label.GetReaders(ctx.Simplify(label.GetSecondLabel(l)))) :
+        (l.IsMeet() && ctx.Simplify(label.GetFirstLabel(l)).IsPublic()) ? label.GetSecondLabel(l) :
+        (l.IsMeet() && ctx.Simplify(label.GetSecondLabel(l)).IsPublic()) ? label.GetFirstLabel(l) :
+            l // keep label unchanged
+    */
+    return l // keep label unchanged
+}
+
+ghost
+decreases
+ensures ctx.CanFlow(t, ctx.Simplify(ctx.GetLabel(term)), ctx.GetLabel(term))
+ensures ctx.CanFlow(t, ctx.GetLabel(term), ctx.Simplify(ctx.GetLabel(term)))
+func (ctx DefaultLabelingContext) SimplifyLemma(t tr.TraceEntry, term tm.Term) {
+    l := ctx.GetLabel(term)
+    ctx.CanFlowReflexive(t, l)
+    ctx.SimplifyRespectsFlowLemma(t, l, l)
+}
+
+ghost
+decreases _ // TODO l decreases in the sense of the secrecy label ADT
+requires ctx.CanFlow(t, l, l2)
+requires ctx.CanFlow(t, l2, l)
+ensures ctx.CanFlow(t, ctx.Simplify(l), l2)
+ensures ctx.CanFlow(t, l2, ctx.Simplify(l))
+/** 
+  * proves that the transformation applied by `Simplify` is correct in the sense that the resulting label
+  * label is equivalent in terms of `CanFlow` compared to the previous label
+  */
+func (ctx DefaultLabelingContext) SimplifyRespectsFlowLemma(t tr.TraceEntry, l, l2 label.SecrecyLabel) {
+    if l.IsJoin() && ctx.Simplify(label.GetFirstLabel(l)).IsReaders() && ctx.Simplify(label.GetSecondLabel(l)).IsReaders() {
+        firstL := label.GetFirstLabel(l)
+        secondL := label.GetSecondLabel(l)
+        finalL := ctx.Simplify(l)
+        if l2.IsPublic() || l2.IsReaders() {
+            assert ctx.CanFlow(t, firstL, l2) || ctx.CanFlow(t, secondL, l2)
+            if ctx.CanFlow(t, firstL, l2) {
+                ctx.CanFlowReflexive(t, firstL)
+                ctx.SimplifyRespectsFlowLemma(t, firstL, firstL)
+                ctx.CanFlowTransitive(t, ctx.Simplify(firstL), firstL, l2)
+                ctx.CanFlowTransitive(t, l2, firstL, ctx.Simplify(firstL))
+
+                // assert ctx.CanFlow(t, ctx.Simplify(firstL), l2)
+                // assert ctx.CanFlow(t, l2, ctx.Simplify(firstL))
+                // assert ctx.CanFlow(t, finalL, l2)
+
+                // assert label.GetReaders(ctx.Simplify(firstL)) subset label.GetReaders(finalL)
+
+                // assert ctx.CanFlow(t, ctx.Simplify(firstL), finalL)
+                assert ctx.CanFlow(t, l2, ctx.Simplify(firstL))
+                
+            } else {
+                ctx.CanFlowReflexive(t, secondL)
+                ctx.SimplifyRespectsFlowLemma(t, secondL, secondL)
+                ctx.CanFlowTransitive(t, ctx.Simplify(secondL), secondL, l2)
+                ctx.CanFlowTransitive(t, l2, secondL, ctx.Simplify(secondL))
+                // assert ctx.CanFlow(t, ctx.Simplify(secondL), l2)
+                // assert ctx.CanFlow(t, l2, ctx.Simplify(secondL))
+                assert ctx.CanFlow(t, l2, ctx.Simplify(secondL))
+            }
+
+            assert ctx.CanFlow(t, l2, ctx.Simplify(firstL)) || ctx.CanFlow(t, l2, ctx.Simplify(secondL))
+            corruptIds := t.getCorruptIds()
+            if l2.IsPublic() {
+                // assert containsCorruptId(corruptIds, label.GetReaders(firstL)) || containsCorruptId(corruptIds, label.GetReaders(secondL))
+                assert ctx.CanFlow(t, l2, finalL)
+            } else {
+                if ctx.CanFlow(t, l2, ctx.Simplify(firstL)) {
+                    assert label.GetReaders(ctx.Simplify(firstL)) subset label.GetReaders(l2) || containsCorruptId(corruptIds, label.GetReaders(l2))
+                } else {
+                    assert label.GetReaders(ctx.Simplify(secondL)) subset label.GetReaders(l2) || containsCorruptId(corruptIds, label.GetReaders(l2))
+                }
+            }
+            assume false
+            
+
+            // assert ctx.CanFlow(t, ctx.Simplify(firstL), finalL)
+            /*
+            assume false
+
+            assert ctx.CanFlow(t, l2, firstL) || ctx.CanFlow(t, l2, secondL)
+            if ctx.CanFlow(t, l2, firstL) {
+                ctx.SimplifyRespectsFlowLemma(t, l2, firstL)
+                // assert ctx.CanFlow(t, ctx.Simplify(firstL), l2)
+                // assert ctx.CanFlow(t, finalL, l2)
+            } else {
+                ctx.SimplifyRespectsFlowLemma(t, l2, secondL)
+            }
+            assert label.GetReaders(ctx.Simplify(firstL)) subset label.GetReaders(finalL)
+            assert label.GetReaders(ctx.Simplify(secondL)) subset label.GetReaders(finalL)
+            assert label.GetReaders(finalL) == label.GetReaders(ctx.Simplify(firstL)) union label.GetReaders(ctx.Simplify(secondL))
+            */
+        } else {
+            assume false
+        }
+        // assert ctx.CanFlow(t, label.GetFirstLabel(l), l2)
+        //assert 
+    } else if l.IsMeet() && ctx.Simplify(label.GetFirstLabel(l)).IsPublic() {
+        firstL := label.GetFirstLabel(l)
+        secondL := label.GetSecondLabel(l)
+        ctx.CanFlowResolveMeetLhs(t, firstL, secondL, l2)
+        ctx.CanFlowReflexive(t, firstL)
+        ctx.SimplifyRespectsFlowLemma(t, firstL, firstL)
+        ctx.CanFlowResolveMeetPublicRhs(t, l2, firstL, secondL, true)
+    } else if l.IsMeet() && ctx.Simplify(label.GetSecondLabel(l)).IsPublic() {
+        firstL := label.GetFirstLabel(l)
+        secondL := label.GetSecondLabel(l)
+        ctx.CanFlowResolveMeetLhs(t, firstL, secondL, l2)
+        ctx.CanFlowReflexive(t, secondL)
+        ctx.SimplifyRespectsFlowLemma(t, secondL, secondL)
+        ctx.CanFlowResolveMeetPublicRhs(t, l2, firstL, secondL, false)
+    }
+}
+
+ghost
+requires t.IsTuple()
+ensures  len(res) == t.GetTupleArity()
+ensures  forall i int :: 0 <= i && i < t.GetTupleArity() ==> res[i] == tm.getTupleElem(t, i)
+pure func getTupleSeq(t tm.Term) (res seq[tm.Term]) {
+    return t.IsTuple2() ? seq[tm.Term]{ tm.getTupleElem(t, 0), tm.getTupleElem(t, 1) } :
+            t.IsTuple3() ? seq[tm.Term]{ tm.getTupleElem(t, 0), tm.getTupleElem(t, 1), tm.getTupleElem(t, 2) } :
+            t.IsTuple4() ? seq[tm.Term]{ tm.getTupleElem(t, 0), tm.getTupleElem(t, 1), tm.getTupleElem(t, 2), tm.getTupleElem(t, 3) } :
+            t.IsTuple5() ? seq[tm.Term]{ tm.getTupleElem(t, 0), tm.getTupleElem(t, 1), tm.getTupleElem(t, 2), tm.getTupleElem(t, 3), tm.getTupleElem(t, 4) } :
+            // t.IsTuple6() ? seq[tm.Term]{ tm.getTupleElem(t, 0), tm.getTupleElem(t, 1), tm.getTupleElem(t, 2), tm.getTupleElem(t, 3), tm.getTupleElem(t, 4), tm.getTupleElem(t, 5) } :
+                seq[tm.Term]{ tm.getTupleElem(t, 0), tm.getTupleElem(t, 1), tm.getTupleElem(t, 2), tm.getTupleElem(t, 3), tm.getTupleElem(t, 4), tm.getTupleElem(t, 5), tm.getTupleElem(t, 6) }
+}
+
+ghost
+requires 0 <= startIdx && startIdx + 2 <= len(terms)
+pure func (ctx DefaultLabelingContext) nestedMeet(terms seq[tm.Term], startIdx int) label.SecrecyLabel {
+    return startIdx + 2 == len(terms) ? label.Meet(ctx.Simplify(ctx.GetLabel(terms[startIdx])), ctx.Simplify(ctx.GetLabel(terms[startIdx + 1]))) :
+            label.Meet(ctx.Simplify(ctx.GetLabel(terms[startIdx])), ctx.nestedMeet(terms, startIdx + 1))
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) GetUsage(t tm.Term) option[u.Usage] {
+    return ctx.usage.GetUsage(t)
+}
+
+ghost
+/** wrapper to get and check usage of a term for convenience */
+pure func (ctx DefaultLabelingContext) IsPkeKey(sk tm.Term) bool {
+    return (ctx.GetUsage(sk) != none[u.Usage]) && (get(ctx.GetUsage(sk))).IsPkeKey()
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsMsg(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
+    return ctx.IsValid(t, term) &&
+        ctx.CanFlow(t, ctx.GetLabel(term), l)
+}
+
+ghost
+decreases
+requires t1.isSuffix(t2)
+requires ctx.IsMsg(t1, term, l)
+ensures  ctx.IsMsg(t2, term, l)
+func (ctx DefaultLabelingContext) IsMsgMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+    ctx.IsValidMonotonic(t1, t2, term)
+    ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(term), l)
+}
+
+ghost
+decreases
+requires ctx.CanFlow(t, l1, l2)
+requires ctx.IsMsg(t, term, l1)
+ensures  ctx.IsMsg(t, term, l2)
+func (ctx DefaultLabelingContext) IsMsgTransitive(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
+    ctx.CanFlowTransitive(t, ctx.GetLabel(term), l1, l2)
+}
+
+ghost
+decreases
+requires term.IsTuple()
+requires forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsMsg(t, tm.getTupleElem(term, i), l)
+ensures  ctx.IsMsg(t, term, l)
+/** lemma for tuples having same label */
+func (ctx DefaultLabelingContext) IsMsgTupleCreate(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+    n := term.GetTupleArity()
+    terms := getTupleSeq(term)
+    secondToLastT := terms[n-2]
+    secondToLastL := ctx.GetLabel(secondToLastT)
+    secondToLastSimplifiedL := ctx.Simplify(secondToLastL)
+    lastT := terms[n-1]
+    lastL := ctx.GetLabel(lastT)
+    lastSimplifiedL := ctx.Simplify(lastL)
+    ctx.SimplifyLemma(t, secondToLastT)
+    ctx.CanFlowTransitive(t, secondToLastSimplifiedL, secondToLastL, l)
+    ctx.SimplifyLemma(t, lastT)
+    ctx.CanFlowTransitive(t, lastSimplifiedL, lastL, l)
+    ctx.CanFlowCreateMeetLhs(t, secondToLastSimplifiedL, lastSimplifiedL, l)
+    prevLabel := ctx.nestedMeet(terms, n - 2)
+
+    invariant 0 <= i && i <= n - 2
+    invariant len(getTupleSeq(term)) == n
+    invariant prevLabel == ctx.nestedMeet(terms, i)
+    invariant ctx.CanFlow(t, prevLabel, l)
+    decreases i
+    for i := n - 2; i >= 1; i-- {
+        curT := terms[i-1]
+        curL := ctx.GetLabel(curT)
+        curSimplifiedL := ctx.Simplify(curL)
+        ctx.SimplifyLemma(t, curT)
+        ctx.CanFlowTransitive(t, curSimplifiedL, curL, l)
+        ctx.CanFlowCreateMeetLhs(t, curSimplifiedL, prevLabel, l)
+        prevLabel = label.Meet(curSimplifiedL, prevLabel)
+    }
+   
+    firstL := ctx.GetLabel(tm.getTupleElem(term, 0))
+    ctx.CanFlowReflexive(t, l)
+    ctx.CanFlowCreateMeetLhs(t, firstL, l, l)
+}
+
+ghost
+decreases
+requires term.IsTuple()
+requires ctx.IsMsg(t, term, l)
+ensures  forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsMsg(t, tm.getTupleElem(term, i), l)
+/** lemma for tuples flowing to some label */
+func (ctx DefaultLabelingContext) IsMsgTupleResolve(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+    n := term.GetTupleArity()
+    terms := getTupleSeq(term)
+
+    invariant 0 <= i && i <= n - 2
+    invariant len(getTupleSeq(term)) == n
+    invariant ctx.CanFlow(t, ctx.nestedMeet(terms, i), l)
+    invariant forall j int :: { tm.getTupleElem(term, j) } 0 <= j && j < i ==> ctx.IsMsg(t, tm.getTupleElem(term, j), l)
+    decreases n - i
+    for i := 0; i < n - 2; i++ {
+        curT := tm.getTupleElem(term, i)
+        curL := ctx.GetLabel(curT)
+        curSimplifiedL := ctx.Simplify(curL)
+        remL := ctx.nestedMeet(terms, i + 1)
+        ctx.CanFlowResolveMeetLhs(t, curSimplifiedL, remL, l)
+        ctx.SimplifyLemma(t, curT)
+        ctx.CanFlowTransitive(t, curL, curSimplifiedL, l)
+    }
+    secondToLastT := tm.getTupleElem(term, n - 2)
+    secondToLastL := ctx.GetLabel(secondToLastT)
+    secondToLastSimplifiedL := ctx.Simplify(secondToLastL)
+    lastT := tm.getTupleElem(term, n - 1)
+    lastL := ctx.GetLabel(lastT)
+    lastSimplifiedL := ctx.Simplify(lastL)
+    ctx.CanFlowResolveMeetLhs(t, secondToLastSimplifiedL, lastSimplifiedL, l)
+    // derive that a flow from simplified -> l implies a flow from unsimplified -> l:
+    ctx.SimplifyLemma(t, secondToLastT)
+    ctx.CanFlowTransitive(t, secondToLastL, secondToLastSimplifiedL, l)
+    ctx.SimplifyLemma(t, lastT)
+    ctx.CanFlowTransitive(t, lastL, lastSimplifiedL, l)
+}
+
+ghost
+decreases
+requires ctx.CanFlow(t, l1, l3)
+requires ctx.CanFlow(t, l2, l3)
+ensures  ctx.CanFlow(t, label.Meet(l1, l2), l3)
+func (ctx DefaultLabelingContext) CanFlowCreateMeetLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+decreases
+requires ctx.CanFlow(t, label.Meet(l1, l2), l3)
+ensures  ctx.CanFlow(t, l1, l3)
+ensures  ctx.CanFlow(t, l2, l3)
+func (ctx DefaultLabelingContext) CanFlowResolveMeetLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+    ctx.canFlowInternalResolveMeetLhs(t.getCorruptIds(), l1, l2, l3)
+}
+
+ghost
+decreases
+requires ctx.CanFlow(t, l1, label.Meet(l2, l2))
+ensures  ctx.CanFlow(t, l1, l2)
+func (ctx DefaultLabelingContext) CanFlowResolveMeetRhs(t tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+    ctx.canFlowInternalResolveMeetRhs(t.getCorruptIds(), l1, l2)
+}
+
+ghost
+decreases _ // TODO termination via SecurityLabel deconstructors
+requires ctx.canFlowInternal(corruptIds, label.Meet(l1, l2), l3)
+ensures  ctx.canFlowInternal(corruptIds, l1, l3)
+ensures  ctx.canFlowInternal(corruptIds, l2, l3)
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetLhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+    if (l3.IsMeet() || l3.IsJoin()) {
+        if (ctx.canFlowInternal(corruptIds, label.Meet(l1, l2), label.GetFirstLabel(l3))) {
+            ctx.canFlowInternalResolveMeetLhs(corruptIds, l1, l2, label.GetFirstLabel(l3))
+        }
+        if (ctx.canFlowInternal(corruptIds, label.Meet(l1, l2), label.GetSecondLabel(l3))) {
+            ctx.canFlowInternalResolveMeetLhs(corruptIds, l1, l2, label.GetSecondLabel(l3))
+        }
+    }
+}
+
+ghost
+decreases _ // TODO termination via SecurityLabel deconstructors
+requires ctx.canFlowInternal(corruptIds, l1, label.Meet(l2, l2))
+ensures  ctx.canFlowInternal(corruptIds, l1, l2)
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+    if (l1.IsMeet()) {
+        if (!ctx.canFlowInternal(corruptIds, l1, l2)) {
+            ctx.canFlowInternalResolveMeetRhs(corruptIds, label.GetFirstLabel(l1), l2)
+            ctx.canFlowInternalResolveMeetRhs(corruptIds, label.GetSecondLabel(l1), l2)
+        }
+    } else if (l1.IsJoin()) {
+        if (ctx.canFlowInternal(corruptIds, label.GetFirstLabel(l1), label.Meet(l2, l2))) {
+            ctx.canFlowInternalResolveMeetRhs(corruptIds, label.GetFirstLabel(l1), l2)
+        } else if (ctx.canFlowInternal(corruptIds, label.GetSecondLabel(l1), label.Meet(l2, l2))) {
+            ctx.canFlowInternalResolveMeetRhs(corruptIds, label.GetSecondLabel(l1), l2)
+        }
+    }
+}
+
+ghost
+decreases
+requires ctx.CanFlow(t, l1, label.Meet(l2, l3))
+requires  l2FlowsToPublic ==> ctx.CanFlow(t, l2, label.Public())
+requires !l2FlowsToPublic ==> ctx.CanFlow(t, l3, label.Public())
+ensures   l2FlowsToPublic ==> ctx.CanFlow(t, l1, l3)
+ensures  !l2FlowsToPublic ==> ctx.CanFlow(t, l1, l2)
+func (ctx DefaultLabelingContext) CanFlowResolveMeetPublicRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
+    ctx.canFlowInternalResolveMeetPublicRhs(t.getCorruptIds(), l1, l2, l3, l2FlowsToPublic)
+}
+
+ghost
+decreases _ // TODO termination via SecurityLabel deconstructors
+requires ctx.canFlowInternal(corruptIds, l1, label.Meet(l2, l3))
+requires  l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l2, label.Public())
+requires !l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l3, label.Public())
+ensures   l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l1, l3)
+ensures  !l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l1, l2)
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
+    if (ctx.canFlowInternal(corruptIds, l1, label.Public())) {
+        ctx.flowsToPublicCanFlow(corruptIds, l1, l2)
+        ctx.flowsToPublicCanFlow(corruptIds, l1, l3)
+    }
+    if ctx.canFlowInternal(corruptIds, l1, l2) {
+        ctx.canFlowInternalTransitive(corruptIds, l1, l2, label.Public())
+    }
+    if ctx.canFlowInternal(corruptIds, l1, l3) {
+        ctx.canFlowInternalTransitive(corruptIds, l1, l3, label.Public())
+    }
+
+    if (l1.IsMeet()) {
+        if (!ctx.canFlowInternal(corruptIds, l1, l2) && !ctx.canFlowInternal(corruptIds, l1, l3)) {
+            ctx.canFlowInternalResolveMeetPublicRhs(corruptIds, label.GetFirstLabel(l1), l2, l3, l2FlowsToPublic)
+            ctx.canFlowInternalResolveMeetPublicRhs(corruptIds, label.GetSecondLabel(l1), l2, l3, l2FlowsToPublic)
+        }
+    } else if (l1.IsJoin()) {
+        if (ctx.canFlowInternal(corruptIds, label.GetFirstLabel(l1), label.Meet(l2, l3))) {
+            ctx.canFlowInternalResolveMeetPublicRhs(corruptIds, label.GetFirstLabel(l1), l2, l3, l2FlowsToPublic)
+        } else if (ctx.canFlowInternal(corruptIds, label.GetSecondLabel(l1), label.Meet(l2, l3))) {
+            ctx.canFlowInternalResolveMeetPublicRhs(corruptIds, label.GetSecondLabel(l1), l2, l3, l2FlowsToPublic)
+        }
+    }
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsPublishable(t tr.TraceEntry, term tm.Term) bool {
+    return ctx.IsMsg(t, term, label.Public())
+}
+
+ghost
+decreases
+requires t1.isSuffix(t2)
+requires ctx.IsPublishable(t1, term)
+ensures  ctx.IsPublishable(t2, term)
+func (ctx DefaultLabelingContext) IsPublishableMonotonic(t1, t2 tr.TraceEntry, term tm.Term) {
+    ctx.IsMsgMonotonic(t1, t2, term, label.Public())
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) CanFlow(t tr.TraceEntry, l1, l2 label.SecrecyLabel) bool {
+    return ctx.canFlowInternal(t.getCorruptIds(), l1, l2)
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) canFlowInternal(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) bool {
+    // public can flow to anything
+    return (l1.IsPublic() ==> true) &&
+        // label with a corrupted reader flows to public
+        (l1.IsReaders() && l2.IsPublic() ==> containsCorruptId(corruptIds, label.GetReaders(l1))) &&
+        // l1 is superset of l2 or some ID in l1 is corrupt
+        (l1.IsReaders() && l2.IsReaders() ==> (label.GetReaders(l2) subset label.GetReaders(l1) || containsCorruptId(corruptIds, label.GetReaders(l1)))) &&
+        // l1 flows to l2 == meet(l21, l22) if l1 flows to l21 OR l22 because meet(l21, l22) is stricter than l21 or l22
+        (l1.IsReaders() && l2.IsMeet() ==> ctx.canFlowInternal(corruptIds, l1, label.GetFirstLabel(l2)) || ctx.canFlowInternal(corruptIds, l1, label.GetSecondLabel(l2))) &&
+        // l1 flows to l2 == join(l21, l22) if l1 flows to l21 AND l22
+        (l1.IsReaders() && l2.IsJoin() ==> ctx.canFlowInternal(corruptIds, l1, label.GetFirstLabel(l2)) && ctx.canFlowInternal(corruptIds, l1, label.GetSecondLabel(l2))) &&
+        (l1.IsJoin() && (l2.IsPublic() || l2.IsReaders()) ==> ctx.canFlowInternal(corruptIds, label.GetFirstLabel(l1), l2) || ctx.canFlowInternal(corruptIds, label.GetSecondLabel(l1), l2)) &&
+        (l1.IsMeet() && (l2.IsPublic() || l2.IsReaders()) ==> ctx.canFlowInternal(corruptIds, label.GetFirstLabel(l1), l2) && ctx.canFlowInternal(corruptIds, label.GetSecondLabel(l1), l2)) &&
+        (l1.IsJoin() && l2.IsMeet() ==> (ctx.canFlowInternal(corruptIds, l1, label.GetFirstLabel(l2)) || ctx.canFlowInternal(corruptIds, l1, label.GetSecondLabel(l2))) || (ctx.canFlowInternal(corruptIds, label.GetFirstLabel(l1), l2) || ctx.canFlowInternal(corruptIds, label.GetSecondLabel(l1), l2))) &&
+        (l1.IsMeet() && l2.IsMeet() ==> (ctx.canFlowInternal(corruptIds, l1, label.GetFirstLabel(l2)) || ctx.canFlowInternal(corruptIds, l1, label.GetSecondLabel(l2))) || (ctx.canFlowInternal(corruptIds, label.GetFirstLabel(l1), l2) && ctx.canFlowInternal(corruptIds, label.GetSecondLabel(l1), l2))) &&
+        (l1.IsMeet() && l2.IsJoin() ==> (ctx.canFlowInternal(corruptIds, l1, label.GetFirstLabel(l2)) && ctx.canFlowInternal(corruptIds, l1, label.GetSecondLabel(l2))) || (ctx.canFlowInternal(corruptIds, label.GetFirstLabel(l1), l2) && ctx.canFlowInternal(corruptIds, label.GetSecondLabel(l1), l2))) &&
+        (l1.IsJoin() && l2.IsJoin() ==> (ctx.canFlowInternal(corruptIds, l1, label.GetFirstLabel(l2)) && ctx.canFlowInternal(corruptIds, l1, label.GetSecondLabel(l2))) || (ctx.canFlowInternal(corruptIds, label.GetFirstLabel(l1), l2) || ctx.canFlowInternal(corruptIds, label.GetSecondLabel(l1), l2)))
+        // rule of thumb:
+        // l1 being a join or l2 being a meet results in disjunctions
+        // l1 being a meet or l2 being a join results in conjunctions
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) canFlowInternalNew(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) bool {
+    return ctx.IsNarrower(l1, l2) ||
+        ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsNarrower(l1, l2 label.SecrecyLabel) bool {
+    return l2.GetSet().Subset(l1.GetSet())
+}
+
+ghost
+requires !ctx.IsNarrower(l1, l2) // we do not need to consider the cases covered by IsNarrower here
+requires l1.GetSet().IsFinite()
+pure func (ctx DefaultLabelingContext) corruptionPermitsFlow(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) bool {
+    return containsCorruptId(corruptIds, label.GetSet(l1.GetSet())) ||
+        (l1.IsMeet() && ctx.canFlowInternalNew(corruptIds, label.GetFirstLabel(l1), l2) && ctx.canFlowInternalNew(corruptIds, label.GetSecondLabel(l1), l2)) ||
+        (l2.IsMeet() && ctx.canFlowInternalNew(corruptIds, l1, label.GetFirstLabel(l2))) ||
+        (l2.IsMeet() && ctx.canFlowInternalNew(corruptIds, l1, label.GetSecondLabel(l2))) ||
+        (l1.IsJoin() && ctx.canFlowInternalNew(corruptIds, label.GetFirstLabel(l1), l2)) ||
+        (l1.IsJoin() && ctx.canFlowInternalNew(corruptIds, label.GetSecondLabel(l1), l2)) ||
+        (l2.IsJoin() && ctx.canFlowInternalNew(corruptIds, l1, label.GetFirstLabel(l2)) && ctx.canFlowInternalNew(corruptIds, l1, label.GetSecondLabel(l2)))
+}
+
+ghost
+requires ctx.canFlowInternal(corruptIds, l1, l2)
+ensures  ctx.canFlowInternalNew(corruptIds, l1, l2)
+func (ctx DefaultLabelingContext) canFlowInternalOldImpliesNew(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+    if l1.IsPublic() {
+
+    } else if l1.IsReaders() {
+        if l2.IsPublic() {
+            assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+        } else if l2.IsReaders() {
+            if !(label.GetReaders(l2) subset label.GetReaders(l1)) {
+                assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+            }
+        } else if l2.IsMeet() {
+            firstL := label.GetFirstLabel(l2)
+            secondL := label.GetSecondLabel(l2)
+            if ctx.canFlowInternal(corruptIds, l1, firstL) {
+                ctx.canFlowInternalOldImpliesNew(corruptIds, l1, firstL)
+                if !ctx.IsNarrower(l1, l2) {
+                    assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+                }
+            } else {
+                assert ctx.canFlowInternal(corruptIds, l1, secondL)
+                ctx.canFlowInternalOldImpliesNew(corruptIds, l1, secondL)
+                if !ctx.IsNarrower(l1, l2) {
+                    assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+                }
+            }
+        } else {
+            assert l2.IsJoin()
+            firstL := label.GetFirstLabel(l2)
+            secondL := label.GetSecondLabel(l2)
+            ctx.canFlowInternalOldImpliesNew(corruptIds, l1, firstL)
+            ctx.canFlowInternalOldImpliesNew(corruptIds, l1, secondL)
+            if !ctx.IsNarrower(l1, l2) {
+                assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+                assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+            }
+        }
+    } else if l1.IsMeet() || l1.IsJoin() {
+        if l2.IsPublic() || l2.IsReaders() {
+            firstL := label.GetFirstLabel(l1)
+            secondL := label.GetSecondLabel(l1)
+            if ctx.canFlowInternal(corruptIds, firstL, l2) {
+                ctx.canFlowInternalOldImpliesNew(corruptIds, firstL, l2)
+            }
+            if ctx.canFlowInternal(corruptIds, secondL, l2) {
+                ctx.canFlowInternalOldImpliesNew(corruptIds, secondL, l2)
+            }
+            if !ctx.IsNarrower(l1, l2) {
+                assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+                assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+            }
+        } else if l2.IsMeet() || l2.IsJoin() {
+            l11 := label.GetFirstLabel(l1)
+            l12 := label.GetSecondLabel(l1)
+            l21 := label.GetFirstLabel(l2)
+            l22 := label.GetSecondLabel(l2)
+            if ctx.canFlowInternal(corruptIds, l11, l2) {
+                ctx.canFlowInternalOldImpliesNew(corruptIds, l11, l2)
+            }
+            if ctx.canFlowInternal(corruptIds, l12, l2) {
+                ctx.canFlowInternalOldImpliesNew(corruptIds, l12, l2)
+            }
+            if ctx.canFlowInternal(corruptIds, l1, l21) {
+                ctx.canFlowInternalOldImpliesNew(corruptIds, l1, l21)
+            }
+            if ctx.canFlowInternal(corruptIds, l1, l22) {
+                ctx.canFlowInternalOldImpliesNew(corruptIds, l1, l22)
+            }
+
+            if !ctx.IsNarrower(l1, l2) {
+                assert ctx.corruptionPermitsFlow(corruptIds, l1, l2)
+            }
+        }
+    }
+}
+
+ghost
+requires ctx.canFlowInternalNew(corruptIds, l1, l2)
+ensures  ctx.canFlowInternal(corruptIds, l1, l2)
+func (ctx DefaultLabelingContext) canFlowInternalNewImpliesOld(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+
+}
+
+ghost
+decreases
+ensures  ctx.CanFlow(t, l, l)
+func (ctx DefaultLabelingContext) CanFlowReflexive(t tr.TraceEntry, l label.SecrecyLabel) {
+    corruptIds := t.getCorruptIds()
+    ctx.canFlowInternalReflexive(corruptIds, l)
+}
+
+ghost
+decreases _ // TODO termination via SecurityLabel deconstructors
+ensures  ctx.canFlowInternal(corruptIds, l, l)
+func (ctx DefaultLabelingContext) canFlowInternalReflexive(corruptIds set[p.Id], l label.SecrecyLabel) {
+    if (l.IsJoin()) {
+        l1 := label.GetFirstLabel(l)
+        l2 := label.GetSecondLabel(l)
+        ctx.canFlowInternalReflexive(corruptIds, l1)
+        ctx.canFlowInternalReflexive(corruptIds, l2)
+        // the following assert stmts are needed
+        assert ctx.canFlowInternal(corruptIds, l, l1)
+        assert ctx.canFlowInternal(corruptIds, l, l2)
+    } else if (l.IsMeet()) {
+        l1 := label.GetFirstLabel(l)
+        l2 := label.GetSecondLabel(l)
+        ctx.canFlowInternalReflexive(corruptIds, l1)
+        ctx.canFlowInternalReflexive(corruptIds, l2)
+        // the following assert stmts are needed
+        assert ctx.canFlowInternal(corruptIds, l1, l)
+        assert ctx.canFlowInternal(corruptIds, l2, l)
+    }
+}
+
+ghost
+decreases
+requires ctx.CanFlow(t, l1, l2)
+requires ctx.CanFlow(t, l2, l3)
+ensures  ctx.CanFlow(t, l1, l3)
+func (ctx DefaultLabelingContext) CanFlowTransitive(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+    corruptIds := t.getCorruptIds()
+    ctx.canFlowInternalTransitive(corruptIds, l1, l2, l3)
+}
+
+ghost
+decreases _ // TODO termination via SecurityLabel deconstructors
+ensures (ctx.canFlowInternal(corruptIds, l1, l2) && ctx.canFlowInternal(corruptIds, l2, l3)) ==> ctx.canFlowInternal(corruptIds, l1, l3)
+func (ctx DefaultLabelingContext) canFlowInternalTransitive(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+    if (l1.IsPublic()) {
+        // no body needed
+        return
+    }
+    if (l2.IsPublic()) {
+        ctx.flowsToPublicCanFlow(corruptIds, l1, l3)
+        return
+    }
+    if (l3.IsPublic()) {
+        ctx.canFlowFlowsToPublic(corruptIds, l1, l2)
+        return
+    }
+
+    if (l1.IsJoin() || l1.IsMeet()) {
+        l11 := label.GetFirstLabel(l1)
+        l12 := label.GetSecondLabel(l1)
+        ctx.canFlowInternalTransitive(corruptIds, l11, l2, l3)
+        ctx.canFlowInternalTransitive(corruptIds, l12, l2, l3)
+    }
+    if (l2.IsJoin() || l2.IsMeet()) {
+        l21 := label.GetFirstLabel(l2)
+        l22 := label.GetSecondLabel(l2)
+        ctx.canFlowInternalTransitive(corruptIds, l1, l21, l3)
+        ctx.canFlowInternalTransitive(corruptIds, l1, l22, l3)
+    }
+    if (l3.IsJoin() || l3.IsMeet()) {
+        l31 := label.GetFirstLabel(l3)
+        l32 := label.GetSecondLabel(l3)
+        ctx.canFlowInternalTransitive(corruptIds, l1, l2, l31)
+        ctx.canFlowInternalTransitive(corruptIds, l1, l2, l32)
+    }
+}
+
+ghost
+decreases _ // TODO termination via SecurityLabel deconstructors
+ensures  ctx.canFlowInternal(corruptIds, l1, label.Public()) ==> ctx.canFlowInternal(corruptIds, l1, l2)
+func (ctx DefaultLabelingContext) flowsToPublicCanFlow(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+    if (l1.IsJoin() || l1.IsMeet()) {
+        l11 := label.GetFirstLabel(l1)
+        l12 := label.GetSecondLabel(l1)
+        ctx.flowsToPublicCanFlow(corruptIds, l11, l2)
+        ctx.flowsToPublicCanFlow(corruptIds, l12, l2)
+    }
+    if (l2.IsJoin() || l2.IsMeet()) {
+        l21 := label.GetFirstLabel(l2)
+        l22 := label.GetSecondLabel(l2)
+        ctx.flowsToPublicCanFlow(corruptIds, l1, l21)
+        ctx.flowsToPublicCanFlow(corruptIds, l1, l22)
+    }
+}
+
+ghost
+decreases _ // TODO termination via SecurityLabel deconstructors
+ensures  (ctx.canFlowInternal(corruptIds, l2, label.Public()) && ctx.canFlowInternal(corruptIds, l1, l2)) ==> ctx.canFlowInternal(corruptIds, l1, label.Public())
+func (ctx DefaultLabelingContext) canFlowFlowsToPublic(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+    if (l1.IsJoin() || l1.IsMeet()) {
+        l11 := label.GetFirstLabel(l1)
+        l12 := label.GetSecondLabel(l1)
+        ctx.canFlowFlowsToPublic(corruptIds, l11, l2)
+        ctx.canFlowFlowsToPublic(corruptIds, l12, l2)
+    }
+    if (l2.IsJoin() || l2.IsMeet()) {
+        l21 := label.GetFirstLabel(l2)
+        l22 := label.GetSecondLabel(l2)
+        ctx.canFlowFlowsToPublic(corruptIds, l1, l21)
+        ctx.canFlowFlowsToPublic(corruptIds, l1, l22)
+    }
+}
+
+ghost
+decreases
+requires t1.isSuffix(t2)
+requires ctx.CanFlow(t1, l1, l2)
+ensures  ctx.CanFlow(t2, l1, l2)
+func (ctx DefaultLabelingContext) CanFlowMonotonic(t1, t2 tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+    ctx.CanFlowMonotonicInternal(t1, t2, l1, l2)
+}
+
+ghost
+decreases _ // TODO termination via SecurityLabel deconstructors
+requires t1.isSuffix(t2)
+ensures  ctx.CanFlow(t1, l1, l2) ==> ctx.CanFlow(t2, l1, l2)
+func (ctx DefaultLabelingContext) CanFlowMonotonicInternal(t1, t2 tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+    if (!l1.IsJoin() && !l1.IsMeet() && !l2.IsJoin() && !l2.IsMeet()) {
+        t1.getCorruptIdsMonotonic(t2)
+    } else {
+        if (l1.IsJoin() || l1.IsMeet()) {
+            l11 := label.GetFirstLabel(l1)
+            l12 := label.GetSecondLabel(l1)
+            ctx.CanFlowMonotonicInternal(t1, t2, l11, l2)
+            ctx.CanFlowMonotonicInternal(t1, t2, l12, l2)
+        }
+        if (l2.IsJoin() || l2.IsMeet()) {
+            l21 := label.GetFirstLabel(l2)
+            l22 := label.GetSecondLabel(l2)
+            ctx.CanFlowMonotonicInternal(t1, t2, l1, l21)
+            ctx.CanFlowMonotonicInternal(t1, t2, l1, l22)
+        }
+    }
+}
+
+ghost
+decreases
+requires ctx.CanFlow(t, label.Readers(set[p.Id]{ id }), label.Public())
+ensures  id in t.getCorruptIds()
+func (ctx DefaultLabelingContext) CanFlowToPublicImpliesCorruption(t tr.TraceEntry, id p.Id) {
+    // no body needed
+}
+
+ghost
+/** returns true iff at least one id in `ids` has been corrupted, i.e. is in `corruptIds` */
+pure func containsCorruptId(corruptIds set[p.Id], ids set[p.Id]) bool {
+    return len(corruptIds intersection ids) > 0
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) GetSimplifiedSkLabel(pk tm.Term) label.SecrecyLabel {
+    return ctx.Simplify((pk.IsPk() && ctx.IsPkeKey(tm.getSk(pk))) ?
+        ctx.GetLabel(tm.getSk(pk)) :
+        label.Public())
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) GetSkLabel(pk tm.Term) label.SecrecyLabel {
+    return (pk.IsPk() && ctx.IsPkeKey(tm.getSk(pk))) ?
+        ctx.GetLabel(tm.getSk(pk)) :
+        label.Public()
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsSecretKey(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
+    // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
+    return (keyType == KeyTypePke() ==> ctx.IsPrivateDecKey(t, owner, sk, usage))
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) bool {
+    // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
+    return (keyType == KeyTypePke() ==> ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
+        (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPk(t, skOwner, pk, usage))
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsPublicKeyExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) bool {
+    // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
+    return (keyType == KeyTypePke() ==> exists sk tm.Term :: { ctx.IsPublicEncKey(t, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
+        (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPk(t, skOwner, pk, usage))
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsPrivateDecKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
+    return ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
+    // TODO can we existentially quantify `sk`?
+    return ctx.IsPublishable(t, pk) &&
+        ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), u.PkeKey(usage)) &&
+        pk == tm.createPk(sk)
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner p.Id, pk tm.Term, usage string) bool {
+    return ctx.IsPublishable(t, pk) && ctx.IsDHPk(pk) && !ctx.IsDHExp(pk) &&
+        exists sk tm.Term :: { tm.exp(tm.generator(), sk) } pk == tm.exp(tm.generator(), sk) &&
+            ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), u.DhKey(usage))
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) IsPublicEncKeyExistential(t tr.TraceEntry, pk tm.Term, l label.SecrecyLabel, usage string) bool {
+    return ctx.IsPublishable(t, pk) &&
+        pk.IsPk() &&
+        ctx.IsSecret(t, tm.getSk(pk), l, u.PkeKey(usage))
+        /*(exists sk tm.Term :: { tm.createPk(sk) } ctx.IsSecret(t, sk, l, u.PkeKey(usage)) &&
+            pk == tm.createPk(sk))*/
+}
+
+ghost
+decreases
+requires ctx.IsMsg(t, term, l1)
+requires ctx.CanFlow(t, l1, l2)
+ensures  ctx.IsMsg(t, term, l2)
+func (ctx DefaultLabelingContext) Restrict(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
+    ctx.CanFlowTransitive(t, ctx.GetLabel(term), l1, l2)
+}
+
+pred (ctx DefaultLabelingContext) NonceIsUnique(nonce tm.Term) {
+    acc(ctx.getNonceIsUniquePointer(nonce))
+}
+
+pred (ctx DefaultLabelingContext) NonceForEventIsUnique(nonce tm.Term, eventType ev.EventType) {
+    acc(ctx.getNonceForEventIsUniquePointer(nonce, eventType))
+}
+
+// each nonce term is (injectively) mapped to a heap location for which write access
+// is obtained as part of the nonce generation algorithm.
+// Pairwise disjointness of nonces / their uniqueness directly follows from this property
+// as otherwise the `NonceIsUnique` resource would be stored twice on the trace which immediately
+// results in a contradiction when unfolding the predicate instances
+type Void int // note that `struct{}` results in Gobra not generating the expected heap permissions
+ghost
+pure func (ctx DefaultLabelingContext) getNonceIsUniquePointer(nonce tm.Term) *Void
+
+ghost
+pure func (ctx DefaultLabelingContext) getNonceForEventIsUniquePointer(nonce tm.Term, eventType ev.EventType) *Void
+
+ghost
+decreases
+requires acc(ctx.NonceForEventIsUnique(nonce, eventType), 2/1)
+ensures  false
+func (ctx DefaultLabelingContext) NonceForEventContradiction(nonce tm.Term, eventType ev.EventType) {
+    unfold acc(ctx.NonceForEventIsUnique(nonce, eventType), 2/1)
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) CanEncrypt(t tr.TraceEntry, msg, pk tm.Term) bool {
+    return ctx.IsPublishable(t, pk) &&
+        ctx.IsMsg(t, msg, ctx.GetSkLabel(pk)) &&
+        (forall usageString string :: { ctx.usage.PkePred(t, usageString, msg, pk) } ctx.IsPublicEncKeyExistential(t, pk, ctx.GetSimplifiedSkLabel(pk), usageString) ==>
+            ctx.usage.PkePred(t, usageString, msg, pk))
+}
+
+ghost
+decreases
+requires ctx.CanEncrypt(t, msg, pk) || (ctx.IsPublishable(t, msg) && ctx.IsPublishable(t, pk))
+ensures  ctx.IsPublishable(t, tm.encrypt(msg, pk))
+func (ctx DefaultLabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, pk tm.Term) {
+    msgLabel := ctx.GetLabel(msg)
+    if ctx.IsPublishable(t, msg) {
+        corruptIds := t.getCorruptIds()
+        ctx.flowsToPublicCanFlow(corruptIds, msgLabel, ctx.GetSimplifiedSkLabel(pk))
+    }
+    if ctx.CanEncrypt(t, msg, pk) {
+        ctx.SimplifyLemma(t, tm.getSk(pk))
+        ctx.CanFlowTransitive(t, msgLabel, ctx.GetSkLabel(pk), ctx.GetSimplifiedSkLabel(pk))
+    }
+    // the following assert stmt is necessary:
+	assert ctx.IsValidEncrypt(t, pk, msg, msgLabel)
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) CanDecrypt(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) bool {
+    return ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner })) &&
+        ctx.IsPublishable(t, ciphertext) &&
+        (ctx.IsPublishable(t, sk) || exists usageString string :: { ctx.IsPrivateDecKey(t, skOwner, sk, usageString) } ctx.IsPrivateDecKey(t, skOwner, sk, usageString))
+}
+
+ghost
+pure func (ctx DefaultLabelingContext) WasDecrypted(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) bool {
+    return ctx.IsMsg(t, msg, label.Readers(set[p.Id]{ skOwner })) &&
+        (forall usageString string :: { ctx.IsPrivateDecKey(t, skOwner, sk, usageString) } ctx.IsPrivateDecKey(t, skOwner, sk, usageString) ==>
+            ctx.IsPublishable(t, msg) || ctx.usage.PkePred(t, usageString, msg, tm.createPk(sk)))
+}
+
+ghost
+decreases
+requires ctx.CanDecrypt(t, tm.encrypt(msg, tm.createPk(sk)), sk, skOwner)
+ensures  ctx.WasDecrypted(t, msg, sk, skOwner)
+func (ctx DefaultLabelingContext) DecryptSatisfiesInvariant(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
+    pk := tm.createPk(sk)
+	plaintextLabel := ctx.GetLabel(msg)
+	// the following assertion is necessary to derive that `ctx.IsMsg(t, msg, skLabel)`
+	assert ctx.IsValidEncrypt(t, pk, msg, plaintextLabel)
+	if (ctx.CanFlow(t, plaintextLabel, label.Public())) {
+		ctx.CanFlowTransitive(t, plaintextLabel, label.Public(), ctx.Simplify(ctx.GetLabel(sk)))
+        assume false
+    }
+
+    assert ctx.IsLabeled(t, msg, plaintextLabel)
+    assert ctx.GetSimplifiedSkLabel(pk).GetSet() == label.Finite(set[p.Id]{ skOwner })
+    assert ctx.GetSimplifiedSkLabel(pk) == label.Readers(set[p.Id]{ skOwner })
+    assert ctx.CanFlow(t, plaintextLabel, label.Readers(set[p.Id]{ skOwner }))
+    assert ctx.IsMsg(t, msg, label.Readers(set[p.Id]{ skOwner }))
+}
+
+ghost
+requires l2.GetSet().IsFinite() ==> ctx.CanFlow(t, l1, label.Readers(label.GetSet(l2.GetSet())))
+requires !l2.GetSet().IsFinite() ==> ctx.CanFlow(t, l1, label.Public())
+ensures  ctx.CanFlow(t, l1, l2)
+func (ctx DefaultLabelingContext) SetIsUnderapproximation(t tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+    if l2.IsPublic() {
+
+    } else if l2.IsReaders() {
+        
+    } else if l2.IsMeet() {
+        firstL := label.GetFirstLabel(l2)
+        secondL := label.GetFirstLabel(l2)
+        allR := label.GetSet(l2.GetSet())
+        firstR := label.GetSet(firstL.GetSet())
+        secondR := label.GetSet(secondL.GetSet())
+    } else {
+        assume false
+    }
+}
+
+ghost
+decreases
+requires ctx.IsLabeled(t, term, l)
+requires l.IsReaders()
+requires len(label.GetReaders(l) intersection (t.getCorruptIds())) == 0
+ensures  !ctx.IsPublishable(t, term)
+func (ctx DefaultLabelingContext) PublishableRequiresCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+    // the following assert stmt is necessary:
+    assert !ctx.CanFlow(t, l, label.Public())
+}

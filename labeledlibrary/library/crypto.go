@@ -28,15 +28,15 @@ type LibraryState struct {
 }
 
 /*@
-pred (l *LibraryState) LibMem() {
+pred (l *LibraryState) Mem() {
 	acc(l)
 }
 @*/
 
-//@ ensures res.LibMem()
+//@ ensures res.Mem()
 func NewLibrary(initiator, responder p.Principal) (res *LibraryState) {
 	res = &LibraryState{}
-	//@ fold res.LibMem()
+	//@ fold res.Mem()
 	return res
 }
 
@@ -53,7 +53,7 @@ pure func Abs(b ByteString) (res tm.Bytes)
 ghost
 ensures Mem(res) && Abs(res) == bytes
 // allocates a new slice of bytes and sets the elements according to `bytes`
-func NewByteString(bytes tm.Bytes) (res ByteString)
+func NewByteStringWithContent(bytes tm.Bytes) (res ByteString)
 
 ghost
 requires b != nil ==> acc(Mem(b), _)
@@ -71,8 +71,9 @@ func Size(b ByteString) (res int) {
 	return len(b)
 }
 
-//@ requires acc(l.LibMem(), 1/16)
-//@ ensures  acc(l.LibMem(), 1/16)
+//@ trusted
+//@ requires acc(l.Mem(), 1/16)
+//@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(pk) && Size(pk) == 32
 //@ ensures  err == nil ==> Mem(sk) && Size(sk) == 32
 //@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk))
@@ -86,8 +87,9 @@ func (l *LibraryState) GenerateKey(/*@ ghost ctx tr.LabelingContext, ghost keyLa
 	return
 }
 
-//@ requires acc(l.LibMem(), 1/16)
-//@ ensures  acc(l.LibMem(), 1/16)
+//@ trusted
+//@ requires acc(l.Mem(), 1/16)
+//@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(nonce) && Size(nonce) == NonceLength
 //@ ensures  err == nil ==> Abs(nonce) == tm.gamma(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
@@ -100,11 +102,12 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx tr.LabelingContext, ghost nonce
 	return nonce, nil
 }
 
-//@ requires acc(l.LibMem(), 1/16)
+//@ trusted
+//@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(msg), 1/16)
 //@ requires acc(Mem(recv_pk), 1/16) && Size(recv_pk) == 32
 //@ requires acc(Mem(sender_sk), 1/16) && Size(sender_sk) == 32
-//@ ensures  acc(l.LibMem(), 1/16)
+//@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(msg), 1/16)
 //@ ensures  acc(Mem(recv_pk), 1/16)
 //@ ensures  acc(Mem(sender_sk), 1/16)
@@ -127,11 +130,12 @@ func (l *LibraryState) Enc(msg, recv_pk, sender_sk ByteString) (ciphertext ByteS
 	return ciphertext, nil
 }
 
-//@ requires acc(l.LibMem(), 1/16)
+//@ trusted
+//@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(ciphertext), 1/16)
 //@ requires acc(Mem(sender_pk), 1/16) && Size(sender_pk) == 32
 //@ requires acc(Mem(recv_sk), 1/16) && Size(recv_sk) == 32
-//@ ensures  acc(l.LibMem(), 1/16)
+//@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(ciphertext), 1/16)
 //@ ensures  acc(Mem(sender_pk), 1/16)
 //@ ensures  acc(Mem(recv_sk), 1/16)

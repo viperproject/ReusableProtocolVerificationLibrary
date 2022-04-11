@@ -82,3 +82,79 @@ decreases
 pure func (label SecrecyLabel) IsJoin() bool {
     return GetType(label) == 3
 }
+
+ghost
+decreases _ // TODO decreases due to SecrecyLabel ADT
+pure func (label SecrecyLabel) GetSet() InfiniteSet {
+    return label.IsPublic() ? Infinite() :
+        label.IsReaders() ? Finite(GetReaders(label)) :
+        label.IsMeet() ? GetFirstLabel(label).GetSet().Intersection(GetSecondLabel(label).GetSet()) :
+            GetFirstLabel(label).GetSet().Union(GetSecondLabel(label).GetSet())
+        /*
+        // label is Meet or Join from now on
+        (label.IsMeet() && GetFirstLabel(label).IsPublic()) ? GetSecondLabel(label).GetSet() :
+        (label.IsMeet() && GetSecondLabel(label).IsPublic()) ? GetFirstLabel(label).GetSet() :
+        label.IsMeet() ? GetFirstLabel(label).GetSet() intersection GetSecondLabel(label).GetSet() :
+        (GetFirstLabel(label).IsPublic() || GetSecondLabel(label).IsPublic()) ? 
+            GetFirstLabel(label).GetSet() union GetSecondLabel(label).GetSet()
+        */
+}
+
+type InfiniteSet domain {
+    // constructors
+    // type 0
+    func Infinite() InfiniteSet
+    // type 1
+    func Finite(set[p.Id]) InfiniteSet
+
+    func GetSetType(InfiniteSet) int
+    func GetSet(InfiniteSet) set[p.Id]
+
+    axiom { // all sets have a type
+        forall l InfiniteSet :: { GetSetType(l) } 0 <= GetSetType(l) && GetSetType(l) <= 1
+    }
+    
+    axiom { // infinite has type 0
+        GetSetType(Infinite()) == 0 
+    }
+    axiom { // infinite type implies its construction
+        forall l InfiniteSet :: { GetSetType(l) == 0 } GetSetType(l) == 0 ==> l == Infinite()
+    }
+
+    axiom { // finite is injective
+        forall scopes set[p.Id] :: { Finite(scopes) } GetSetType(Finite(scopes)) == 1 &&
+            GetSet(Finite(scopes)) == scopes
+    }
+    axiom { // finite type implies its construction
+        forall l InfiniteSet :: { GetSetType(l) == 1 } GetSetType(l) == 1 ==> l == Finite(GetSet(l))
+    }
+}
+
+ghost
+decreases
+pure func (s InfiniteSet) IsFinite() bool {
+    return GetSetType(s) == 1
+}
+
+ghost
+decreases
+pure func (set1 InfiniteSet) Intersection(set2 InfiniteSet) InfiniteSet {
+    return !set1.IsFinite() ? set2 :
+        !set2.IsFinite() ? set1 :
+            Finite(GetSet(set1) intersection GetSet(set2))
+}
+
+ghost
+decreases
+pure func (set1 InfiniteSet) Union(set2 InfiniteSet) InfiniteSet {
+    return set1.IsFinite() && set2.IsFinite() ? Finite(GetSet(set1) union GetSet(set2)) :
+        Infinite()
+}
+
+ghost
+decreases
+pure func (set1 InfiniteSet) Subset(set2 InfiniteSet) bool {
+    return !set2.IsFinite() ? true :
+        !set1.IsFinite() ? false :
+            GetSet(set1) subset GetSet(set2)
+}

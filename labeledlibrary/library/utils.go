@@ -7,6 +7,7 @@ import (
 )
 
 
+//@ trusted
 //@ requires acc(Mem(s1), 1/16)
 //@ requires acc(Mem(s2), 1/16)
 //@ ensures  acc(Mem(s1), 1/16)
@@ -18,15 +19,18 @@ func Compare(s1, s2 ByteString) (res bool) {
 	return bytes.Compare(s1, s2) == 0
 }
 
+//@ trusted
 //@ ensures res != nil
 func NewError(desc string) (res error) {
 	return errors.New("idB does not match")
 }
 
+//@ trusted
 func Println(msg string) {
 	fmt.Println(msg)
 }
 
+//@ trusted
 //@ requires acc(Mem(na), 1/16)
 //@ requires acc(Mem(receivedNb), 1/16)
 //@ ensures  acc(Mem(na), 1/16)
@@ -37,6 +41,7 @@ func PrintInitiatorSuccess(na, receivedNb ByteString) {
 	fmt.Println("A.nb: ", receivedNb)
 }
 
+//@ trusted
 //@ requires acc(Mem(receivedNa), 1/16)
 //@ requires acc(Mem(nb), 1/16)
 //@ ensures  acc(Mem(receivedNa), 1/16)

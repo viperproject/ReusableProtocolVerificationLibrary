@@ -1,0 +1,63 @@
+package label
+
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+
+
+type SecrecyLabel domain {
+    // constructors
+    // type 0
+    func Public() SecrecyLabel
+    // type 1
+    func Readers(set[p.Id]) SecrecyLabel
+
+    // WARNING: adapt first axiom if another SecrecyLabel is added!
+
+    func GetType(SecrecyLabel) int
+    func GetReaders(SecrecyLabel) set[p.Id]
+
+    axiom { // all labels have a type
+        forall l SecrecyLabel :: { GetType(l) } 0 <= GetType(l) && GetType(l) <= 1
+    }
+    
+    axiom { // public has type 0
+        GetType(Public()) == 0 
+    }
+    axiom { // public type implies its construction
+        forall l SecrecyLabel :: { GetType(l) == 0 } GetType(l) == 0 ==> l == Public()
+    }
+
+    axiom { // readers is injective
+        forall scopes set[p.Id] :: { Readers(scopes) } GetType(Readers(scopes)) == 1 &&
+            GetReaders(Readers(scopes)) == scopes
+    }
+    axiom { // readers type implies its construction
+        forall l SecrecyLabel :: { GetType(l) == 1 } GetType(l) == 1 ==> l == Readers(GetReaders(l))
+    }
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsPublic() bool {
+    return GetType(label) == 0
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsReaders() bool {
+    return GetType(label) == 1
+}
+
+ghost
+decreases
+pure func Meet(l1, l2 SecrecyLabel) SecrecyLabel {
+    return l1.IsPublic() ? l2 :
+        l2.IsPublic() ? l1 :
+        Readers(GetReaders(l1) intersection GetReaders(l2))
+}
+
+ghost
+decreases
+pure func Join(l1, l2 SecrecyLabel) SecrecyLabel {
+    return (l1.IsPublic() || l2.IsPublic()) ? Public() :
+        Readers(GetReaders(l1) union GetReaders(l2))
+}

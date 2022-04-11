@@ -25,9 +25,9 @@ requires att.attackerKnows(l.Snapshot(), plaintext)
 ensures  l.Mem()
 ensures  err == nil ==> att.attackerKnows(l.Snapshot(), ciphertext)
 func pkeEnc(l *ll.LabeledLibrary, recvPublicKey, senderPrivateKey, plaintext tm.Term) (ciphertext tm.Term, err error) {
-    recvPublicKeyBytes := lib.NewByteString(tm.gamma(recvPublicKey))
-    senderPrivateKeyBytes := lib.NewByteString(tm.gamma(senderPrivateKey))
-    plaintextBytes := lib.NewByteString(tm.gamma(plaintext))
+    recvPublicKeyBytes := lib.NewByteStringWithContent(tm.gamma(recvPublicKey))
+    senderPrivateKeyBytes := lib.NewByteStringWithContent(tm.gamma(senderPrivateKey))
+    plaintextBytes := lib.NewByteStringWithContent(tm.gamma(plaintext))
     // TODO do we need to introduce a length on terms? Would this be a valid precondition for this function?
     if lib.Size(recvPublicKeyBytes) == 32 &&
         lib.Size(senderPrivateKeyBytes) == 32 {
