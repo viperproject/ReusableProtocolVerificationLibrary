@@ -162,11 +162,17 @@ pure func (ctx DefaultLabelingContext) IsValidAead(t tr.TraceEntry, key, nonce, 
         ctx.IsValid(t, nonce) &&
         ctx.IsValid(t, plaintext) &&
         ctx.IsValid(t, authtext) &&
-        // authtext has to flow to public
-        ctx.CanFlow(t, ctx.GetLabel(authtext), label.Public()) // &&
-        // message has to flow to secrecy label of key
-        // ctx.CanFlow(t, plaintextLabel, ctx.GetLabel(key))
-        // TODO add something similar to pkePred above
+        // nonce and authtext have to flow to public
+        ctx.CanFlow(t, ctx.GetLabel(nonce), label.Public()) &&
+        ctx.CanFlow(t, ctx.GetLabel(authtext), label.Public()) &&
+        (
+            // either key and message are public...
+            (ctx.CanFlow(t, ctx.GetLabel(key), label.Public()) &&
+                ctx.CanFlow(t, plaintextLabel, label.Public())) ||
+            // ... or message can flow to key's label and AeadPred holds
+            (ctx.CanFlow(t, plaintextLabel, ctx.GetLabel(key)) &&
+                ctx.IsAeadKey(key) &&
+                ctx.usage.AeadPred(t, u.GetUsageString(get(ctx.GetUsage(key))), key, nonce, plaintext, authtext)))
 }
 
 ghost
@@ -238,8 +244,16 @@ func (ctx DefaultLabelingContext) IsValidAeadMonotonic(t1, t2 tr.TraceEntry, key
     ctx.IsValidMonotonic(t1, t2, nonce)
     ctx.IsValidMonotonic(t1, t2, plaintext)
     ctx.IsValidMonotonic(t1, t2, authtext)
+    ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(nonce), label.Public())
     ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(authtext), label.Public())
-    // ctx.CanFlowMonotonic(t1, t2, plaintextLabel, ctx.GetLabel(key))
+    if (ctx.CanFlow(t1, ctx.GetLabel(key), label.Public()) &&
+        ctx.CanFlow(t1, plaintextLabel, label.Public())) {
+        ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(key), label.Public())
+        ctx.CanFlowMonotonic(t1, t2, plaintextLabel, label.Public())
+    } else {
+        ctx.CanFlowMonotonic(t1, t2, plaintextLabel, ctx.GetLabel(key))
+        ctx.usage.AeadPredMonotonic(t1, t2, u.GetUsageString(get(ctx.GetUsage(key))), key, nonce, plaintext, authtext)
+    }
 }
 
 ghost
@@ -317,7 +331,9 @@ ensures term.IsRandom() ==> res == tm.getRandomLabel(term)
 // hash, kdf1, kdf2, and kdf3 are considered one-way functions
 // such that they are of any use (applying a KDF to a secret value), their return value's label corresponds to the one of the argument:
 // TODO: why are hashes not considered public?
-ensures (term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabel(tm.getInput(term))
+// ensures (term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabel(tm.getInput(term))
+ensures term.IsHash() ==> res == label.Public()
+ensures (term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabel(tm.getInput(term))
 ensures term.IsTuple() ==> res == ctx.nestedMeet(getTupleSeq(term), 0) // intersection of audience is allowed to read
 // DH exponentiation is special cased:
 // if a term is `(g^x)^y` or equivalently `g^(x*y)` it results in the join label of x and y
@@ -572,6 +588,12 @@ ghost
 /** wrapper to get and check usage of a term for convenience */
 pure func (ctx DefaultLabelingContext) IsPkeKey(sk tm.Term) bool {
     return (ctx.GetUsage(sk) != none[u.Usage]) && (get(ctx.GetUsage(sk))).IsPkeKey()
+}
+
+ghost
+/** wrapper to get and check usage of a term for convenience */
+pure func (ctx DefaultLabelingContext) IsAeadKey(key tm.Term) bool {
+    return (ctx.GetUsage(key) != none[u.Usage]) && (get(ctx.GetUsage(key))).IsAeadKey()
 }
 
 ghost

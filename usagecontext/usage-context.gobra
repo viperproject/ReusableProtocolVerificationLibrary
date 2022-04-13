@@ -19,6 +19,15 @@ type UsageContext interface {
     requires PkePred(t1, usageString, plaintext, pk)
     ensures  PkePred(t2, usageString, plaintext, pk)
     PkePredMonotonic(t1, t2 tr.TraceEntry, usageString string, plaintext, pk tm.Term)
+
+    ghost
+    pure AeadPred(t tr.TraceEntry, usageString string, key, nonce, plaintext, authtext tm.Term) bool
+
+    ghost
+    requires t1.isSuffix(t2)
+    requires AeadPred(t1, usageString, key, nonce, plaintext, authtext)
+    ensures  AeadPred(t2, usageString, key, nonce, plaintext, authtext)
+    AeadPredMonotonic(t1, t2 tr.TraceEntry, usageString string, key, nonce, plaintext, authtext tm.Term)
 }
 
 // ghost
