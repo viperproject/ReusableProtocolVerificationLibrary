@@ -252,28 +252,16 @@ type Term domain {
     axiom { // exp is injective for a given base
         forall t1, t2, t3 Term :: { exp(t1, t2), exp(t1, t3) } exp(t1, t2) == exp(t1, t3) ==> t2 == t3
     }
-    /* this does not hold as we can construct the same term by using exp and mult!
-    axiom { // exp is injective
-        forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 15 &&
-            getBase(exp(t1, t2)) == t1 &&
-            getExponent(exp(t1, t2)) == t2
-    }
-    
-    axiom { // exp implies its construction
-        forall t Term :: { getTermType(t) == 15 } (getTermType(t) == 15) ==> t == exp(getBase(t), getExponent(t))
-    }
-    */
+    // exp is neither injective nor does it imply its construction as we can construct the same term by using exp and mult!
 
     axiom { // mult has type
         forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 16
     }
-    /* does not hold as mult is commutative!
-    axiom { // mult is injective
-        forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 16 &&
-            getTupleElem(mult(t1, t2), 0) == t1 &&
-            getTupleElem(mult(t1, t2), 1) == t2
+
+    // mult is commutative
+    axiom {
+        forall x, y Term :: { mult(x, y) } mult(x, y) == mult(y, x)
     }
-    */
 
     // (x^y)^z == x^(y*z)
     axiom {
@@ -284,11 +272,6 @@ type Term domain {
     // axiom {
     //     forall x Term :: { exp(x, const1()) } exp(x, const1()) == x
     // }
-
-    // mult is commutative
-    axiom {
-        forall x, y Term :: { mult(x, y) } mult(x, y) == mult(y, x)
-    }
 
     // // mult is associative
     // axiom {
