@@ -1,6 +1,8 @@
 package labeledlibrary
 
 import (
+	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
+
 	//@ arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
 	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
@@ -100,7 +102,7 @@ func (l *LabeledLibrary) Enc(msg, recv_pk, sender_sk lib.ByteString /*@, ghost m
 //@ ensures  err == nil ==> lib.Mem(msg)
 //@ ensures  err == nil ==> lib.Size(msg) == lib.Size(ciphertext) - lib.NonceLength - 16
 //@ ensures  err == nil ==> lib.Abs(ciphertext) == tm.encryptB(lib.Abs(msg), tm.createPkB(lib.Abs(recv_sk)))
-//@ ensures err == nil ==> (forall msgT tm.Term :: { tm.encrypt(msgT, tm.createPk(recv_skT)) } ciphertextT == tm.encrypt(msgT, tm.createPk(recv_skT)) ==>
+//@ ensures  err == nil ==> (forall msgT tm.Term :: { tm.encrypt(msgT, tm.createPk(recv_skT)) } ciphertextT == tm.encrypt(msgT, tm.createPk(recv_skT)) ==>
 //@		(l.LabelCtx()).WasDecrypted(l.Snapshot(), msgT, recv_skT, skOwner))
 func (l *LabeledLibrary) Dec(ciphertext, sender_pk, recv_sk lib.ByteString /*@, ghost ciphertextT tm.Term, ghost recv_skT tm.Term, ghost skOwner p.Id @*/) (msg lib.ByteString, err error) {
 	//@ unfold l.Mem()
@@ -121,5 +123,38 @@ func (l *LabeledLibrary) Dec(ciphertext, sender_pk, recv_sk lib.ByteString /*@, 
 		assume forall msgT tm.Term :: { ciphertextT == tm.encrypt(msgT, pkT) } ciphertextT == tm.encrypt(msgT, pkT) ==> (l.LabelCtx()).WasDecrypted(l.Snapshot(), msgT, recv_skT, skOwner)
 	}
 	@*/
+	return
+}
+
+// requires len(key) == 32 && len(nonce) == 12 && len(ciphertext) >= 16
+// ensures  len(res) == len(ciphertext)-16
+//@ trusted
+//@ requires l.Mem()
+//@ requires acc(lib.Mem(key), 1/16)
+//@ requires lib.Abs(key) == tm.gamma(keyT)
+//@ requires acc(lib.Mem(nonce), 1/16)
+//@ requires lib.Abs(nonce) == tm.gamma(nonceT)
+//@ requires acc(lib.Mem(ciphertext), 1/16)
+//@ requires lib.Abs(ciphertext) == tm.gamma(ciphertextT)
+//@ requires additionalData != nil ==> acc(lib.Mem(additionalData), 1/16)
+//@ requires lib.SafeAbs(additionalData, 0) == tm.gamma(adT)
+//@ requires lib.Size(key) == 32 && lib.Size(nonce) == 12
+//@ requires l.LabelCtx().CanAeadDecrypt(l.Snapshot(), keyT, nonceT, ciphertextT, adT, keyL)
+//@ ensures  l.Mem()
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  l.Snapshot() == old(l.Snapshot())
+//@ ensures  acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16) && acc(lib.Mem(ciphertext), 1/16)
+//@ ensures  additionalData != nil ==> acc(lib.Mem(additionalData), 1/16)
+//@ ensures  err == nil ==> lib.Mem(res) && lib.Size(res) == lib.Size(ciphertext) - 16
+//@ ensures  err == nil ==> lib.Abs(ciphertext) == tm.aeadB(lib.Abs(key), lib.Abs(nonce), lib.Abs(res), lib.SafeAbs(additionalData, 0))
+//@ ensures  err == nil ==> (forall msgT tm.Term :: { tm.aead(keyT, nonceT, msgT, adT) } ciphertextT == tm.aead(keyT, nonceT, msgT, adT) ==>
+//@		(l.LabelCtx()).WasAeadDecrypted(l.Snapshot(), keyT, nonceT, msgT, adT, keyL))
+func (l *LabeledLibrary) AeadDec(key, nonce, ciphertext, additionalData lib.ByteString /*@, ghost keyT tm.Term, ghost nonceT tm.Term, ghost ciphertextT tm.Term, ghost adT tm.Term, ghost keyL label.SecrecyLabel @*/) (res lib.ByteString, err error) {
+	aead, err := chacha20poly1305.New(key)
+	if !ok {
+		return
+	}
+	res = make([]byte, len(ciphertext)-16)
+	_, err = aead.Open(res[:0], nonce, ciphertext, additionalData)
 	return
 }

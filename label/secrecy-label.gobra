@@ -16,6 +16,7 @@ type SecrecyLabel domain {
     // WARNING: adapt first axiom if another SecrecyLabel is added!
 
     // deconstructors
+    // TODO: get rid of `GetFirstLabel` and `GetSecondLabel` and express commutativity in the usual way
     func GetType(SecrecyLabel) int
     func GetReaders(SecrecyLabel) set[p.Id]
     func GetFirstLabel(SecrecyLabel) SecrecyLabel
@@ -39,20 +40,47 @@ type SecrecyLabel domain {
     axiom { // readers type implies its construction
         forall l SecrecyLabel :: { GetType(l) == 1 } GetType(l) == 1 ==> l == Readers(GetReaders(l))
     }
-
+    /*
     axiom { // meet is injective
         forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } GetType(Meet(l1, l2)) == 2 &&
             GetFirstLabel(Meet(l1, l2)) == l1 &&
             GetSecondLabel(Meet(l1, l2)) == l2
     }
+    */
+    axiom { // meet is pseudo-injective
+        forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } GetType(Meet(l1, l2)) == 2 &&
+            ((
+                GetFirstLabel(Meet(l1, l2)) == l1 &&
+                GetSecondLabel(Meet(l1, l2)) == l2) ||
+            (
+                GetFirstLabel(Meet(l1, l2)) == l2 &&
+                GetSecondLabel(Meet(l1, l2)) == l1))
+    }
+    axiom { // meet is commutative
+        forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } Meet(l1, l2) == Meet(l2, l1)
+    }
     axiom { // meet type implies its construction
         forall l SecrecyLabel :: { GetType(l) == 2 } GetType(l) == 2 ==> l == Meet(GetFirstLabel(l), GetSecondLabel(l))
     }
 
+    /*
     axiom { // join is injective
         forall l1, l2 SecrecyLabel :: { Join(l1, l2) } GetType(Join(l1, l2)) == 3 &&
             GetFirstLabel(Join(l1, l2)) == l1 &&
             GetSecondLabel(Join(l1, l2)) == l2
+    }
+    */
+    axiom { // join is pseudo-injective
+        forall l1, l2 SecrecyLabel :: { Join(l1, l2) } GetType(Join(l1, l2)) == 3 &&
+            ((
+                GetFirstLabel(Join(l1, l2)) == l1 &&
+                GetSecondLabel(Join(l1, l2)) == l2) ||
+            (
+                GetFirstLabel(Join(l1, l2)) == l2 &&
+                GetSecondLabel(Join(l1, l2)) == l1))
+    }
+    axiom { // join is commutative
+        forall l1, l2 SecrecyLabel :: { Join(l1, l2) } Join(l1, l2) == Join(l2, l1)
     }
     axiom { // join type implies its construction
         forall l SecrecyLabel :: { GetType(l) == 3 } GetType(l) == 3 ==> l == Join(GetFirstLabel(l), GetSecondLabel(l))

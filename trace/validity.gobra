@@ -140,6 +140,27 @@ type LabelingContext interface {
     DecryptSatisfiesInvariant(t TraceEntry, msg, sk tm.Term, skOwner p.Id)
 
     ghost
+    pure CanAeadEncrypt(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool
+
+    ghost
+    decreases
+    requires CanAeadEncrypt(t, key, nonce, msg, ad, keyL) || (IsPublishable(t, key) && IsPublishable(t, nonce) && IsPublishable(t, msg) && IsPublishable(t, ad))
+    ensures  IsPublishable(t, tm.aead(key, nonce, msg, ad))
+    AeadCiphertextIsPublishable(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel)
+
+    ghost
+    pure CanAeadDecrypt(t TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) bool
+
+    ghost
+    pure WasAeadDecrypted(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool
+
+    ghost
+    decreases
+    requires CanAeadDecrypt(t, key, nonce, tm.aead(key, nonce, msg, ad), ad, keyL)
+    ensures  WasAeadDecrypted(t, key, nonce, msg, ad, keyL)
+    AeadDecryptSatisfiesInvariant(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel)
+
+    ghost
     decreases
     requires IsLabeled(t, term, l)
     requires l.IsReaders()
@@ -183,6 +204,7 @@ pred messageInv(ctx TraceContext, sender, receiver Principal, payload Term, prev
 */
 
 ghost
+decreases
 requires t1.isSuffix(t2)
 requires messageInv(ctx, sender, receiver, payload, t1)
 ensures  messageInv(ctx, sender, receiver, payload, t2)

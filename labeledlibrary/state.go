@@ -246,11 +246,26 @@ func (l *LabeledLibrary) ApplyMonotonicityDflt(labelCtx labeling.DefaultLabeling
 	arbUsageString := arb.GetArbString()
 	if (arbSnap.isSuffix(l.Snapshot()) &&
 		labelCtx.IsPublicKeyExistential(arbSnap, arbOwner, arbPk, arbKeyType, arbUsageString)) {
-		assert exists sk tm.Term :: { labelCtx.IsPublicKey(arbSnap, arbOwner, arbPk, sk, arbKeyType, arbUsageString) } labelCtx.IsPublicKey(arbSnap, arbOwner, arbPk, sk, arbKeyType, arbUsageString)
-		// get witness
 		skWitness := arb.GetArbTerm()
-		assume labelCtx.IsPublicKey(arbSnap, arbOwner, arbPk, skWitness, arbKeyType, arbUsageString)
+		if arbKeyType == labeling.KeyTypePke() {
+			assert exists sk tm.Term :: { labelCtx.IsPublicEncKey(arbSnap, arbOwner, arbPk, sk, arbUsageString) } labelCtx.IsPublicEncKey(arbSnap, arbOwner, arbPk, sk, arbUsageString)
+			// get witness
+			assume labelCtx.IsPublicEncKey(arbSnap, arbOwner, arbPk, skWitness, arbUsageString)
+		} else if arbKeyType == labeling.KeyTypeDHPk() {
+			assert exists sk tm.Term :: { labelCtx.IsPublicDhPk(arbSnap, arbOwner, arbPk, sk, arbUsageString) } labelCtx.IsPublicDhPk(arbSnap, arbOwner, arbPk, sk, arbUsageString)
+			// get witness
+			assume labelCtx.IsPublicDhPk(arbSnap, arbOwner, arbPk, skWitness, arbUsageString)
+		}
+		assert labelCtx.IsPublicKey(arbSnap, arbOwner, arbPk, skWitness, arbKeyType, arbUsageString)
+		assert labelCtx.IsPublicKey(l.Snapshot(), arbOwner, arbPk, skWitness, arbKeyType, arbUsageString)
+		if arbKeyType == labeling.KeyTypePke() {
+			assert labelCtx.IsPublicKeyExistential(l.Snapshot(), arbOwner, arbPk, arbKeyType, arbUsageString)
+		} else if arbKeyType == labeling.KeyTypeDHPk() {
+			assert labelCtx.IsPublicDhPkExistential(l.Snapshot(), arbOwner, arbPk, arbUsageString)
+		}
 	}
+	assert arbSnap.isSuffix(l.Snapshot()) && labelCtx.IsPublicKeyExistential(arbSnap, arbOwner, arbPk, arbKeyType, arbUsageString) ==> labelCtx.IsPublicKeyExistential(l.Snapshot(), arbOwner, arbPk, arbKeyType, arbUsageString)
+	assume forall oldSnap tr.TraceEntry, owner p.Id, pk tm.Term, keyType labeling.KeyType, usage string :: { labelCtx.IsPublicKeyExistential(oldSnap, owner, pk, keyType, usage) } oldSnap.isSuffix(l.Snapshot()) && labelCtx.IsPublicKeyExistential(oldSnap, owner, pk, keyType, usage) ==> labelCtx.IsPublicKeyExistential(l.Snapshot(), owner, pk, keyType, usage)
 }
 
 ghost
@@ -340,10 +355,13 @@ ensures  l.Snapshot() == old(l.Snapshot())
 ensures  prev.isSuffix(l.Snapshot())
 ensures  prev.isMessageAt(sender, receiver, msg)
 ensures  tr.messageInv(l.Ctx(), sender, receiver, msg, tr.getPrev(prev))
+ensures  tr.messageInv(l.Ctx(), sender, receiver, msg, l.Snapshot())
 func (l *LabeledLibrary) MessageOccursImpliesMessageInv(sender, receiver p.Principal, msg tm.Term) (prev tr.TraceEntry) {
 	unfold l.Mem()
 	prev = l.manager.MessageOccursImpliesMessageInv(l.ctx, l.owner, sender, receiver, msg)
 	fold l.Mem()
+	tr.getPrev(prev).isSuffixTransitive(prev, l.Snapshot())
+	tr.messageInvTransitive(l.Ctx(), sender, receiver, msg, tr.getPrev(prev), l.Snapshot())
 }
 
 ghost

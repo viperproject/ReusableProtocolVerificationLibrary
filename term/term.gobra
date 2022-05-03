@@ -155,6 +155,10 @@ type Term domain {
             getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 5) == t6 &&
             getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 6) == t7
     }
+    axiom { // tuple7 implies its constructions
+        forall t Term :: { getTermType(t) == 5 } getTermType(t) == 5 ==>
+            t == tuple7(getTupleElem(t, 0), getTupleElem(t, 1), getTupleElem(t, 2), getTupleElem(t, 3), getTupleElem(t, 4), getTupleElem(t, 5), getTupleElem(t, 6))
+    }
 
     axiom { // hash is injective
         forall t Term :: { hash(t) } getTermType(hash(t)) == 6 &&
@@ -244,6 +248,9 @@ type Term domain {
 
     axiom { // exp has type
         forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 15
+    }
+    axiom { // exp is injective for a given base
+        forall t1, t2, t3 Term :: { exp(t1, t2), exp(t1, t3) } exp(t1, t2) == exp(t1, t3) ==> t2 == t3
     }
     /* this does not hold as we can construct the same term by using exp and mult!
     axiom { // exp is injective
