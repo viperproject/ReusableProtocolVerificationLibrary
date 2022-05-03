@@ -151,7 +151,7 @@ func (l *LabeledLibrary) Dec(ciphertext, sender_pk, recv_sk lib.ByteString /*@, 
 //@		(l.LabelCtx()).WasAeadDecrypted(l.Snapshot(), keyT, nonceT, msgT, adT, keyL))
 func (l *LabeledLibrary) AeadDec(key, nonce, ciphertext, additionalData lib.ByteString /*@, ghost keyT tm.Term, ghost nonceT tm.Term, ghost ciphertextT tm.Term, ghost adT tm.Term, ghost keyL label.SecrecyLabel @*/) (res lib.ByteString, err error) {
 	aead, err := chacha20poly1305.New(key)
-	if !ok {
+	if err != nil {
 		return
 	}
 	res = make([]byte, len(ciphertext)-16)
