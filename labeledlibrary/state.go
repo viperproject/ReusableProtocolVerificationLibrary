@@ -306,11 +306,14 @@ ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
 ensures  prev.isSuffix(l.Snapshot())
 ensures  prev.isEventAt(principal, event)
-ensures  (l.Ctx()).pureEventInv(principal, event, tr.getPrev(prev))
+ensures  l.Ctx().pureEventInv(principal, event, tr.getPrev(prev))
+ensures  l.Ctx().pureEventInv(principal, event, l.Snapshot())
 func (l *LabeledLibrary) EventOccursImpliesEventInv(principal p.Principal, event ev.Event) (prev tr.TraceEntry) {
 	unfold l.Mem()
 	prev = l.manager.EventOccursImpliesEventInv(l.ctx, l.owner, principal, event)
 	fold l.Mem()
+	tr.getPrev(prev).isSuffixTransitive(prev, l.Snapshot())
+	l.Ctx().pureEventInvTransitive(principal, event, tr.getPrev(prev), l.Snapshot())
 }
 
 ghost

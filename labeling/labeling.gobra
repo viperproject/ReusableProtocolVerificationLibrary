@@ -351,10 +351,23 @@ ensures term.IsTuple() ==> res == ctx.nestedMeet(getTupleSeq(term), 0) // inters
 // note that one must make sure the postconditions to not specify multiple labels for the same term, which
 // would immediately be a contradiction. Thus, the case where t1 is the generator has to be explicitly excluded
 // when specifying the label for t1^t2
+/*
 ensures forall t tm.Term :: { tm.exp(tm.generator(), t) } term == tm.exp(tm.generator(), t) && t.IsRandom() ==> res == label.Public()
 ensures forall t1, t2 tm.Term :: { tm.exp(tm.exp(tm.generator(), t1), t2) } term == tm.exp(tm.exp(tm.generator(), t1), t2) ==> res == label.Join(ctx.GetLabel(t1), ctx.GetLabel(t2))
-ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) && t1 != tm.generator() ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
+// we exclude both cases above and thus add two conjuncts to the lhs:
+ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) && !t1.IsGenerator() && !t1.IsExp() ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
 ensures forall t1, t2 tm.Term :: { tm.mult(t1, t2) } term == tm.mult(t1, t2) ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
+*/
+ensures forall t tm.Term :: { tm.exp(tm.generator(), t) } term == tm.exp(tm.generator(), t) && !t.IsMult() ==> res == label.Public()
+ensures forall t1, t2 tm.Term :: { tm.exp(tm.exp(tm.generator(), t1), t2) } term == tm.exp(tm.exp(tm.generator(), t1), t2) ==> res == label.Join(ctx.GetLabel(t1), ctx.GetLabel(t2))
+// we exclude both cases above and thus add two conjuncts to the lhs:
+ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) && !t1.IsGenerator() && !t1.IsExp() ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
+ensures forall t1, t2, t3 tm.Term :: { tm.exp(tm.exp(t1, t2), t3) } term == tm.exp(tm.exp(t1, t2), t3) && !t1.IsGenerator() ==> res == label.Meet(ctx.GetLabel(tm.exp(t1, t2)), ctx.GetLabel(t3))
+/*
+ensures forall t tm.Term :: { tm.exp(tm.generator(), t) } term == tm.exp(tm.generator(), t) && !t.IsMult() ==> res == label.Public()
+ensures forall t1, t2 tm.Term :: { tm.exp(tm.generator(), tm.mult(t1, t2)) } term == tm.exp(tm.generator(), tm.mult(t1, t2)) ==> res == label.Join(ctx.GetLabel(t1), ctx.GetLabel(t2))
+ensures forall t1, t2 tm.Term :: { term == tm.exp(t1, t2) } term == tm.exp(t1, t2) && !t1.IsGenerator() ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
+*/
 /**
   * WARNING:
   * 2 terms that are equal based on the equational theory must return the same label!
