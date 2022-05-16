@@ -120,12 +120,20 @@ type Term domain {
             getTupleElem(tuple2(t1, t2), 0) == t1 &&
             getTupleElem(tuple2(t1, t2), 1) == t2
     }
+    axiom { // tuple2 implies its constructions
+        forall t Term :: { getTermType(t) == 1 } getTermType(t) == 1 ==>
+            t == tuple2(getTupleElem(t, 0), getTupleElem(t, 1))
+    }
 
     axiom { // tuple3 is injective
         forall t1, t2, t3 Term :: { tuple3(t1, t2, t3) } getTermType(tuple3(t1, t2, t3)) == 2 &&
             getTupleElem(tuple3(t1, t2, t3), 0) == t1 &&
             getTupleElem(tuple3(t1, t2, t3), 1) == t2 &&
             getTupleElem(tuple3(t1, t2, t3), 2) == t3
+    }
+    axiom { // tuple3 implies its constructions
+        forall t Term :: { getTermType(t) == 2 } getTermType(t) == 2 ==>
+            t == tuple3(getTupleElem(t, 0), getTupleElem(t, 1), getTupleElem(t, 2))
     }
 
     axiom { // tuple4 is injective
@@ -135,6 +143,10 @@ type Term domain {
             getTupleElem(tuple4(t1, t2, t3, t4), 2) == t3 &&
             getTupleElem(tuple4(t1, t2, t3, t4), 3) == t4
     }
+    axiom { // tuple4 implies its constructions
+        forall t Term :: { getTermType(t) == 3 } getTermType(t) == 3 ==>
+            t == tuple4(getTupleElem(t, 0), getTupleElem(t, 1), getTupleElem(t, 2), getTupleElem(t, 3))
+    }
 
     axiom { // tuple5 is injective
         forall t1, t2, t3, t4, t5 Term :: { tuple5(t1, t2, t3, t4, t5) } getTermType(tuple5(t1, t2, t3, t4, t5)) == 4 &&
@@ -143,6 +155,10 @@ type Term domain {
             getTupleElem(tuple5(t1, t2, t3, t4, t5), 2) == t3 &&
             getTupleElem(tuple5(t1, t2, t3, t4, t5), 3) == t4 &&
             getTupleElem(tuple5(t1, t2, t3, t4, t5), 4) == t5
+    }
+    axiom { // tuple5 implies its constructions
+        forall t Term :: { getTermType(t) == 4 } getTermType(t) == 4 ==>
+            t == tuple5(getTupleElem(t, 0), getTupleElem(t, 1), getTupleElem(t, 2), getTupleElem(t, 3), getTupleElem(t, 4))
     }
 
     axiom { // tuple7 is injective

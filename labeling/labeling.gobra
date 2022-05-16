@@ -1381,12 +1381,20 @@ func (ctx DefaultLabelingContext) DecryptSatisfiesInvariant(t tr.TraceEntry, msg
 
 ghost
 pure func (ctx DefaultLabelingContext) CanAeadEncrypt(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool {
+    return ctx.IsLabeledRelaxed(t, key, keyL) &&
+        (ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
+        ctx.IsPublishable(t, nonce) &&
+        ctx.IsMsg(t, msg, keyL) &&
+        ctx.IsPublishable(t, ad) &&
+        (forall usageString string :: ctx.IsAeadKey(t, key, keyL, usageString) ==> ctx.usage.AeadPred(t, usageString, key, nonce, msg, ad))
+    /*
     return keyL == ctx.GetLabel(key) &&
         (ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
         ctx.IsMsg(t, msg, keyL) &&
         ctx.IsPublishable(t, ad) &&
         (forall usageString string :: ctx.IsAeadKey(t, key, keyL, usageString) ==> ctx.usage.AeadPred(t, usageString, key, nonce, msg, ad))
+    */
 }
 
 ghost
@@ -1397,11 +1405,13 @@ func (ctx DefaultLabelingContext) AeadCiphertextIsPublishable(t tr.TraceEntry, k
     msgL := ctx.GetLabel(msg)
     if ctx.IsPublishable(t, key) {
         if !ctx.IsPublishable(t, msg) {
+            ctx.CanFlowTransitive(t, keyL, ctx.GetLabel(key), label.Public())
             ctx.CanFlowTransitive(t, msgL, keyL, label.Public())
         }
     } else {
         // the following assert stmt would not be necessary:
         assert ctx.usage.AeadPred(t, u.GetUsageString(get(ctx.GetUsage(key))), key, nonce, msg, ad)
+        ctx.CanFlowTransitive(t, msgL, keyL, ctx.GetLabel(key))
     }
     // the following assert stmt is necessary:
 	assert ctx.IsValidAead(t, key, nonce, msg, msgL, ad)

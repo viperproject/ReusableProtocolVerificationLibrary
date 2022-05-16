@@ -126,6 +126,39 @@ func (l *LabeledLibrary) Dec(ciphertext, sender_pk, recv_sk lib.ByteString /*@, 
 	return
 }
 
+// requires len(key) == 32 && len(nonce) == 12
+// ensures len(res) == len(plaintext) + 16
+//@ trusted
+//@ requires l.Mem()
+//@ requires acc(lib.Mem(key), 1/16)
+//@ requires lib.Abs(key) == tm.gamma(keyT)
+//@ requires acc(lib.Mem(nonce), 1/16)
+//@ requires lib.Abs(nonce) == tm.gamma(nonceT)
+//@ requires plaintext != nil ==> acc(lib.Mem(plaintext), 1/16)
+//@ requires lib.SafeAbs(plaintext, 0) == tm.gamma(plaintextT)
+//@ requires additionalData != nil ==> acc(lib.Mem(additionalData), 1/16)
+//@ requires lib.SafeAbs(additionalData, 0) == tm.gamma(adT)
+//@ requires lib.Size(key) == 32 && lib.Size(nonce) == 12
+//@ requires l.LabelCtx().CanAeadEncrypt(l.Snapshot(), keyT, nonceT, plaintextT, adT, keyL) || (l.LabelCtx().IsPublishable(l.Snapshot(), keyT) && l.LabelCtx().IsPublishable(l.Snapshot(), nonceT) && l.LabelCtx().IsPublishable(l.Snapshot(), plaintextT) && l.LabelCtx().IsPublishable(l.Snapshot(), adT))
+//@ ensures  l.Mem()
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  l.Snapshot() == old(l.Snapshot())
+//@ ensures  acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16)
+//@ ensures  plaintext != nil ==> acc(lib.Mem(plaintext), 1/16)
+//@ ensures  additionalData != nil ==> acc(lib.Mem(additionalData), 1/16)
+//@ ensures  err == nil ==> lib.Mem(ciphertext) && lib.Size(ciphertext) == (plaintext == nil ? 0 : lib.Size(plaintext)) + 16
+//@ ensures  err == nil ==> lib.Abs(ciphertext) == tm.aeadB(lib.Abs(key), lib.Abs(nonce), lib.SafeAbs(plaintext, 0), lib.SafeAbs(additionalData, 0))
+//@ ensures  err == nil ==> l.LabelCtx().IsPublishable(l.Snapshot(), tm.aead(keyT, nonceT, plaintextT, adT))
+func (l *LabeledLibrary) AeadEnc(key, nonce, plaintext, additionalData lib.ByteString /*@, ghost keyT tm.Term, ghost nonceT tm.Term, ghost plaintextT tm.Term, ghost adT tm.Term, ghost keyL label.SecrecyLabel @*/) (ciphertext lib.ByteString, err error) {
+	aead, err := chacha20poly1305.New(key)
+	if err != nil {
+		return
+	}
+	ciphertext = make([]byte, len(plaintext)+16)
+	aead.Seal(ciphertext[:0], nonce, plaintext, additionalData)
+	return
+}
+
 // requires len(key) == 32 && len(nonce) == 12 && len(ciphertext) >= 16
 // ensures  len(res) == len(ciphertext)-16
 //@ trusted
