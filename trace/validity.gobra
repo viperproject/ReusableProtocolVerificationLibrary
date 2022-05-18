@@ -84,7 +84,8 @@ type TraceContext interface {
     corruptInvTransitive(id p.Id, t1 TraceEntry, t2 TraceEntry)
 
     ghost
-    pure GetLabeling() LabelingContext
+    ensures res != nil
+    pure GetLabeling() (res LabelingContext)
 }
 
 type LabelingContext interface {
@@ -183,6 +184,7 @@ type LabelingContext interface {
 
 // because Go & Gobra do not allow receivers of interface type, `ctx` becomes the first argument:
 pred validTrace(ctx TraceContext, t TraceEntry) {
+    ctx != nil &&
     // invariant holds recursively:
     (!t.isRoot() ==> validTrace(ctx, getPrev(t))) &&
 
@@ -196,36 +198,40 @@ pred validTrace(ctx TraceContext, t TraceEntry) {
 }
 
 ghost
+requires ctx != nil
 requires t.isRoot()
 pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
     // TODO: using t is a bit artificial because using getPrev(t) would make more sense but does not exist
-    return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> (ctx.GetLabeling()).IsPublishable(t, publicTerm)
+    return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> ctx.GetLabeling().IsPublishable(t, publicTerm)
 }
 
 ghost
 pure func messageInv(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, prev TraceEntry) bool {
-    return (ctx.GetLabeling()).IsPublishable(prev, payload)
+    return ctx != nil &&
+        ctx.GetLabeling().IsPublishable(prev, payload)
 }
 /*
 pred messageInv(ctx TraceContext, sender, receiver Principal, payload Term, prev TraceEntry) {
-    (ctx.GetLabeling()).IsPublishable(prev, payload)
+    ctx.GetLabeling().IsPublishable(prev, payload)
 }
 */
 
 ghost
 decreases
+requires ctx != nil
 requires t1.isSuffix(t2)
 requires messageInv(ctx, sender, receiver, payload, t1)
 ensures  messageInv(ctx, sender, receiver, payload, t2)
 func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, t1, t2 TraceEntry) {
     // unfold messageInv(ctx, sender, receiver, payload, t1)
-    (ctx.GetLabeling()).IsPublishableMonotonic(t1, t2, payload)
+    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, payload)
     // fold messageInv(ctx, sender, receiver, payload, t2)
 }
 
 pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {
+    ctx != nil &&
     pureRandInv(ctx, nonce, prev) &&
-    (ctx.GetLabeling()).NonceIsUnique(nonce)
+    ctx.GetLabeling().NonceIsUnique(nonce)
 }
 
 ghost
@@ -235,13 +241,15 @@ pure func pureRandInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) bool {
 
 ghost
 pure func madePublicInv(ctx TraceContext, term tm.Term, prev TraceEntry) bool {
-    return (ctx.GetLabeling()).IsPublishable(prev, term)
+    return ctx != nil &&
+        ctx.GetLabeling().IsPublishable(prev, term)
 }
 
 ghost
+requires ctx != nil
 requires t1.isSuffix(t2)
 requires madePublicInv(ctx, term, t1)
 ensures  madePublicInv(ctx, term, t2)
 func madePublicInvTransitive(ctx TraceContext, term tm.Term, t1, t2 TraceEntry) {
-    (ctx.GetLabeling()).IsPublishableMonotonic(t1, t2, term)
+    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, term)
 }

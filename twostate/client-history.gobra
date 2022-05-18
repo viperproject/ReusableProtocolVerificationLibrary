@@ -24,7 +24,7 @@ pred (m *ClientHistoryMutex) clientHistoryMutexStateInit() {
 }
 
 pred (m *ClientHistoryMutex) clientHistoryMutexStateInitWithInv(inv ClientHistoryInv, ghost clients set[ClientId]) {
-    acc(m) && acc(m.snapshots) &&
+    acc(m) && acc(m.snapshots) && inv != nil &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == clientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
     clients == domain(m.snapshots) &&
     (forall client1, client2 ClientId :: client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]) &&
@@ -34,8 +34,7 @@ pred (m *ClientHistoryMutex) clientHistoryMutexStateInitWithInv(inv ClientHistor
 pred (m *ClientHistoryMutex) clientHistoryMutexState(inv ClientHistoryInv, client ClientId, locked bool) {
     // clients == domain(m.snapshots)
     // the idea is that each client get 1/len(clients) many permissions
-    acc(m, _) &&
-    acc(m.snapshots, _) &&
+    acc(m, _) && acc(m.snapshots, _) && inv != nil &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == clientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
     client in domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
@@ -47,6 +46,7 @@ pred (m *ClientHistoryMutex) clientHistoryMutexState(inv ClientHistoryInv, clien
 }
 
 pred clientHistoryMutexInv(inv ClientHistoryInv, currentValue *ClientHistoryValue, ghost snapshots set[*ClientHistoryValue]) {
+    inv != nil &&
     acc(currentValue) &&
     inv.clientHistoryValueInv(*currentValue) &&
     (forall snapshot *ClientHistoryValue :: { inv.clientHistoryInv(*snapshot, *currentValue) } snapshot in snapshots ==>
@@ -75,6 +75,14 @@ type ClientHistoryInv interface {
     requires clientHistoryInv(val1, val2) && clientHistoryInv(val2, val3)
     ensures  clientHistoryInv(val1, val3)
     clientHistoryInvTransitive(val1, val2, val3 ClientHistoryValue)
+}
+
+// indirection for ClientHistoryInv that gives us the property that
+// `inv` is non-nil
+requires acc(m.clientHistoryMutexState(inv, client, locked), _)
+ensures  inv != nil
+pure func (m *ClientHistoryMutex) getInv(inv ClientHistoryInv, client ClientId, locked bool) ClientHistoryInv {
+    return unfolding acc(m.clientHistoryMutexState(inv, client, locked), _) in inv
 }
 
 requires acc(m.clientHistoryMutexState(inv, client, locked), _)
@@ -109,7 +117,7 @@ func NewClientHistoryMutex() (m *ClientHistoryMutex) {
 }
 
 requires m.clientHistoryMutexStateInit()
-requires isComparable(inv)
+requires inv != nil && isComparable(inv)
 requires noPerm < p && p <= writePerm
 requires 0 < len(clients)
 requires forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
@@ -215,7 +223,7 @@ func (m *ClientHistoryMutex) Lock(inv ClientHistoryInv, client ClientId) (curren
 ghost
 decreases
 requires m.clientHistoryMutexState(inv, client, true)
-requires inv.clientHistoryInv(m.lastSeenValue(inv, client, true), currentValue)
+requires m.getInv(inv, client, true).clientHistoryInv(m.lastSeenValue(inv, client, true), currentValue)
 requires inv.clientHistoryInv(currentValue, newValue)
 requires unfolding m.clientHistoryMutexState(inv, client, true) in *m.currentValue == currentValue
 requires inv.clientHistoryValueInv(newValue)
@@ -230,7 +238,7 @@ func (m *ClientHistoryMutex) Unlock(inv ClientHistoryInv, client ClientId, curre
 ghost
 decreases
 requires m.clientHistoryMutexState(inv, client, true)
-requires inv.clientHistoryInv(m.lastSeenValue(inv, client, true), currentValue)
+requires m.getInv(inv, client, true).clientHistoryInv(m.lastSeenValue(inv, client, true), currentValue)
 requires inv.clientHistoryInv(currentValue, newValue)
 requires inv.clientHistoryInv(snapshot, newValue)
 requires unfolding m.clientHistoryMutexState(inv, client, true) in *m.currentValue == currentValue
@@ -255,6 +263,7 @@ func (m *ClientHistoryMutex) UnlockWithSnapshot(inv ClientHistoryInv, client Cli
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires inv != nil
 requires forall snapshot *ClientHistoryValue :: { inv.clientHistoryInv(*snapshot, currentValue) } snapshot in snapshots ==>
     acc(snapshot, p) && inv.clientHistoryInv(*snapshot, currentValue)
 requires inv.clientHistoryInv(currentValue, newValue)
@@ -277,6 +286,7 @@ func (m *ClientHistoryMutex) applyInvTransitivity(inv ClientHistoryInv, snapshot
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires inv != nil
 requires acc(snapshot, p) && inv.clientHistoryInv(*snapshot, currentValue)
 requires inv.clientHistoryInv(currentValue, newValue)
 ensures  acc(snapshot, p) && inv.clientHistoryInv(*snapshot, newValue)

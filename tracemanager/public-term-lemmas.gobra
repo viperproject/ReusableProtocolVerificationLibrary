@@ -30,8 +30,9 @@ pure func (ps PublicTermSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 // decreases
+requires ps.Ctx() != nil
 pure func (ps PublicTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
-    return entry.isRoot() && tr.publicInv(ps.ctx, entry.getPublicTerms(), entry)
+    return entry.isRoot() && tr.publicInv(ps.Ctx(), entry.getPublicTerms(), entry)
 }
 
 ghost
@@ -45,6 +46,7 @@ func (ps PublicTermSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires ps.Ctx() != nil
 requires ps.Matches(entry)
 requires acc(tr.validTrace(ps.Ctx(), entry), p)
 ensures  ps.PureEntryInv(entry)
@@ -61,11 +63,13 @@ requires m.Mem(ctx, owner)
 requires term in (m.Trace(ctx, owner)).getPublicTerms()
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(m.Trace(ctx, owner)) && prev.isRoot()
-ensures  tr.publicInv(ctx, (m.Trace(ctx, owner)).getPublicTerms(), prev)
+ensures  tr.publicInv(m.Ctx(ctx, owner), (m.Trace(ctx, owner)).getPublicTerms(), prev)
 ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) PublicTermImpliesPublicInv(ctx tr.TraceContext, owner p.Principal, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublicTermSearcher{ ctx, term }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
     prev = m.findEntryWithPureInv(searcher, owner)
     prev.getPublicTermsMontonic(m.Trace(ctx, owner))
 }

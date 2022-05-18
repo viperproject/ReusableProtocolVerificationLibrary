@@ -17,7 +17,7 @@ type TraceManager struct {
 // currently necessary because Gobra does apparently not support a dot expression as map key type
 type MapKey = p.Principal
 
-requires isComparable(ctx)
+requires ctx != nil && isComparable(ctx)
 requires len(clients) > 0
 requires tr.validTrace(ctx, root)
 requires noPerm < p && p <= writePerm
@@ -66,8 +66,16 @@ func NewTraceManager(ctx tr.TraceContext, clients []p.Principal, root tr.TraceEn
 
 pred (m *TraceManager) Mem(ctx tr.TraceContext, owner p.Principal) {
     acc(m) && 0 < m.nClients &&
-    isComparable(ctx) &&
+    ctx != nil && isComparable(ctx) &&
     m.mutex.clientHistoryMutexState(ManagerInv{ ctx }, owner, false)
+}
+
+ghost
+requires acc(m.Mem(ctx, owner), _)
+ensures ctx != nil
+// indirection to learn that `ctx != nil`
+pure func (m *TraceManager) Ctx(ctx tr.TraceContext, owner p.Principal) tr.TraceContext {
+    return unfolding acc(m.Mem(ctx, owner), _) in ctx
 }
 
 ghost
@@ -196,7 +204,7 @@ func (m *TraceManager) LogPublish(ctx tr.TraceContext, owner p.Principal, term t
 ghost
 requires m.Mem(ctx, owner)
 requires nonce.IsRandom()
-requires (ctx.GetLabeling()).NonceIsUnique(nonce)
+requires m.Ctx(ctx, owner).GetLabeling().NonceIsUnique(nonce)
 ensures  m.Mem(ctx, owner)
 ensures  (m.Trace(ctx, owner)).isNonceAt(nonce)
 ensures  old(m.Trace(ctx, owner)).isSuffix(m.Trace(ctx, owner))

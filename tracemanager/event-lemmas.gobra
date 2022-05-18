@@ -31,8 +31,9 @@ pure func (es EventSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 // decreases
+requires es.Ctx() != nil
 pure func (es EventSearcher) PureEntryInv(entry tr.TraceEntry) bool {
-    return (es.ctx).pureEventInv(es.principal, es.event, tr.getPrev(entry))
+    return es.Ctx().pureEventInv(es.principal, es.event, tr.getPrev(entry))
 }
 
 ghost
@@ -46,6 +47,7 @@ func (es EventSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires es.Ctx() != nil
 requires es.Matches(entry)
 requires acc(tr.validTrace(es.Ctx(), entry), p)
 ensures  es.PureEntryInv(entry)
@@ -61,24 +63,26 @@ func (es EventSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires (m.Trace(ctx, owner)).eventOccurs(principal, event)
+requires m.Trace(ctx, owner).eventOccurs(principal, event)
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(m.Trace(ctx, owner)) && prev.isEvent()
 ensures  prev.isEventAt(principal, event)
-ensures  ctx.pureEventInv(principal, event, tr.getPrev(prev))
+ensures  m.Ctx(ctx, owner).pureEventInv(principal, event, tr.getPrev(prev))
 ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) EventOccursImpliesEventInv(ctx tr.TraceContext, owner p.Principal, principal p.Principal, event ev.Event) (prev tr.TraceEntry) {
     searcher := EventSearcher{ ctx, principal, event }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
     prev = m.findEntryWithPureInv(searcher, owner)
 }
 
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires (m.Trace(ctx, owner)).eventOccurs(principal1, event1)
-requires (m.Trace(ctx, owner)).eventOccurs(principal2, event2)
-requires ctx.IsUnique(event1.typ)
+requires m.Trace(ctx, owner).eventOccurs(principal1, event1)
+requires m.Trace(ctx, owner).eventOccurs(principal2, event2)
+requires m.Ctx(ctx, owner).IsUnique(event1.typ)
 requires event1.typ == event2.typ
 requires ctx.EventConsistency(event1) && ctx.EventConsistency(event2)
 requires ctx.UniquenessWitness(event1) == ctx.UniquenessWitness(event2)

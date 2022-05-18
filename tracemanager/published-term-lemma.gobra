@@ -30,6 +30,7 @@ pure func (ps PublishedTermSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 // decreases
+requires ps.Ctx() != nil
 pure func (ps PublishedTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.madePublicInv(ps.ctx, ps.term, tr.getPrev(entry))
 }
@@ -45,6 +46,7 @@ func (ps PublishedTermSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires ps.Ctx() != nil
 requires ps.Matches(entry)
 requires acc(tr.validTrace(ps.Ctx(), entry), p)
 ensures  ps.PureEntryInv(entry)
@@ -67,5 +69,7 @@ ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) PublishedTermImpliesMadePublicInv(ctx tr.TraceContext, owner p.Principal, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublishedTermSearcher{ ctx, term }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
     prev = m.findEntryWithPureInv(searcher, owner)
 }
