@@ -35,6 +35,12 @@ type CanFlowLemmas_DYStar interface {
     canFlowFlowsToPublic_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
 
     ghost
+    requires l1.IsReaders() && l2.IsReaders()
+    requires label.GetReaders(l2) subset label.GetReaders(l1)
+    ensures canFlowInternal_DYStar(corruptIds, l1, l2)
+    canFlowInternalToSubsetReaders_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
+
+    ghost
     requires canFlowInternal_DYStar(corruptIds, l1, l3)
     requires canFlowInternal_DYStar(corruptIds, l2, l3)
     ensures  canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
@@ -91,6 +97,12 @@ type CanFlowLemmas_DYStar interface {
     requires canFlowInternal_DYStar(corruptIds, l3, l4)
     ensures  canFlowInternal_DYStar(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
     canFlowInternalCreateMeetBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel)
+
+    ghost
+    requires canFlowInternal_DYStar(corruptIds, l1, l2)
+    requires canFlowInternal_DYStar(corruptIds, l3, l4)
+    ensures  canFlowInternal_DYStar(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
+    canFlowInternalCreateJoinBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel)
 }
 
 type DefaultLabelingContext struct {
@@ -625,6 +637,34 @@ func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth_DYStar(corruptId
 }
 
 ghost
+requires ctx.CanFlow(t, l1, l2)
+requires ctx.CanFlow(t, l3, l4)
+ensures  ctx.CanFlow(t, label.Join(l1, l3), label.Join(l2, l4))
+func (ctx DefaultLabelingContext) CanFlowCreateJoinBoth(t tr.TraceEntry, l1, l2, l3, l4 label.SecrecyLabel) {
+    ctx.canFlowInternalCreateJoinBoth(t.getCorruptIds(), l1, l2, l3, l4)
+}
+
+ghost
+requires ctx.canFlowInternal(corruptIds, l1, l2)
+requires ctx.canFlowInternal(corruptIds, l3, l4)
+ensures  ctx.canFlowInternal(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
+func (ctx DefaultLabelingContext) canFlowInternalCreateJoinBoth(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel) {
+    ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
+    ctx.canFlowInternalImpliesDYStar(corruptIds, l3, l4)
+    ctx.canFlowInternalCreateJoinBoth_DYStar(corruptIds, l1, l2, l3, l4)
+    ctx.canFlowInternalIsImpliesByDYStar(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
+}
+
+ghost
+requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
+requires ctx.canFlowInternal_DYStar(corruptIds, l3, l4)
+ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
+func (ctx DefaultLabelingContext) canFlowInternalCreateJoinBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel) {
+    ctx.canFlowInternalCreateJoinLhs_DYStar(corruptIds, l1, l3, l2)
+    ctx.canFlowInternalCreateJoinLhs_DYStar(corruptIds, l1, l3, l4)
+}
+
+ghost
 decreases
 requires ctx.CanFlow(t, l1, label.Meet(l2, l2))
 ensures  ctx.CanFlow(t, l1, l2)
@@ -844,9 +884,9 @@ pure func (ctx DefaultLabelingContext) canFlowInternal(corruptIds set[p.Id], l1,
         // end special case 4
         ////////// end special cases //////////
         // label with a corrupted reader flows to public
-        (l1.IsReaders() && l2.IsPublic()) ? containsCorruptId(corruptIds, label.GetReaders(l1)) :
+        (l1.IsReaders() && l2.IsPublic()) ? tr.containsCorruptId(corruptIds, label.GetReaders(l1)) :
         // l1 is superset of l2 or some ID in l1 is corrupt
-        (l1.IsReaders() && l2.IsReaders()) ? (label.GetReaders(l2) subset label.GetReaders(l1) || containsCorruptId(corruptIds, label.GetReaders(l1))) :
+        (l1.IsReaders() && l2.IsReaders()) ? (includesIds(label.GetReaders(l1), label.GetReaders(l2)) || tr.containsCorruptId(corruptIds, label.GetReaders(l1))) :
         // l1 flows to l2 == meet(l21, l22) if l1 flows to l21 OR l22 because meet(l21, l22) is stricter than l21 or l22
         (l1.IsReaders() && l2.IsMeet()) ? (ctx.canFlowInternal(corruptIds, l1, label.GetFirstLabel(l2)) || ctx.canFlowInternal(corruptIds, l1, label.GetSecondLabel(l2))) :
         // l1 flows to l2 == join(l21, l22) if l1 flows to l21 AND l22
@@ -872,9 +912,9 @@ pure func (ctx DefaultLabelingContext) canFlowInternal_DYStar(corruptIds set[p.I
     // public can flow to anything
     return (l1.IsPublic() ==> true) &&
         // label with a corrupted reader flows to public
-        (l1.IsReaders() && l2.IsPublic() ==> containsCorruptId(corruptIds, label.GetReaders(l1))) &&
+        (l1.IsReaders() && l2.IsPublic() ==> tr.containsCorruptId(corruptIds, label.GetReaders(l1))) &&
         // l1 is superset of l2 or some ID in l1 is corrupt
-        (l1.IsReaders() && l2.IsReaders() ==> (label.GetReaders(l2) subset label.GetReaders(l1) || containsCorruptId(corruptIds, label.GetReaders(l1)))) &&
+        (l1.IsReaders() && l2.IsReaders() ==> (includesIds(label.GetReaders(l1), label.GetReaders(l2)) || tr.containsCorruptId(corruptIds, label.GetReaders(l1)))) &&
         // l1 flows to l2 == meet(l21, l22) if l1 flows to l21 OR l22 because meet(l21, l22) is stricter than l21 or l22
         (l1.IsReaders() && l2.IsMeet() ==> ctx.canFlowInternal_DYStar(corruptIds, l1, label.GetFirstLabel(l2)) || ctx.canFlowInternal_DYStar(corruptIds, l1, label.GetSecondLabel(l2))) &&
         // l1 flows to l2 == join(l21, l22) if l1 flows to l21 AND l22
@@ -1035,7 +1075,9 @@ ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l, l)
 func (ctx DefaultLabelingContext) canFlowInternalReflexive_DYStar(corruptIds set[p.Id], l label.SecrecyLabel) {
-    if (l.IsJoin()) {
+    if l.IsReaders() {
+        ctx.includesIdsReflexive(label.GetReaders(l))
+    } else if (l.IsJoin()) {
         l1 := label.GetFirstLabel(l)
         l2 := label.GetSecondLabel(l)
         ctx.canFlowInternalReflexive_DYStar(corruptIds, l1)
@@ -1091,6 +1133,20 @@ func (ctx DefaultLabelingContext) canFlowInternalTransitive_DYStar(corruptIds se
     if (l3.IsPublic()) {
         ctx.canFlowFlowsToPublic_DYStar(corruptIds, l1, l2)
         return
+    }
+
+    if l1.IsReaders() && l2.IsReaders() && l3.IsReaders() &&
+        includesIds(label.GetReaders(l1), label.GetReaders(l2)) &&
+        includesIds(label.GetReaders(l2), label.GetReaders(l3)) {
+        ctx.includesIdsTransitive(label.GetReaders(l1), label.GetReaders(l2), label.GetReaders(l3))
+    }
+
+    if l1.IsReaders() && l2.IsReaders() && l3.IsReaders() &&
+        ctx.canFlowInternal_DYStar(corruptIds, l1, l2) &&
+        ctx.canFlowInternal_DYStar(corruptIds, l2, l3) &&
+        includesIds(label.GetReaders(l1), label.GetReaders(l2)) &&
+        tr.containsCorruptId(corruptIds, label.GetReaders(l2)) {
+        ctx.containsCorruptIdMonotonic(corruptIds, label.GetReaders(l2), label.GetReaders(l1))
     }
 
     if (l1.IsJoin() || l1.IsMeet()) {
@@ -1165,6 +1221,12 @@ ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
 ensures  (ctx.canFlowInternal_DYStar(corruptIds, l2, label.Public()) && ctx.canFlowInternal_DYStar(corruptIds, l1, l2)) ==> ctx.canFlowInternal_DYStar(corruptIds, l1, label.Public())
 func (ctx DefaultLabelingContext) canFlowFlowsToPublic_DYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+    if l1.IsReaders() && l2.IsReaders() &&
+        ctx.canFlowInternal_DYStar(corruptIds, l2, label.Public()) &&
+        ctx.canFlowInternal_DYStar(corruptIds, l1, l2) &&
+        includesIds(label.GetReaders(l1), label.GetReaders(l2)) {
+        ctx.containsCorruptIdMonotonic(corruptIds, label.GetReaders(l2), label.GetReaders(l1))
+    }
     if (l1.IsJoin() || l1.IsMeet()) {
         l11 := label.GetFirstLabel(l1)
         l12 := label.GetSecondLabel(l1)
@@ -1177,6 +1239,34 @@ func (ctx DefaultLabelingContext) canFlowFlowsToPublic_DYStar(corruptIds set[p.I
         ctx.canFlowFlowsToPublic_DYStar(corruptIds, l1, l21)
         ctx.canFlowFlowsToPublic_DYStar(corruptIds, l1, l22)
     }
+}
+
+ghost
+requires l1.IsReaders() && l2.IsReaders()
+requires label.GetReaders(l2) subset label.GetReaders(l1)
+ensures  ctx.CanFlow(t, l1, l2)
+func (ctx DefaultLabelingContext) CanFlowToSubsetReaders(t tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+    corruptIds := t.getCorruptIds()
+    ctx.canFlowInternalToSubsetReaders(corruptIds, l1, l2)
+}
+
+ghost
+requires l1.IsReaders() && l2.IsReaders()
+requires label.GetReaders(l2) subset label.GetReaders(l1)
+ensures  ctx.canFlowInternal(corruptIds, l1, l2)
+func (ctx DefaultLabelingContext) canFlowInternalToSubsetReaders(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
+    ctx.canFlowInternalToSubsetReaders_DYStar(corruptIds, l1, l2)
+    ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l1, l2)
+}
+
+ghost
+requires l1.IsReaders() && l2.IsReaders()
+requires label.GetReaders(l2) subset label.GetReaders(l1)
+ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
+func (ctx DefaultLabelingContext) canFlowInternalToSubsetReaders_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
+    ids1 := label.GetReaders(l1)
+    ids2 := label.GetReaders(l2)
+    ctx.includesIdsSubset(ids1, ids2)
 }
 
 ghost
@@ -1214,15 +1304,181 @@ func (ctx DefaultLabelingContext) CanFlowMonotonicInternal(t1, t2 tr.TraceEntry,
 ghost
 decreases
 requires ctx.CanFlow(t, label.Readers(set[p.Id]{ id }), label.Public())
-ensures  id in t.getCorruptIds()
-func (ctx DefaultLabelingContext) CanFlowToPublicImpliesCorruption(t tr.TraceEntry, id p.Id) {
+ensures  corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
+func (ctx DefaultLabelingContext) CanFlowToPublicImpliesCorruption(t tr.TraceEntry, id p.Id) (corruptedId p.Id) {
+    assert exists corruptedId p.Id :: corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
+    // get witness
+    corruptedId := arb.GetArbId()
+    assume corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
+}
+
+ghost
+decreases
+requires ids1 subset ids2 || includesIds(ids2, ids1)
+requires tr.containsCorruptId(corruptIds, ids1)
+ensures  tr.containsCorruptId(corruptIds, ids2)
+func (ctx DefaultLabelingContext) containsCorruptIdMonotonic(corruptIds, ids1, ids2 set[p.Id]) {
+    assert exists corruptedId p.Id :: { tr.containsId(ids1, corruptedId) } corruptedId in corruptIds && tr.containsId(ids1, corruptedId)
+    // get witness:
+    corruptedId := arb.GetArbId()
+    assume corruptedId in corruptIds && tr.containsId(ids1, corruptedId)
+    if includesIds(ids2, ids1) {
+        ctx.containsIdTransitive(ids1, ids2, corruptedId)
+    }
+    // the following assert stmt is necessary:
+    assert tr.containsId(ids2, corruptedId)
+}
+
+ghost
+decreases
+requires corruptIds1 subset corruptIds2
+requires tr.containsCorruptId(corruptIds1, ids)
+ensures  tr.containsCorruptId(corruptIds2, ids)
+func (ctx DefaultLabelingContext) containsCorruptIdMonotonic2(corruptIds1, corruptIds2, ids set[p.Id]) {
+    assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds1 && tr.containsId(ids, corruptedId)
+    // get witness:
+    corruptedId := arb.GetArbId()
+    assume corruptedId in corruptIds1 && tr.containsId(ids, corruptedId)
+    assert corruptedId in corruptIds2
+}
+
+ghost
+decreases
+requires tr.containsCorruptId(corruptIds, ids1 union ids2)
+ensures  tr.containsCorruptId(corruptIds, ids1) || tr.containsCorruptId(corruptIds, ids2)
+func (ctx DefaultLabelingContext) containsCorruptIdSplit(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+    ids := ids1 union ids2
+    assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds && tr.containsId(ids, corruptedId)
+    // get witness:
+    corruptedId := arb.GetArbId()
+    assume corruptedId in corruptIds && tr.containsId(ids, corruptedId)
+    ctx.containsIdSplit(ids1, ids2, corruptedId)
+}
+
+ghost
+decreases
+requires tr.containsCorruptId(corruptIds, ids1) || tr.containsCorruptId(corruptIds, ids2)
+ensures  tr.containsCorruptId(corruptIds, ids1 union ids2)
+func (ctx DefaultLabelingContext) containsCorruptIdUnion(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+    ids := ids1 union ids2
+    if tr.containsCorruptId(corruptIds, ids1) {
+        ctx.containsCorruptIdMonotonic(corruptIds, ids1, ids)
+    } else if tr.containsCorruptId(corruptIds, ids2) {
+        ctx.containsCorruptIdMonotonic(corruptIds, ids2, ids)
+    }
+}
+
+ghost
+decreases
+ensures  (!tr.containsCorruptId(corruptIds, ids1) && !tr.containsCorruptId(corruptIds, ids2)) == !tr.containsCorruptId(corruptIds, ids1 union ids2)
+func (ctx DefaultLabelingContext) containsCorruptIdNotUnion(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+    ids := ids1 union ids2
+    if !tr.containsCorruptId(corruptIds, ids1) &&
+        !tr.containsCorruptId(corruptIds, ids2) {
+        // we prove it by contradiction:
+        if tr.containsCorruptId(corruptIds, ids) {
+            ctx.containsCorruptIdSplit(corruptIds, ids1, ids2)
+        }
+    }
+    if !tr.containsCorruptId(corruptIds, ids1 union ids2) {
+        // we prove it by contradiction:
+        if tr.containsCorruptId(corruptIds, ids1) ||
+            tr.containsCorruptId(corruptIds, ids2) {
+            ctx.containsCorruptIdUnion(corruptIds, ids1, ids2)
+        }
+    }
+}
+
+ghost
+decreases
+requires tr.containsId(ids1, corruptedId) && includesIds(ids2, ids1)
+ensures  tr.containsId(ids2, corruptedId)
+func (ctx DefaultLabelingContext) containsIdTransitive(ids1, ids2 set[p.Id], corruptedId p.Id) {
+    // apply `containsId(ids1, corruptedId)`:
+    assert exists id1 p.Id :: { id1.Covers(corruptedId) } id1 in ids1 && id1.Covers(corruptedId)
+    // get witness:
+    id1 := arb.GetArbId()
+    assume id1 in ids1 && id1.Covers(corruptedId)
+    
+    // apply `includesIds(ids2, ids1)`:
+    assert forall id p.Id :: id in ids1 ==> tr.containsId(ids2, id)
+    assert tr.containsId(ids2, id1)
+
+    // apply `containsId(ids2, id1)`:
+    assert exists id p.Id :: id in ids2 && id.Covers(id1)
+    // get witness:
+    idX := arb.GetArbId()
+    assume idX in ids2 && idX.Covers(id1)
+
+    idX.CoversTransitive(id1, corruptedId)
+    assert exists id p.Id :: { id.Covers(corruptedId) } id in ids2 && id.Covers(corruptedId)
+}
+
+ghost
+decreases
+requires tr.containsId(ids1 union ids2, corruptedId)
+ensures  tr.containsId(ids1, corruptedId) || tr.containsId(ids2, corruptedId)
+func (ctx DefaultLabelingContext) containsIdSplit(ids1, ids2 set[p.Id], corruptedId p.Id) {
     // no body needed
 }
 
 ghost
-/** returns true iff at least one id in `ids` has been corrupted, i.e. is in `corruptIds` */
-pure func containsCorruptId(corruptIds set[p.Id], ids set[p.Id]) bool {
-    return len(corruptIds intersection ids) > 0
+/**
+ * checks whether every id in `ids` is contained in `haystack` while taking their
+ * coverings into account.
+ * This is similar to `containsCorruptId` except that a forall instead of existential
+ * quantifier is used for every ID contained in the first parameter.
+ */
+pure func includesIds(haystack, ids set[p.Id]) bool {
+    return forall id p.Id :: { tr.containsId(haystack, id) } id in ids ==> tr.containsId(haystack, id)
+}
+
+ghost
+ensures includesIds(ids, ids)
+func (ctx DefaultLabelingContext) includesIdsReflexive(ids set[p.Id]) {
+    arbId := arb.GetArbId()
+    if arbId in ids {
+        arbId.CoversReflexive()
+    }
+    // we have shown it for an arbitrary `arbId` and can thus perform forall introduction:
+    assert arbId in ids ==> tr.containsId(ids, arbId)
+    assume forall id p.Id :: { tr.containsId(ids, id) } id in ids ==> tr.containsId(ids, id)
+}
+
+ghost
+requires includesIds(ids1, ids2) && includesIds(ids2, ids3)
+ensures  includesIds(ids1, ids3)
+func (ctx DefaultLabelingContext) includesIdsTransitive(ids1, ids2, ids3 set[p.Id]) {
+    assert forall id p.Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
+    assert forall id p.Id :: { tr.containsId(ids2, id) } id in ids3 ==> tr.containsId(ids2, id)
+    
+    arbId := arb.GetArbId()
+    if arbId in ids3 {
+        // follows from `includesIds(ids2, ids3)`:
+        assert tr.containsId(ids2, arbId)
+        // use additionally the fact that `includesIds(ids1, ids2)`:
+        ctx.containsIdTransitive(ids2, ids1, arbId)
+    }
+    assert arbId in ids3 ==> tr.containsId(ids1, arbId)
+    // we can do a forall introduction as `arbId` is unconstraint:
+    assume forall id p.Id :: { tr.containsId(ids1, id) } id in ids3 ==> tr.containsId(ids1, id)
+}
+
+ghost
+requires ids2 subset ids1
+ensures  includesIds(ids1, ids2)
+func (ctx DefaultLabelingContext) includesIdsSubset(ids1, ids2 set[p.Id]) {
+    arbId := arb.GetArbId()
+    if arbId in ids2 {
+        // apply `ids2 subset ids1`:
+        assert arbId in ids1
+        arbId.CoversReflexive()
+        // `arbId` is itself the witness for `containsId(ids1, arbId)`:
+        assert tr.containsId(ids1, arbId)
+    }
+    assert arbId in ids2 ==> tr.containsId(ids1, arbId)
+    // perform a forall introduction since `arbId` is unconstraint:
+    assume forall id p.Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
 }
 
 ghost
@@ -1460,7 +1716,7 @@ ghost
 decreases
 requires ctx.IsLabeled(t, term, l)
 requires l.IsReaders()
-requires len(label.GetReaders(l) intersection (t.getCorruptIds())) == 0
+requires !tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
 ensures  !ctx.IsPublishable(t, term)
 func (ctx DefaultLabelingContext) PublishableRequiresCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     // no body needed
@@ -1470,7 +1726,7 @@ ghost
 decreases
 requires ctx.IsLabeledRelaxed(t, term, l)
 requires l.IsReaders()
-requires len(label.GetReaders(l) intersection (t.getCorruptIds())) == 0
+requires !tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
 ensures  !ctx.IsPublishable(t, term)
 /**
   * weakened version of `PublishableRequiresCorruption`: instead of requiring `term` being
@@ -1485,5 +1741,76 @@ func (ctx DefaultLabelingContext) PublishableRequiresCorruptionWeakened(t tr.Tra
     if ctx.CanFlow(t, termL, label.Public()) {
         ctx.CanFlowTransitive(t, l, termL, label.Public())
         // this is a contradiction as l would flow to public!
+    }
+}
+
+ghost
+decreases
+requires ctx.IsLabeledRelaxed(t, term, l)
+requires l.IsReaders()
+requires ctx.IsPublishable(t, term)
+ensures  tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
+ensures  corruptedId in t.getCorruptIds()
+ensures  id in label.GetReaders(l) && id.Covers(corruptedId)
+func (ctx DefaultLabelingContext) PublishableImpliesCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) (corruptedId, id p.Id) {
+    termL := ctx.GetLabel(term)
+    readers := label.GetReaders(l)
+    corruptIds := t.getCorruptIds()
+    ctx.CanFlowTransitive(t, l, termL, label.Public())
+    // apply `containsCorruptId(corruptIds, readers)`:
+    assert exists corruptedId p.Id :: { tr.containsId(readers, corruptedId) } corruptedId in corruptIds && tr.containsId(readers, corruptedId)
+    // get witness
+    corruptedId = arb.GetArbId()
+    assume corruptedId in corruptIds && tr.containsId(readers, corruptedId)
+    // apply `containsId(readers, corruptedId)`:
+    assert exists id p.Id :: { id.Covers(corruptedId) } id in readers && id.Covers(corruptedId)
+    // get witness
+    id = arb.GetArbId()
+    assume id in readers && id.Covers(corruptedId)
+}
+
+ghost
+decreases
+requires ctx.IsMsg(t, term, l)
+requires l.IsReaders()
+requires !ctx.IsPublishable(t, term)
+ensures  !tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
+func (ctx DefaultLabelingContext) NotPublishableImpliesNoCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+    if ctx.CanFlow(t, l, label.Public()) {
+        // derive a contradiction:
+        ctx.CanFlowTransitive(t, ctx.GetLabel(term), l, label.Public())
+    }
+}
+
+ghost
+decreases
+requires l1.IsReaders() && l2.IsReaders()
+requires ctx.IsLabeledRelaxed(t, term, label.Join(l1, l2))
+ensures  optCorruptedId == none[p.Id] ?
+    !ctx.IsPublishable(t, term) :
+    ((tr.containsId(label.GetReaders(l1), get(optCorruptedId)) || tr.containsId(label.GetReaders(l2), get(optCorruptedId))) &&
+        get(optCorruptedId) in t.getCorruptIds() &&
+        tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l1) union label.GetReaders(l2)))
+func (ctx DefaultLabelingContext) RelaxedLabelingImpliesNotPublishableOrCorruption(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) (optCorruptedId option[p.Id]) {
+    termL := ctx.GetLabel(term)
+    if ctx.IsPublishable(t, term) {
+        joinL := label.Join(l1, l2)
+        ctx.CanFlowTransitive(t, joinL, termL, label.Public())
+        // the following assert stmt is necessary:
+        assert ctx.CanFlow(t, l1, label.Public()) || ctx.CanFlow(t, l2, label.Public())
+        if ctx.CanFlow(t, l1, label.Public()) {
+            assert exists corruptedId p.Id :: { tr.containsId(label.GetReaders(l1), corruptedId) } corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
+            corruptedId := arb.GetArbId()
+            assume corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
+            optCorruptedId = some(corruptedId)
+        } else {
+            assert exists corruptedId p.Id :: { tr.containsId(label.GetReaders(l2), corruptedId) } corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
+            corruptedId := arb.GetArbId()
+            assume corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
+            optCorruptedId = some(corruptedId)
+        }
+        ctx.containsCorruptIdNotUnion(t.getCorruptIds(), label.GetReaders(l1), label.GetReaders(l2))
+    } else {
+        optCorruptedId = none[p.Id]
     }
 }

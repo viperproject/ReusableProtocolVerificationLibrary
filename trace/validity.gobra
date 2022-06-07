@@ -173,7 +173,7 @@ type LabelingContext interface {
     decreases
     requires IsLabeled(t, term, l)
     requires l.IsReaders()
-    requires len(label.GetReaders(l) intersection (t.getCorruptIds())) == 0
+    requires !containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
     ensures  !IsPublishable(t, term)
     PublishableRequiresCorruption(t TraceEntry, term tm.Term, l label.SecrecyLabel)
 

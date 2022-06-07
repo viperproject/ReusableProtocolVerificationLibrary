@@ -317,10 +317,16 @@ type Term domain {
         forall value uint64 :: { integer64(value) } getTermType(integer64(value)) == 19 &&
             getInt64(integer64(value)) == value
     }
+    axiom { // integer64 implies its construction
+        forall t Term :: { getTermType(t) == 19 } (getTermType(t) == 19) ==> t == integer64(getInt64(t))
+    }
 
     axiom { // integer32 is injective
         forall value uint32 :: { integer32(value) } getTermType(integer32(value)) == 20 &&
             getInt32(integer32(value)) == value
+    }
+    axiom { // integer32 implies its construction
+        forall t Term :: { getTermType(t) == 20 } (getTermType(t) == 20) ==> t == integer32(getInt32(t))
     }
 
     axiom {

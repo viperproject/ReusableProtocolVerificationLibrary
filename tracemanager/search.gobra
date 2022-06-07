@@ -53,7 +53,7 @@ type TraceSearcher interface {
     ghost
     pure Ctx() tr.TraceContext
     
-    // TODO: addition termination to Matches and Occurs results in a failing internal postcondition (i.e. without positional information)
+    // TODO: adding termination to Matches and Occurs results in a failing internal postcondition (i.e. without positional information)
     ghost
     // decreases
     pure Matches(entry tr.TraceEntry) bool

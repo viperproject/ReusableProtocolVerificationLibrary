@@ -76,8 +76,8 @@ func (m *TraceManager) EventOccursImpliesEventInv(ctx tr.TraceContext, owner p.P
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires (m.Trace(ctx, owner)).eventOccurs(principal1, event1)
-requires (m.Trace(ctx, owner)).eventOccurs(principal2, event2)
+requires m.Trace(ctx, owner).eventOccurs(principal1, event1)
+requires m.Trace(ctx, owner).eventOccurs(principal2, event2)
 requires ctx.IsUnique(event1.typ)
 requires event1.typ == event2.typ
 requires ctx.EventConsistency(event1) && ctx.EventConsistency(event2)
@@ -102,11 +102,55 @@ func (m *TraceManager) UniqueEventsAreUnique(ctx tr.TraceContext, owner p.Princi
         // derive contradiction
         nonce1 := ctx.isUniqueImpliesUniqueResource(principal1, event1, tr.getPrev(s1))
         nonce2 := ctx.isUniqueImpliesUniqueResource(principal2, event2, tr.getPrev(s2))
-        (ctx.GetLabeling()).NonceForEventContradiction(nonce1, event1.typ)
+        ctx.GetLabeling().NonceForEventContradiction(nonce1, event1.typ)
     }
     // the following assertion would hold:
     // assert s1 == s2
     apply ctx.eventInv(principal1, event1, tr.getPrev(s1)) --* tr.validTrace(ctx, trace)
+    fold inv.clientHistoryValueInv(trace)
+    // there is no need to update the snapshot
+    m.mutex.UnlockWithSnapshot(inv, owner, trace, trace, lastSeenTrace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires suffix.isSuffix(m.Trace(ctx, owner))
+requires suffix.eventOccurs(principal, event)
+requires ctx.IsUnique(event.typ)
+ensures  m.Mem(ctx, owner)
+ensures  m.Trace(ctx, owner).eventOccurs(principal, event)
+ensures  suffix.eventOccursWitness(principal, event) == m.Trace(ctx, owner).eventOccursWitness(principal, event)
+ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) UniqueEventsOccurOnlyOnce(ctx tr.TraceContext, owner p.Principal, suffix tr.TraceEntry, principal p.Principal, event ev.Event) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Trace(ctx, owner)
+    suffix.eventOccursMonotonic(lastSeenTrace, principal, event)
+
+    suffixWitness := suffix.eventOccursWitness(principal, event)
+    suffixWitness.isSuffixTransitive(suffix, lastSeenTrace)
+    traceWitness := lastSeenTrace.eventOccursWitness(principal, event)
+
+    unfold m.Mem(ctx, owner)
+    trace := m.mutex.Lock(inv, owner)
+    unfold inv.clientHistoryValueInv(trace)
+    searcher1 := EntrySearcher{ ctx, suffixWitness }
+    searcher2 := EntrySearcher{ ctx, traceWitness }
+    suffixWitness.isSuffixTransitive(lastSeenTrace, trace)
+    traceWitness.isSuffixTransitive(lastSeenTrace, trace)
+    s1, s2 := m.findEntriesWithInv(searcher1, searcher2, trace)
+    if s1 == s2 {
+        apply localValidTrace(ctx, s1) --* tr.validTrace(ctx, trace)
+    } else {
+        // derive contradiction
+        unfold localValidTrace(ctx, s1)
+        unfold localValidTrace(ctx, s2)
+        nonce1 := ctx.isUniqueImpliesUniqueResource(principal, event, tr.getPrev(s1))
+        nonce2 := ctx.isUniqueImpliesUniqueResource(principal, event, tr.getPrev(s2))
+        ctx.GetLabeling().NonceForEventContradiction(nonce1, event.typ)
+    }
     fold inv.clientHistoryValueInv(trace)
     // there is no need to update the snapshot
     m.mutex.UnlockWithSnapshot(inv, owner, trace, trace, lastSeenTrace)

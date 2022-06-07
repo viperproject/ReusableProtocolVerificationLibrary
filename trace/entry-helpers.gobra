@@ -86,6 +86,17 @@ pure func (entry TraceEntry) eventOccursAtTime(principal p.Principal, ev Event) 
             (getPrev(entry)).eventOccursAtTime(principal, ev)
 }
 
+ghost
+decreases entry.traceLen()
+requires entry.eventOccurs(principal, ev)
+ensures  res.isSuffix(entry)
+ensures  res.isEventAt(principal, ev)
+/** returns the TraceEntry at which the event is at */
+pure func (entry TraceEntry) eventOccursWitness(principal p.Principal, ev Event) (res TraceEntry) {
+    return entry.isEventAt(principal, ev) ? entry :
+            (getPrev(entry)).eventOccursWitness(principal, ev)
+}
+
 /** returns true iff specified message occurs exactly a the current trace entry */
 ghost
 decreases
@@ -239,4 +250,23 @@ ensures forall msg tm.Term :: { msg in res } msg in res ==> entry.messageOccurs(
 pure func (entry TraceEntry) getMessagePayloadsForCommChannel(sender, receiver p.Principal) (res set[tm.Term]) {
     return (entry.isRoot() ? set[tm.Term]{} : (getPrev(entry)).getMessagePayloadsForCommChannel(sender, receiver)) union (
         (entry.isMessage() && getSender(entry) == sender && getReceiver(entry) == receiver) ? set[tm.Term]{getPayload(entry)} : set[tm.Term]{})
+}
+
+
+ghost
+/** returns true iff at least one id in `ids` has been corrupted, i.e. is in `corruptIds` */
+pure func containsCorruptId(corruptIds set[p.Id], ids set[p.Id]) bool {
+    // return len(corruptIds intersection ids) > 0
+    return exists corruptedId p.Id :: { containsId(ids, corruptedId) } corruptedId in corruptIds && containsId(ids, corruptedId)
+}
+
+ghost
+/** 
+* returns true if there is an id in `ids` that covers `corruptedId`.
+* the intuition is that e.g. a long-term private key (with label `readers(set{owner})`) 
+* can be published if any session of that participant (i.e. `owner`) has been
+* corrupted. This relation is expressed by `Covers` because `owner` covers all its sessions
+*/
+pure func containsId(ids set[p.Id], corruptedId p.Id) bool {
+    return exists id p.Id :: { id.Covers(corruptedId) } id in ids && id.Covers(corruptedId)
 }

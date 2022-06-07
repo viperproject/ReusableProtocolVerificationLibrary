@@ -1,0 +1,58 @@
+package tracemanager
+
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+
+
+type EntrySearcher struct {
+    ctx tr.TraceContext
+    entry tr.TraceEntry
+}
+EntrySearcher implements TraceSearcher
+
+ghost
+pure func (es EntrySearcher) Ctx() tr.TraceContext {
+    return es.ctx
+}
+
+ghost
+decreases
+pure func (es EntrySearcher) Matches(entry tr.TraceEntry) bool {
+    return entry == es.entry
+}
+
+ghost
+decreases
+pure func (es EntrySearcher) Occurs(entry tr.TraceEntry) bool {
+    return es.entry.isSuffix(entry)
+}
+
+ghost
+// decreases
+pure func (es EntrySearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return es.entry.isEvent() ==> es.ctx.pureEventInv(tr.getPrincipal(es.entry), tr.getEvent(es.entry), tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires es.Occurs(entry)
+ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(entry)
+func (es EntrySearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires es.Matches(entry)
+requires acc(tr.validTrace(es.Ctx(), entry), p)
+ensures  es.PureEntryInv(entry)
+ensures  acc(tr.validTrace(es.Ctx(), entry), p)
+func (es EntrySearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    unfold acc(tr.validTrace(es.Ctx(), entry), p)
+    if es.entry.isEvent() {
+        es.Ctx().getPureEventInv(tr.getPrincipal(es.entry), tr.getEvent(es.entry), tr.getPrev(entry), p)
+    }
+    fold acc(tr.validTrace(es.Ctx(), entry), p)
+}
+// end of EntrySearcher's implementation
