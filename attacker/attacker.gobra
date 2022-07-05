@@ -11,6 +11,17 @@ pure func attackerKnows(entry tr.TraceEntry, term tm.Term) bool {
 
 ghost
 decreases
+requires attackerKnows(t1, term)
+requires t1.isSuffix(t2)
+ensures  attackerKnows(t2, term)
+func attackerKnowsMonotonic(t1, t2 tr.TraceEntry, term tm.Term) bool {
+    t1.getPublicTermsMonotonic(t2)
+    t1.getMessagePayloadsMonotonic(t2)
+    t1.getTermsMadePublicMonotonic(t2)
+}
+
+ghost
+decreases
 pure func isUnknownToAttacker(entry tr.TraceEntry, term tm.Term) bool {
     return !attackerKnows(entry, term)
 }

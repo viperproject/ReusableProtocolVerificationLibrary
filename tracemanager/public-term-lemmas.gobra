@@ -58,14 +58,17 @@ func (ps PublicTermSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires term in (m.Trace(ctx, owner)).getPublicTerms()
+requires snap.isSuffix(m.Trace(ctx, owner))
+requires term in snap.getPublicTerms()
 ensures  m.Mem(ctx, owner)
-ensures  prev.isSuffix(m.Trace(ctx, owner)) && prev.isRoot()
-ensures  tr.publicInv(ctx, (m.Trace(ctx, owner)).getPublicTerms(), prev)
+ensures  prev.isSuffix(snap) && prev.isRoot()
+ensures  prev.isSuffix(m.Trace(ctx, owner))
+ensures  tr.publicInv(ctx, snap.getPublicTerms(), prev)
 ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) PublicTermImpliesPublicInv(ctx tr.TraceContext, owner p.Principal, term tm.Term) (prev tr.TraceEntry) {
+func (m *TraceManager) PublicTermImpliesPublicInvWithSnap(ctx tr.TraceContext, owner p.Principal, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublicTermSearcher{ ctx, term }
-    prev = m.findEntryWithPureInv(searcher, owner)
-    prev.getPublicTermsMontonic(m.Trace(ctx, owner))
+    prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
+    prev.getPublicTermsMonotonic(snap)
+    prev.isSuffixTransitive(snap, m.Trace(ctx, owner))
 }

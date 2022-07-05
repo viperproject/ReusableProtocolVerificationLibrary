@@ -27,6 +27,8 @@ type Communication interface {
 	//@ ensures  err == nil ==> lib.Mem(msg)
 	//@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
 	//@ ensures  err == nil ==> snapshot.messageOccurs(idSender, idReceiver, msgT)
+	// returns a message that was at or before `snapshot`. It's thus adviceable to synchronize to the globa
+	// trace first such that the set of receivable messages is as big as possible
 	Receive(idSender, idReceiver p.Principal /*@, ghost snapshot tr.TraceEntry @*/) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/)
 }
 
@@ -59,14 +61,16 @@ func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteStri
 //@ requires l.Owner() == idReceiver
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
-//@ ensures  l.Snapshot() == old(l.Snapshot())
+//@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
 //@ ensures  err == nil ==> lib.Mem(msg)
 //@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
 //@ ensures  err == nil ==> tr.messageInv(l.Ctx(), idSender, idReceiver, msgT, l.Snapshot())
 //@ ensures  err == nil ==> (l.Snapshot()).messageOccurs(idSender, idReceiver, msgT)
 func (l *LabeledLibrary) Receive(idSender, idReceiver p.Principal) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/) {
-	//@ snapshot := l.Snapshot()
 	//@ unfold l.Mem()
+	// we first synchronize the local snapshot to the global trace:
+	//@ snapshot := l.manager.Sync(l.ctx, l.owner)
+	// and now get a message that was sent up until now:
 	msg, err /*@, msgT @*/ = l.com.Receive(idSender, idReceiver /*@, snapshot @*/)
 	//@ fold l.Mem()
 	/*@

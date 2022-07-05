@@ -97,6 +97,23 @@ pure func (entry TraceEntry) eventOccursWitness(principal p.Principal, ev Event)
             (getPrev(entry)).eventOccursWitness(principal, ev)
 }
 
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+requires t1.eventOccurs(principal, ev)
+ensures  t2.eventOccurs(principal, ev)
+ensures  t1.eventOccursWitness(principal, ev).isSuffix(t2.eventOccursWitness(principal, ev))
+func (t1 TraceEntry) eventOccursWitnessMonotonic(t2 TraceEntry, principal p.Principal, ev Event) {
+    if t1 != t2 {
+        if t2.isEventAt(principal, ev) {
+            t1Witness := t1.eventOccursWitness(principal, ev)
+            t1Witness.isSuffixTransitive(t1, t2)
+        } else {
+            t1.eventOccursWitnessMonotonic(getPrev(t2), principal, ev)
+        }
+    }
+}
+
 /** returns true iff specified message occurs exactly a the current trace entry */
 ghost
 decreases
@@ -187,9 +204,9 @@ ghost
 decreases t2.traceLen()
 requires t1.isSuffix(t2)
 ensures  t1.getPublicTerms() == t2.getPublicTerms()
-func (t1 TraceEntry) getPublicTermsMontonic(t2 TraceEntry) {
+func (t1 TraceEntry) getPublicTermsMonotonic(t2 TraceEntry) {
     if t1 != t2 {
-        t1.getPublicTermsMontonic(getPrev(t2))
+        t1.getPublicTermsMonotonic(getPrev(t2))
     }
 }
 
@@ -198,6 +215,16 @@ decreases entry.traceLen()
 pure func (entry TraceEntry) getTermsMadePublic() set[tm.Term] {
     return (entry.isRoot() ? set[tm.Term]{} : (getPrev(entry)).getTermsMadePublic()) union (
         entry.isPublic() ? set[tm.Term]{getPayload(entry)} : set[tm.Term]{})
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+ensures  t1.getTermsMadePublic() subset t2.getTermsMadePublic()
+func (t1 TraceEntry) getTermsMadePublicMonotonic(t2 TraceEntry) {
+    if t1 != t2 {
+        t1.getTermsMadePublicMonotonic(getPrev(t2))
+    }
 }
 
 ghost
@@ -229,6 +256,16 @@ decreases entry.traceLen()
 pure func (entry TraceEntry) getMessagePayloads() set[tm.Term] {
     return (entry.isRoot() ? set[tm.Term]{} : (getPrev(entry)).getMessagePayloads()) union (
         entry.isMessage() ? set[tm.Term]{getPayload(entry)} : set[tm.Term]{})
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+ensures  t1.getMessagePayloads() subset t2.getMessagePayloads()
+func (t1 TraceEntry) getMessagePayloadsMonotonic(t2 TraceEntry) {
+    if t1 != t2 {
+        t1.getMessagePayloadsMonotonic(getPrev(t2))
+    }
 }
 
 ghost

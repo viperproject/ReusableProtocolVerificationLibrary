@@ -28,12 +28,20 @@ type Id domain {
 		forall principal Principal :: { principalId(principal) } getIdType(principalId(principal)) == 0 &&
 			getIdPrincipal(principalId(principal)) == principal
 	}
+	axiom { // principalId implies its constructions
+        forall id Id :: { getIdType(id) == 0 } getIdType(id) == 0 ==>
+            id == principalId(getIdPrincipal(id))
+    }
 
 	axiom { // sessionId is injective
 		forall principal Principal, session uint32 :: { sessionId(principal, session) } getIdType(sessionId(principal, session)) == 1 &&
 			getIdPrincipal(sessionId(principal, session)) == principal &&
 			getIdSession(sessionId(principal, session)) == session
 	}
+	axiom { // sessionId implies its constructions
+        forall id Id :: { getIdType(id) == 1 } getIdType(id) == 1 ==>
+            id == sessionId(getIdPrincipal(id), getIdSession(id))
+    }
 
 	axiom { // stepId is injective
 		forall principal Principal, session, step uint32 :: { stepId(principal, session, step) } getIdType(stepId(principal, session, step)) == 2 &&
@@ -41,6 +49,10 @@ type Id domain {
 			getIdSession(stepId(principal, session, step)) == session &&
 			getIdStep(stepId(principal, session, step)) == step
 	}
+	axiom { // stepId implies its constructions
+        forall id Id :: { getIdType(id) == 2 } getIdType(id) == 2 ==>
+            id == stepId(getIdPrincipal(id), getIdSession(id), getIdStep(id))
+    }
 }
 
 ghost
@@ -105,4 +117,12 @@ ensures  id1.Covers(id3)
 func (id1 Id) CoversTransitive(id2, id3 Id) {
 	// no body needed
 }
+
+ghost
+decreases
+ensures id.getPrincipalId().Covers(id)
+func (id Id) CoveredByPrincipal() {
+	// no body needed
+}
+
 @*/

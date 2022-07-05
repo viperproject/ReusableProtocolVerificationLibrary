@@ -58,14 +58,17 @@ func (ps PublishedTermSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm)
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires term in (m.Trace(ctx, owner)).getTermsMadePublic()
+requires snap.isSuffix(m.Trace(ctx, owner))
+requires term in snap.getTermsMadePublic()
 ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(snap)
 ensures  prev.isSuffix(m.Trace(ctx, owner))
 ensures  prev.isPublic()
 ensures  tr.madePublicInv(ctx, term, tr.getPrev(prev))
 ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) PublishedTermImpliesMadePublicInv(ctx tr.TraceContext, owner p.Principal, term tm.Term) (prev tr.TraceEntry) {
+func (m *TraceManager) PublishedTermImpliesMadePublicInvWithSnap(ctx tr.TraceContext, owner p.Principal, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublishedTermSearcher{ ctx, term }
-    prev = m.findEntryWithPureInv(searcher, owner)
+    prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
+    prev.isSuffixTransitive(snap, m.Trace(ctx, owner))
 }

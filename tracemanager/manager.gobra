@@ -90,6 +90,24 @@ pure func (m *TraceManager) ImmutableState(ctx tr.TraceContext, owner p.Principa
 }
 
 ghost
+requires m.Mem(ctx, owner)
+ensures  m.Mem(ctx, owner)
+ensures  trace == m.Trace(ctx, owner)
+ensures  old(m.Trace(ctx, owner)).isSuffix(trace)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+// this method simply updates the local snapshot to the global trace and returns
+// the updated snapshot for convenience reasons
+func (m *TraceManager) Sync(ctx tr.TraceContext, owner p.Principal) (trace tr.TraceEntry) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Trace(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    trace = m.mutex.Lock(inv, owner)
+    // we have obtained the global trace `trace` and immediately release the lock again:
+    m.mutex.Unlock(inv, owner, trace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
 requires destManager.Mem(ctx, destOwner)
 requires acc(origManager.Mem(ctx, origOwner), 1/8)
 requires destManager.ImmutableState(ctx, destOwner) == origManager.ImmutableState(ctx, origOwner)
@@ -201,6 +219,7 @@ ensures  m.Mem(ctx, owner)
 ensures  (m.Trace(ctx, owner)).isNonceAt(nonce)
 ensures  old(m.Trace(ctx, owner)).isSuffix(m.Trace(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+// TODO require that at least `owner` is in the set of readers of nonce
 func (m *TraceManager) LogNonce(ctx tr.TraceContext, owner p.Principal, nonce tm.Term) {
     inv := ManagerInv{ ctx }
     lastSeenTrace := m.Trace(ctx, owner)

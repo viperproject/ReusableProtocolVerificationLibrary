@@ -148,9 +148,28 @@ ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searche
  * Furthermore, the pure invariant for the located entry is returned.
  */
 func (m *TraceManager) findEntryWithPureInv(searcher TraceSearcher, owner p.Principal) (prev tr.TraceEntry) {
+    prev = m.findEntryWithPureInvWithSnap(searcher, owner, m.Trace(searcher.Ctx(), owner))
+}
+
+ghost
+decreases
+requires m.Mem(searcher.Ctx(), owner)
+requires snap.isSuffix(m.Trace(searcher.Ctx(), owner))
+requires searcher.Occurs(snap)
+ensures  m.Mem(searcher.Ctx(), owner)
+ensures  prev.isSuffix(snap) && searcher.Matches(prev)
+ensures  searcher.PureEntryInv(prev)
+ensures  old(m.Trace(searcher.Ctx(), owner)) == m.Trace(searcher.Ctx(), owner)
+ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searcher.Ctx(), owner))
+/**
+ * Searches on the trace for an existing entry and returns this entry.
+ * Furthermore, the pure invariant for the located entry is returned.
+ */
+func (m *TraceManager) findEntryWithPureInvWithSnap(searcher TraceSearcher, owner p.Principal, snap tr.TraceEntry) (prev tr.TraceEntry) {
     // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
     lastSeenSnapshot, snapshot := m.acquireValidTrace(searcher.Ctx(), owner)
-    prev = m.findEntryWithInv(searcher, snapshot, lastSeenSnapshot, 1/2)
+    snap.isSuffixTransitive(lastSeenSnapshot, snapshot)
+    prev = m.findEntryWithInv(searcher, snapshot, snap, 1/2)
     apply acc(tr.validTrace(searcher.Ctx(), prev), 1/2) --* acc(tr.validTrace(searcher.Ctx(), snapshot), 1/2)
     m.releaseValidTrace(searcher.Ctx(), owner, lastSeenSnapshot, snapshot)
 }

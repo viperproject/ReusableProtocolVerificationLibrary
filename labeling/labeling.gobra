@@ -58,9 +58,10 @@ type CanFlowLemmas_DYStar interface {
     canFlowInternalCreateMeetRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
 
     ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l2))
-    ensures  canFlowInternal_DYStar(corruptIds, l1, l2)
-    canFlowInternalResolveMeetRhs_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
+    requires canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
+    requires canFlowInternal_DYStar(corruptIds, l2, l3)
+    ensures  canFlowInternal_DYStar(corruptIds, l1, l3)
+    canFlowInternalResolveMeetRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
 
     ghost
     requires canFlowInternal_DYStar(corruptIds, l1, l3) || canFlowInternal_DYStar(corruptIds, l2, l3)
@@ -299,6 +300,27 @@ func (ctx DefaultLabelingContext) IsLabeledMonotonic(t1, t2 tr.TraceEntry, term 
 }
 
 ghost
+decreases
+requires t1.isSuffix(t2)
+requires ctx.IsLabeledRelaxed(t1, term, l)
+ensures  ctx.IsLabeledRelaxed(t2, term, l)
+func (ctx DefaultLabelingContext) IsLabeledRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+    ctx.IsValidMonotonic(t1, t2, term)
+    ctx.CanFlowMonotonic(t1, t2, l, ctx.GetLabel(term))
+}
+
+ghost
+decreases
+requires t1.isSuffix(t2)
+requires ctx.IsLabeledPrecise(t1, term, l)
+ensures  ctx.IsLabeledPrecise(t2, term, l)
+func (ctx DefaultLabelingContext) IsLabeledPreciseMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+    ctx.IsValidMonotonic(t1, t2, term)
+    ctx.CanFlowMonotonic(t1, t2, l, ctx.GetLabel(term))
+    ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(term), l)
+}
+
+ghost
 pure func (ctx DefaultLabelingContext) IsSecret(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
     return ctx.IsLabeled(t, term, l) &&
         ctx.GetUsage(term) == some(usage)
@@ -323,6 +345,15 @@ requires ctx.IsSecret(t1, term, l, usage)
 ensures  ctx.IsSecret(t2, term, l, usage)
 func (ctx DefaultLabelingContext) IsSecretMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
     ctx.IsLabeledMonotonic(t1, t2, term, l)
+}
+
+ghost
+decreases
+requires t1.isSuffix(t2)
+requires ctx.IsSecretRelaxed(t1, term, l, usage)
+ensures  ctx.IsSecretRelaxed(t2, term, l, usage)
+func (ctx DefaultLabelingContext) IsSecretRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
+    ctx.IsLabeledRelaxedMonotonic(t1, t2, term, l)
 }
 
 ghost
@@ -666,37 +697,44 @@ func (ctx DefaultLabelingContext) canFlowInternalCreateJoinBoth_DYStar(corruptId
 
 ghost
 decreases
-requires ctx.CanFlow(t, l1, label.Meet(l2, l2))
-ensures  ctx.CanFlow(t, l1, l2)
-func (ctx DefaultLabelingContext) CanFlowResolveMeetRhs(t tr.TraceEntry, l1, l2 label.SecrecyLabel) {
-    ctx.canFlowInternalResolveMeetRhs(t.getCorruptIds(), l1, l2)
+requires ctx.CanFlow(t, l1, label.Meet(l2, l3))
+requires ctx.CanFlow(t, l2, l3)
+ensures  ctx.CanFlow(t, l1, l3)
+func (ctx DefaultLabelingContext) CanFlowResolveMeetRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+    ctx.canFlowInternalResolveMeetRhs(t.getCorruptIds(), l1, l2, l3)
 }
 
 ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
-requires ctx.canFlowInternal(corruptIds, l1, label.Meet(l2, l2))
-ensures  ctx.canFlowInternal(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
-    ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Meet(l2, l2))
-    ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, l1, l2)
-    ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l1, l2)
+requires ctx.canFlowInternal(corruptIds, l1, label.Meet(l2, l3))
+requires ctx.canFlowInternal(corruptIds, l2, l3)
+ensures  ctx.canFlowInternal(corruptIds, l1, l3)
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+    ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Meet(l2, l3))
+    ctx.canFlowInternalImpliesDYStar(corruptIds, l2, l3)
+    ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, l1, l2, l3)
+    ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l1, l3)
 }
 
 ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
-requires ctx.canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l2))
-ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs_DYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
-    if (l1.IsMeet()) {
-        if (!ctx.canFlowInternal_DYStar(corruptIds, l1, l2)) {
-            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetFirstLabel(l1), l2)
-            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetSecondLabel(l1), l2)
+requires ctx.canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
+requires ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
+ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+    if ctx.canFlowInternal_DYStar(corruptIds, l1, l2) {
+        ctx.canFlowInternalTransitive_DYStar(corruptIds, l1, l2, l3)
+    }
+    if l1.IsMeet() {
+        if !ctx.canFlowInternal_DYStar(corruptIds, l1, l3) {
+            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetFirstLabel(l1), l2, l3)
+            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetSecondLabel(l1), l2, l3)
         }
-    } else if (l1.IsJoin()) {
-        if (ctx.canFlowInternal_DYStar(corruptIds, label.GetFirstLabel(l1), label.Meet(l2, l2))) {
-            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetFirstLabel(l1), l2)
-        } else if (ctx.canFlowInternal_DYStar(corruptIds, label.GetSecondLabel(l1), label.Meet(l2, l2))) {
-            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetSecondLabel(l1), l2)
+    } else if l1.IsJoin() {
+        if ctx.canFlowInternal_DYStar(corruptIds, label.GetFirstLabel(l1), label.Meet(l2, l3)) {
+            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetFirstLabel(l1), l2, l3)
+        } else if ctx.canFlowInternal_DYStar(corruptIds, label.GetSecondLabel(l1), label.Meet(l2, l3)) {
+            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetSecondLabel(l1), l2, l3)
         }
     }
 }
@@ -1013,7 +1051,8 @@ func (ctx DefaultLabelingContext) canFlowInternalIsImpliesByDYStar(corruptIds se
         // special case 2
         l21 := label.GetFirstLabel(l2)
         if l2.IsMeet() {
-            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, l1, l21)
+            ctx.canFlowInternalReflexive_DYStar(corruptIds, l21)
+            ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, l1, l21, l21)
         } else {
             ctx.canFlowInternalResolveJoinRhs_DYStar(corruptIds, l1, l21, l21)
         }
@@ -1496,10 +1535,55 @@ pure func (ctx DefaultLabelingContext) IsSecretKey(t tr.TraceEntry, owner p.Id, 
 }
 
 ghost
+requires t1.isSuffix(t2)
+requires ctx.IsSecretKey(t1, owner, sk, keyType, usage)
+ensures  ctx.IsSecretKey(t2, owner, sk, keyType, usage)
+func (ctx DefaultLabelingContext) IsSecretKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
+    if keyType == KeyTypePke() {
+        ctx.IsPrivateDecKeyMonotonic(t1, t2, owner, sk, usage)
+    } else if keyType == KeyTypeDHPk() {
+        ctx.IsPrivateDhKeyMonotonic(t1, t2, owner, sk, usage)
+    }
+}
+
+ghost
+requires ctx.IsSecretKey(t, owner, sk, keyType, usage)
+ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ owner }))
+func (ctx DefaultLabelingContext) IsSecretKeyLemma(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) {
+    // the following assert stmt is needed for triggering reasons:
+    assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1
+}
+
+ghost
 pure func (ctx DefaultLabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) bool {
     // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
     return (keyType == KeyTypePke() ==> ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
         (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPk(t, skOwner, pk, sk, usage))
+}
+
+ghost
+requires t1.isSuffix(t2)
+requires ctx.IsPublicKey(t1, skOwner, pk, sk, keyType, usage)
+ensures  ctx.IsPublicKey(t2, skOwner, pk, sk, keyType, usage)
+func (ctx DefaultLabelingContext) IsPublicKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
+    if keyType == KeyTypePke() {
+        ctx.IsPublicEncKeyMonotonic(t1, t2, skOwner, pk, sk, usage)
+    } else if keyType == KeyTypeDHPk() {
+        ctx.IsPublicDhPkMonotonic(t1, t2, skOwner, pk, sk, usage)
+    }
+}
+
+ghost
+requires ctx.IsPublicKey(t, skOwner, pk, sk, keyType, usage)
+ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner }))
+func (ctx DefaultLabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
+    // the following assert stmt is needed for triggering reasons:
+    assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1
+    if keyType == KeyTypePke() {
+        assert ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), u.PkeKey(usage))
+    } else if keyType == KeyTypeDHPk() {
+        assert ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), u.DhKey(usage))
+    }
 }
 
 ghost
@@ -1509,8 +1593,34 @@ pure func (ctx DefaultLabelingContext) IsPublicKeyExistential(t tr.TraceEntry, s
 }
 
 ghost
+requires t1.isSuffix(t2)
+requires ctx.IsPublicKeyExistential(t1, skOwner, pk, keyType, usage)
+ensures  ctx.IsPublicKeyExistential(t2, skOwner, pk, keyType, usage)
+func (ctx DefaultLabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) {
+    skWitness := arb.GetArbTerm()
+	if keyType == KeyTypePke() {
+		assert exists sk tm.Term :: { ctx.IsPublicEncKey(t1, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t1, skOwner, pk, sk, usage)
+		// get witness
+		assume ctx.IsPublicEncKey(t1, skOwner, pk, skWitness, usage)
+	} else if keyType == KeyTypeDHPk() {
+		assert exists sk tm.Term :: { ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage) } ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage)
+		// get witness
+		assume ctx.IsPublicDhPk(t1, skOwner, pk, skWitness, usage)
+	}
+	ctx.IsPublicKeyMonotonic(t1, t2, skOwner, pk, skWitness, keyType, usage)
+}
+
+ghost
 pure func (ctx DefaultLabelingContext) IsPrivateDecKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
     return ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
+}
+
+ghost
+requires t1.isSuffix(t2)
+requires ctx.IsPrivateDecKey(t1, owner, sk, usage)
+ensures  ctx.IsPrivateDecKey(t2, owner, sk, usage)
+func (ctx DefaultLabelingContext) IsPrivateDecKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
+    ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
 }
 
 ghost
@@ -1519,6 +1629,15 @@ pure func (ctx DefaultLabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner p
     return ctx.IsPublishable(t, pk) &&
         ctx.IsPrivateDecKey(t, skOwner, sk, usage) &&
         pk == tm.createPk(sk)
+}
+
+ghost
+requires t1.isSuffix(t2)
+requires ctx.IsPublicEncKey(t1, skOwner, pk ,sk, usage)
+ensures  ctx.IsPublicEncKey(t2, skOwner, pk ,sk, usage)
+func (ctx DefaultLabelingContext) IsPublicEncKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
+    ctx.IsPublishableMonotonic(t1, t2, pk)
+    ctx.IsPrivateDecKeyMonotonic(t1, t2, skOwner, sk, usage)
 }
 
 ghost
@@ -1536,11 +1655,28 @@ pure func (ctx DefaultLabelingContext) IsPrivateDhKey(t tr.TraceEntry, owner p.I
 }
 
 ghost
+requires t1.isSuffix(t2)
+requires ctx.IsPrivateDhKey(t1, owner, sk, usage)
+ensures  ctx.IsPrivateDhKey(t2, owner, sk, usage)
+func (ctx DefaultLabelingContext) IsPrivateDhKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
+    ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[p.Id]{ owner }), u.DhKey(usage))
+}
+
+ghost
 // sk is the witness
 pure func (ctx DefaultLabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
     return ctx.IsPublishable(t, pk) &&
         pk == tm.exp(tm.generator(), sk) &&
         ctx.IsPrivateDhKey(t, skOwner, sk, usage)
+}
+
+ghost
+requires t1.isSuffix(t2)
+requires ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage)
+ensures  ctx.IsPublicDhPk(t2, skOwner, pk, sk, usage)
+func (ctx DefaultLabelingContext) IsPublicDhPkMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
+    ctx.IsPublishableMonotonic(t1, t2, pk)
+    ctx.IsPrivateDhKeyMonotonic(t1, t2, skOwner, sk, usage)
 }
 
 ghost

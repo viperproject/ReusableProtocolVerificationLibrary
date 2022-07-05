@@ -61,16 +61,19 @@ func (es EventSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires (m.Trace(ctx, owner)).eventOccurs(principal, event)
+requires snap.isSuffix(m.Trace(ctx, owner))
+requires snap.eventOccurs(principal, event)
 ensures  m.Mem(ctx, owner)
-ensures  prev.isSuffix(m.Trace(ctx, owner)) && prev.isEvent()
+ensures  prev.isSuffix(snap) && prev.isEvent()
+ensures  prev.isSuffix(m.Trace(ctx, owner))
 ensures  prev.isEventAt(principal, event)
 ensures  ctx.pureEventInv(principal, event, tr.getPrev(prev))
 ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) EventOccursImpliesEventInv(ctx tr.TraceContext, owner p.Principal, principal p.Principal, event ev.Event) (prev tr.TraceEntry) {
+func (m *TraceManager) EventOccursImpliesEventInvWithSnap(ctx tr.TraceContext, owner p.Principal, snap tr.TraceEntry, principal p.Principal, event ev.Event) (prev tr.TraceEntry) {
     searcher := EventSearcher{ ctx, principal, event }
-    prev = m.findEntryWithPureInv(searcher, owner)
+    prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
+    prev.isSuffixTransitive(snap, m.Trace(ctx, owner))
 }
 
 ghost

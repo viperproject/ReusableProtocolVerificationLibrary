@@ -19,9 +19,17 @@ type KeyType domain {
     axiom {
         getKeyTypeType(KeyTypePke()) == 0
     }
+    axiom { // KeyTypePke implies its constructions
+        forall t KeyType :: { getKeyTypeType(t) == 0 } getKeyTypeType(t) == 0 ==>
+            t == KeyTypePke()
+    }
 
     axiom {
         getKeyTypeType(KeyTypeDHPk()) == 1
+    }
+    axiom { // KeyTypeDHPk implies its constructions
+        forall t KeyType :: { getKeyTypeType(t) == 1 } getKeyTypeType(t) == 1 ==>
+            t == KeyTypeDHPk()
     }
 }
 

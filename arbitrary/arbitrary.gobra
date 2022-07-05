@@ -35,6 +35,9 @@ func GetArbUsage() u.Usage
 decreases
 func GetArbString() string
 
+decreases
+func GetArbUInt32() uint32
+
 /*
 func sanityCheck() {
     term1 := GetArbTerm()
