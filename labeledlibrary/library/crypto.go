@@ -128,8 +128,10 @@ func (l *LibraryState) Enc(msg, pk ByteString /*@, ghost skB tm.Bytes, ghost key
 		return
 	}
 
+	var rsaPublicKey *rsa.PublicKey
 	switch publicKey := publicKey.(type) {
     	case *rsa.PublicKey:
+			rsaPublicKey = publicKey
             break
     	default:
 			err = errors.New("invalid public key")
@@ -137,7 +139,7 @@ func (l *LibraryState) Enc(msg, pk ByteString /*@, ghost skB tm.Bytes, ghost key
     }
 	
 	rng := rand.Reader
-	ciphertext, err = rsa.EncryptOAEP(sha256.New(), rng, publicKey, msg, nil)
+	ciphertext, err = rsa.EncryptOAEP(sha256.New(), rng, rsaPublicKey, msg, nil)
 	return
 }
 
