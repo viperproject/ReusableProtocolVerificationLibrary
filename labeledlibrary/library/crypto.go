@@ -4,9 +4,9 @@ import (
 	rand "crypto/rand"
 	rsa "crypto/rsa"
 	x509 "crypto/x509"
+	sha256 "crypto/sha256"
 	"errors"
 	io "io"
-	box "golang.org/x/crypto/nacl/box"
 	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
 	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
@@ -90,15 +90,10 @@ func (l *LibraryState) GenerateKey(/*@ ghost ctx tr.LabelingContext, ghost keyLa
 	publicKey := privateKey.Public()
 
 	// we serialize the private and public key as PKCS #1, ASN.1 DER and PKIX, ASN.1 DER, respectively.
-	sk, err = x509.MarshalPKCS1PrivateKey(privateKey)
-	if err != nil {
-		return
-	}
+	sk = x509.MarshalPKCS1PrivateKey(privateKey)
 
 	pk, err = x509.MarshalPKIXPublicKey(publicKey)
-	if err != nil {
-		return
-	}
+	return
 }
 
 //@ trusted
@@ -132,9 +127,17 @@ func (l *LibraryState) Enc(msg, pk ByteString /*@, ghost skB tm.Bytes, ghost key
 	if err != nil {
 		return
 	}
+
+	switch publicKey := publicKey.(type) {
+    	case *rsa.PublicKey:
+            break
+    	default:
+			err = errors.New("invalid public key")
+            return
+    }
 	
 	rng := rand.Reader
-	ciphertext, err = rsa.EncryptOAEP(sha256.New(), rng, &publicKey, msg, nil)
+	ciphertext, err = rsa.EncryptOAEP(sha256.New(), rng, publicKey, msg, nil)
 	return
 }
 
