@@ -12,12 +12,11 @@ mkdir -p $scriptDir/.gobra
 
 gobraJar="/gobra/gobra.jar"
 additionalGobraArgs="--module gitlab.inf.ethz.ch/arquintl/prototrace --gobraDirectory $scriptDir/.gobra"
-packages="arbitrary"
 
 if [ $isCi ]; then
     echo -e "\033[0Ksection_start:`date +%s`:verify[collapsed=true]\r\033[0KVerifying packages"
 fi
-java -Xss128m -jar $gobraJar --recursive --includePackages $packages -I $scriptDir $additionalGobraArgs
+java -Xss128m -jar $gobraJar --recursive -I $scriptDir $additionalGobraArgs
 exitCode=$?
 if [ $isCi ]; then
     echo -e "\033[0Ksection_end:`date +%s`:verify\r\033[0K"
