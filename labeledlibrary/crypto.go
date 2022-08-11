@@ -65,7 +65,6 @@ func (l *LabeledLibrary) GenerateKey(/*@ ghost usageString string @*/) (pk, sk l
 //@ requires lib.Abs(msg) == tm.gamma(msgT)
 //@ requires acc(lib.Mem(pk), 1/8)
 //@ requires lib.Abs(pk) == tm.gamma(pkT)
-//@ requires pkT == tm.createPk(tm.random(skB, keyLabel, u.PkeKey(usageString)))
 //@ requires l.LabelCtx().CanEncrypt(l.Snapshot(), msgT, pkT) || ((l.LabelCtx()).IsPublishable(l.Snapshot(), msgT) && (l.LabelCtx()).IsPublishable(l.Snapshot(), pkT))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -75,9 +74,9 @@ func (l *LabeledLibrary) GenerateKey(/*@ ghost usageString string @*/) (pk, sk l
 //@ ensures  err == nil ==> lib.Mem(ciphertext)
 //@ ensures  err == nil ==> lib.Abs(ciphertext) == tm.encryptB(lib.Abs(msg), lib.Abs(pk))
 //@ ensures  err == nil ==> l.LabelCtx().IsPublishable(l.Snapshot(), tm.encrypt(msgT, pkT))
-func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, ghost pkT tm.Term, ghost skB tm.Bytes, ghost keyLabel label.SecrecyLabel, ghost usageString string @*/) (ciphertext lib.ByteString, err error) {
+func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, ghost pkT tm.Term @*/) (ciphertext lib.ByteString, err error) {
 	//@ unfold l.Mem()
-	ciphertext, err = l.s.Enc(msg, pk /*@, skB, keyLabel, usageString @*/)
+	ciphertext, err = l.s.Enc(msg, pk)
 	//@ fold l.Mem()
 	//@ (l.LabelCtx()).CiphertextIsPublishable(l.Snapshot(), msgT, pkT)
 	return
@@ -88,7 +87,6 @@ func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, gho
 //@ requires lib.Abs(ciphertext) == tm.gamma(ciphertextT)
 //@ requires acc(lib.Mem(sk), 1/8)
 //@ requires lib.Abs(sk) == tm.gamma(skT)
-//@ requires skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ skOwner }), u.PkeKey(usageString))
 //@ requires l.LabelCtx().CanDecrypt(l.Snapshot(), ciphertextT, skT, skOwner)
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -99,9 +97,9 @@ func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, gho
 //@ ensures  err == nil ==> lib.Abs(ciphertext) == tm.encryptB(lib.Abs(msg), tm.createPkB(lib.Abs(sk)))
 //@ ensures  err == nil ==> (forall msgT tm.Term :: { tm.encrypt(msgT, tm.createPk(skT)) } ciphertextT == tm.encrypt(msgT, tm.createPk(skT)) ==>
 //@		l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner))
-func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost ciphertextT tm.Term, ghost skT tm.Term, ghost skOwner p.Id, ghost usageString string @*/) (msg lib.ByteString, err error) {
+func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost ciphertextT tm.Term, ghost skT tm.Term, ghost skOwner p.Id @*/) (msg lib.ByteString, err error) {
 	//@ unfold l.Mem()
-	msg, err = l.s.Dec(ciphertext, sk /*@, label.Readers(set[p.Id]{ skOwner }), usageString @*/)
+	msg, err = l.s.Dec(ciphertext, sk)
 	//@ fold l.Mem()
 	/*@
 	ghost if (err == nil) {

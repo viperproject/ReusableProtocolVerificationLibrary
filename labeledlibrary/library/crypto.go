@@ -115,13 +115,12 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx tr.LabelingContext, ghost nonce
 //@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(msg), 1/16)
 //@ requires acc(Mem(pk), 1/16)
-//@ requires Abs(pk) == tm.gamma(tm.createPk(tm.random(skB, keyLabel, u.PkeKey(usageString))))
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(msg), 1/16)
 //@ ensures  acc(Mem(pk), 1/16)
 //@ ensures  err == nil ==> Mem(ciphertext)
 //@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), Abs(pk))
-func (l *LibraryState) Enc(msg, pk ByteString /*@, ghost skB tm.Bytes, ghost keyLabel label.SecrecyLabel, ghost usageString string @*/) (ciphertext ByteString, err error) {
+func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error) {
 	// unmarshal pk:
 	publicKey, err := x509.ParsePKIXPublicKey(pk)
 	if err != nil {
@@ -147,13 +146,12 @@ func (l *LibraryState) Enc(msg, pk ByteString /*@, ghost skB tm.Bytes, ghost key
 //@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(ciphertext), 1/16)
 //@ requires acc(Mem(sk), 1/16)
-//@ requires Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(ciphertext), 1/16)
 //@ ensures  acc(Mem(sk), 1/16)
 //@ ensures  err == nil ==> Mem(msg)
 //@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), tm.createPkB(Abs(sk)))
-func (l *LibraryState) Dec(ciphertext, sk ByteString /*@, ghost keyLabel label.SecrecyLabel, ghost usageString string @*/) (msg ByteString, err error) {
+func (l *LibraryState) Dec(ciphertext, sk ByteString) (msg ByteString, err error) {
 	// unmarshal sk:
 	privateKey, err := x509.ParsePKCS1PrivateKey(sk)
 	if err != nil {
