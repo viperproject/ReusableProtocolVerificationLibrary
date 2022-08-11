@@ -6,6 +6,7 @@ import (
 	x509 "crypto/x509"
 	sha256 "crypto/sha256"
 	"errors"
+	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
 	io "io"
 	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
@@ -160,5 +161,49 @@ func (l *LibraryState) Dec(ciphertext, sk ByteString) (msg ByteString, err error
 
 	rng := rand.Reader
 	msg, err = rsa.DecryptOAEP(sha256.New(), rng, privateKey, ciphertext, nil)
+	return
+}
+
+//@ trusted
+//@ requires acc(l.Mem(), 1/16)
+//@ requires acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
+//@ requires Size(key) == 32 && Size(nonce) == 12
+//@ requires plaintext != nil ==> acc(Mem(plaintext), 1/16)
+//@ requires additionalData != nil ==> acc(Mem(additionalData), 1/16)
+//@ ensures  acc(l.Mem(), 1/16)
+//@ ensures  acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
+//@ ensures  plaintext != nil ==> acc(Mem(plaintext), 1/16)
+//@ ensures  additionalData != nil ==> acc(Mem(additionalData), 1/16)
+//@ ensures  err == nil ==> Mem(ciphertext) && Size(ciphertext) == (plaintext == nil ? 0 : Size(plaintext)) + 16
+//@ ensures  err == nil ==> Abs(ciphertext) == tm.aeadB(Abs(key), Abs(nonce), SafeAbs(plaintext, 0), SafeAbs(additionalData, 0))
+func (l *LibraryState) AeadEnc(key, nonce, plaintext, additionalData ByteString) (ciphertext ByteString, err error) {
+	aead, err := chacha20poly1305.New(key)
+	if err != nil {
+		return
+	}
+	ciphertext = make([]byte, len(plaintext)+16)
+	aead.Seal(ciphertext[:0], nonce, plaintext, additionalData)
+	return
+}
+
+//@ trusted
+//@ requires acc(l.Mem(), 1/16)
+//@ requires acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
+//@ requires Size(key) == 32 && Size(nonce) == 12
+//@ requires acc(Mem(ciphertext), 1/16)
+//@ requires additionalData != nil ==> acc(Mem(additionalData), 1/16)
+//@ ensures  acc(l.Mem(), 1/16)
+//@ ensures  acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
+//@ ensures  acc(Mem(ciphertext), 1/16)
+//@ ensures  additionalData != nil ==> acc(Mem(additionalData), 1/16)
+//@ ensures  err == nil ==> Mem(res) && Size(res) == Size(ciphertext) - 16
+//@ ensures  err == nil ==> Abs(ciphertext) == tm.aeadB(Abs(key), Abs(nonce), Abs(res), SafeAbs(additionalData, 0))
+func (l *LibraryState) AeadDec(key, nonce, ciphertext, additionalData ByteString) (res ByteString, err error) {
+	aead, err := chacha20poly1305.New(key)
+	if err != nil {
+		return
+	}
+	res = make([]byte, len(ciphertext)-16)
+	_, err = aead.Open(res[:0], nonce, ciphertext, additionalData)
 	return
 }
