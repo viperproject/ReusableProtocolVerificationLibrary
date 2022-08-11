@@ -8,7 +8,7 @@ scriptDir=$(dirname "$0")
 isCi=$CI
 
 gobraJar="/gobra/gobra.jar"
-additionalGobraArgs="--module gitlab.inf.ethz.ch/arquintl/prototrace"
+additionalGobraArgs="--module gitlab.inf.ethz.ch/arquintl/prototrace --gobraDirectory ./.gobra"
 
 if [ $isCi ]; then
     echo -e "\033[0Ksection_start:`date +%s`:verify[collapsed=true]\r\033[0KVerifying packages"

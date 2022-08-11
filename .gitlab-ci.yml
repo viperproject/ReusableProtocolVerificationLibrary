@@ -11,4 +11,4 @@ verify:
   artifacts:
     when: always
     paths:
-      - ./.gobra/stats.json
+      - .gobra/stats.json
