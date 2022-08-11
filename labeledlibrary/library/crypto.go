@@ -6,6 +6,7 @@ import (
 	x509 "crypto/x509"
 	sha256 "crypto/sha256"
 	"errors"
+	"fmt"
 	io "io"
 	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
 	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
@@ -84,10 +85,12 @@ func Size(b ByteString) (res int) {
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 func (l *LibraryState) GenerateKey(/*@ ghost ctx tr.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	fmt.Printf("Gen PrivateKey: %+v\n", privateKey)
 	if err != nil {
 		return
 	}
 	publicKey := privateKey.Public()
+	fmt.Printf("Gen PublicKey: %+v\n", publicKey)
 
 	// we serialize the private and public key as PKCS #1, ASN.1 DER and PKIX, ASN.1 DER, respectively.
 	sk = x509.MarshalPKCS1PrivateKey(privateKey)
@@ -137,7 +140,7 @@ func (l *LibraryState) Enc(msg, pk ByteString /*@, ghost skB tm.Bytes, ghost key
 			err = errors.New("invalid public key")
             return
     }
-	
+	fmt.Printf("Encrypt PublicKey: %+v\n", rsaPublicKey)
 	rng := rand.Reader
 	ciphertext, err = rsa.EncryptOAEP(sha256.New(), rng, rsaPublicKey, msg, nil)
 	return
@@ -159,7 +162,7 @@ func (l *LibraryState) Dec(ciphertext, sk ByteString /*@, ghost keyLabel label.S
 	if err != nil {
 		return
 	}
-
+	fmt.Printf("Decrypt PrivateKey: %+v\n", privateKey)
 	rng := rand.Reader
 	msg, err = rsa.DecryptOAEP(sha256.New(), rng, privateKey, ciphertext, nil)
 	return
