@@ -1535,6 +1535,7 @@ pure func (ctx DefaultLabelingContext) IsSecretKey(t tr.TraceEntry, owner p.Id, 
 }
 
 ghost
+decreases
 requires t1.isSuffix(t2)
 requires ctx.IsSecretKey(t1, owner, sk, keyType, usage)
 ensures  ctx.IsSecretKey(t2, owner, sk, keyType, usage)
@@ -1562,6 +1563,7 @@ pure func (ctx DefaultLabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id
 }
 
 ghost
+decreases
 requires t1.isSuffix(t2)
 requires ctx.IsPublicKey(t1, skOwner, pk, sk, keyType, usage)
 ensures  ctx.IsPublicKey(t2, skOwner, pk, sk, keyType, usage)
@@ -1593,6 +1595,7 @@ pure func (ctx DefaultLabelingContext) IsPublicKeyExistential(t tr.TraceEntry, s
 }
 
 ghost
+decreases
 requires t1.isSuffix(t2)
 requires ctx.IsPublicKeyExistential(t1, skOwner, pk, keyType, usage)
 ensures  ctx.IsPublicKeyExistential(t2, skOwner, pk, keyType, usage)
@@ -1612,10 +1615,12 @@ func (ctx DefaultLabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.Trac
 
 ghost
 pure func (ctx DefaultLabelingContext) IsPrivateDecKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
-    return ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
+    return sk == tm.random(tm.gamma(sk), label.Readers(set[p.Id]{ owner }), u.PkeKey(usage)) &&
+        ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
 }
 
 ghost
+decreases
 requires t1.isSuffix(t2)
 requires ctx.IsPrivateDecKey(t1, owner, sk, usage)
 ensures  ctx.IsPrivateDecKey(t2, owner, sk, usage)
@@ -1632,6 +1637,7 @@ pure func (ctx DefaultLabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner p
 }
 
 ghost
+decreases
 requires t1.isSuffix(t2)
 requires ctx.IsPublicEncKey(t1, skOwner, pk ,sk, usage)
 ensures  ctx.IsPublicEncKey(t2, skOwner, pk ,sk, usage)
@@ -1655,6 +1661,7 @@ pure func (ctx DefaultLabelingContext) IsPrivateDhKey(t tr.TraceEntry, owner p.I
 }
 
 ghost
+decreases
 requires t1.isSuffix(t2)
 requires ctx.IsPrivateDhKey(t1, owner, sk, usage)
 ensures  ctx.IsPrivateDhKey(t2, owner, sk, usage)
@@ -1671,6 +1678,7 @@ pure func (ctx DefaultLabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner p.I
 }
 
 ghost
+decreases
 requires t1.isSuffix(t2)
 requires ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage)
 ensures  ctx.IsPublicDhPk(t2, skOwner, pk, sk, usage)

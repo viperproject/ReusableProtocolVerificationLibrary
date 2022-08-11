@@ -2,6 +2,8 @@ package library
 
 import (
 	rand "crypto/rand"
+	rsa "crypto/rsa"
+	x509 "crypto/x509"
 	"errors"
 	io "io"
 	box "golang.org/x/crypto/nacl/box"
@@ -74,17 +76,29 @@ func Size(b ByteString) (res int) {
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)
 //@ ensures  acc(l.Mem(), 1/16)
-//@ ensures  err == nil ==> Mem(pk) && Size(pk) == 32
-//@ ensures  err == nil ==> Mem(sk) && Size(sk) == 32
+//@ ensures  err == nil ==> Mem(pk)
+//@ ensures  err == nil ==> Mem(sk)
 //@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk))
 //@ ensures  err == nil ==> Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 func (l *LibraryState) GenerateKey(/*@ ghost ctx tr.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
-	pkArr, skArr, err := box.GenerateKey(rand.Reader)
-	pk = pkArr[:]
-	sk = skArr[:]
-	return
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return
+	}
+	publicKey := privateKey.Public()
+
+	// we serialize the private and public key as PKCS #1, ASN.1 DER and PKIX, ASN.1 DER, respectively.
+	sk, err = x509.MarshalPKCS1PrivateKey(privateKey)
+	if err != nil {
+		return
+	}
+
+	pk, err = x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return
+	}
 }
 
 //@ trusted
@@ -105,56 +119,43 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx tr.LabelingContext, ghost nonce
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(msg), 1/16)
-//@ requires acc(Mem(recv_pk), 1/16) && Size(recv_pk) == 32
-//@ requires acc(Mem(sender_sk), 1/16) && Size(sender_sk) == 32
+//@ requires acc(Mem(pk), 1/16)
+//@ requires Abs(pk) == tm.gamma(tm.createPk(tm.random(skB, keyLabel, u.PkeKey(usageString))))
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(msg), 1/16)
-//@ ensures  acc(Mem(recv_pk), 1/16)
-//@ ensures  acc(Mem(sender_sk), 1/16)
+//@ ensures  acc(Mem(pk), 1/16)
 //@ ensures  err == nil ==> Mem(ciphertext)
-//@ ensures  err == nil ==> Size(ciphertext) == Size(msg) + NonceLength + 16
-//@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), Abs(recv_pk))
-func (l *LibraryState) Enc(msg, recv_pk, sender_sk ByteString) (ciphertext ByteString, err error) {
-	nonce, err := l.CreateNonce()
+//@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), Abs(pk))
+func (l *LibraryState) Enc(msg, pk ByteString /*@, ghost skB tm.Bytes, ghost keyLabel label.SecrecyLabel, ghost usageString string @*/) (ciphertext ByteString, err error) {
+	// unmarshal pk:
+	publicKey, err := x509.ParsePKIXPublicKey(pk)
 	if err != nil {
-		return nil, err
+		return
 	}
-	var nonceArr [24]byte
-	copy(nonceArr[:], nonce)
-	var pkArr [32]byte
-	copy(pkArr[:], recv_pk)
-	var skArr [32]byte
-	copy(skArr[:], sender_sk)
-	ciphertext = box.Seal(nonce[:], msg, &nonceArr, &pkArr, &skArr)
-	// first NonceLength bytes of ciphertext are the nonce
-	return ciphertext, nil
+	
+	rng := rand.Reader
+	ciphertext, err = rsa.EncryptOAEP(sha256.New(), rng, &publicKey, msg, nil)
+	return
 }
 
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(ciphertext), 1/16)
-//@ requires acc(Mem(sender_pk), 1/16) && Size(sender_pk) == 32
-//@ requires acc(Mem(recv_sk), 1/16) && Size(recv_sk) == 32
+//@ requires acc(Mem(sk), 1/16)
+//@ requires Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(ciphertext), 1/16)
-//@ ensures  acc(Mem(sender_pk), 1/16)
-//@ ensures  acc(Mem(recv_sk), 1/16)
+//@ ensures  acc(Mem(sk), 1/16)
 //@ ensures  err == nil ==> Mem(msg)
-//@ ensures  err == nil ==> Size(msg) == Size(ciphertext) - NonceLength - 16
-//@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), tm.createPkB(Abs(recv_sk)))
-func (l *LibraryState) Dec(ciphertext, sender_pk, recv_sk ByteString) (msg ByteString, err error) {
-	var nonce/*@@@*/ [NonceLength]byte
-	copy(nonce[:], ciphertext[:NonceLength] /*@, perm(1)/2 @*/)
-	var pkArr [32]byte
-	copy(pkArr[:], sender_pk)
-	var skArr [32]byte
-	copy(skArr[:], recv_sk)
-	var res bool
-	msg, res = box.Open(nil, ciphertext[NonceLength:], &nonce, &pkArr, &skArr)
-	if res {
-		err = nil
-	} else {
-		err = errors.New("Decryption failed")
+//@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), tm.createPkB(Abs(sk)))
+func (l *LibraryState) Dec(ciphertext, sk ByteString /*@, ghost keyLabel label.SecrecyLabel, ghost usageString string @*/) (msg ByteString, err error) {
+	// unmarshal sk:
+	privateKey, err := x509.ParsePKCS1PrivateKey(sk)
+	if err != nil {
+		return
 	}
-	return msg, err
+
+	rng := rand.Reader
+	msg, err = rsa.DecryptOAEP(sha256.New(), rng, privateKey, ciphertext, nil)
+	return
 }
