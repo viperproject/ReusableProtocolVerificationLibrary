@@ -55,6 +55,11 @@ type Id domain {
     }
 }
 
+// TODO this should be ghost
+decreases
+ensures res == principalId(principal)
+pure func NewPrincipalId(principal Principal) (res Id)
+
 ghost
 decreases
 pure func (id Id) IsPrincipal() bool {
