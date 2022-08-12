@@ -25,7 +25,7 @@ func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, gh
 	nonce, err = l.s.CreateNonce(/*@ l.ctx.GetLabeling(), nonceLabel, usageString, eventTypes @*/)
 	// store nonce on trace
 	/*@
-	ghost if (err == nil) {
+	ghost if err == nil {
 		nonceT := tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString))
 		l.manager.LogNonce(l.ctx, l.owner, nonceT)
 	}
@@ -44,14 +44,39 @@ func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, gh
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
 //@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.Owner() }), u.PkeKey(usageString))
 // TODO make skT ghost
-func (l *LabeledLibrary) GenerateKey(/*@ ghost usageString string @*/) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
+func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost usageString string @*/) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
 	//@ unfold l.Mem()
 	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
-	pk, sk, err = l.s.GenerateKey(/*@ l.ctx.GetLabeling(), keyLabel, usageString, set[ev.EventType]{} @*/)
+	pk, sk, err = l.s.GeneratePkeKey(/*@ l.ctx.GetLabeling(), keyLabel, usageString, set[ev.EventType]{} @*/)
 	// store sk on trace
 	/*@
-	ghost if (err == nil) {
+	ghost if err == nil {
 		skT = tm.random(lib.Abs(sk), keyLabel, u.PkeKey(usageString))
+		l.ctx.GetLabeling().CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
+		l.manager.LogNonce(l.ctx, l.owner, skT)
+	}
+	@*/
+	//@ fold l.Mem()
+	return
+}
+
+//@ requires l.Mem()
+//@ ensures  l.Mem()
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
+//@ ensures  err == nil ==> lib.Mem(key) && lib.Size(key) == 32
+//@ ensures  err == nil ==> lib.Abs(key) == tm.gamma(skT)
+//@ ensures  err == nil ==> skT == tm.random(lib.Abs(key), label.Readers(set[p.Id]{ l.Owner() }), u.DhKey(usageString))
+//@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
+//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> l.LabelCtx().NonceForEventIsUnique(skT, eventType)
+func (l *LabeledLibrary) GenerateDHKey(/*@ ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
+	//@ unfold l.Mem()
+	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
+	key, err = l.s.GenerateDHKey(/*@ l.ctx.GetLabeling(), keyLabel, usageString, eventTypes @*/)
+	// store key on trace
+	/*@
+	ghost if err == nil {
+		skT = tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString))
 		l.ctx.GetLabeling().CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
 		l.manager.LogNonce(l.ctx, l.owner, skT)
 	}
