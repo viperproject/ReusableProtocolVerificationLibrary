@@ -105,11 +105,15 @@ func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx tr.LabelingContext, ghost ke
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
 func (l *LibraryState) GenerateDHKey(/*@ ghost ctx tr.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key ByteString, err error) {
-	sk, err := device.NewPrivateKey()
+	var keyBuf [32]byte
+	key = keyBuf[:]
+	_, err = rand.Read(key)
 	if err != nil {
 		return
 	}
-	key = sk[:]
+	// clamp
+	key[0] &= 248
+	key[31] = (key[31] & 127) | 64
 	return
 }
 
