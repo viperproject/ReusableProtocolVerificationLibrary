@@ -57,17 +57,17 @@ func (ps PublicTermSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires snap.isSuffix(m.Trace(ctx, owner))
+requires snap.isSuffix(m.Snapshot(ctx, owner))
 requires term in snap.getPublicTerms()
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isRoot()
-ensures  prev.isSuffix(m.Trace(ctx, owner))
+ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  tr.publicInv(ctx, snap.getPublicTerms(), prev)
-ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) PublicTermImpliesPublicInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublicTermSearcher{ ctx, term }
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
     prev.getPublicTermsMonotonic(snap)
-    prev.isSuffixTransitive(snap, m.Trace(ctx, owner))
+    prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))
 }

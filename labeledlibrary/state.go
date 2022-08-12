@@ -75,7 +75,7 @@ pure func (l *LabeledLibrary) LabelCtx() tr.LabelingContext {
 ghost
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
-	return unfolding acc(l.Mem(), _) in l.manager.Trace(l.ctx, l.owner)
+	return unfolding acc(l.Mem(), _) in l.manager.Snapshot(l.ctx, l.owner)
 }
 @*/
 
@@ -89,7 +89,7 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ ensures  res.Manager() == manager
 //@ ensures  res.Owner() == owner
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
-//@ ensures  res.Snapshot() == old(manager.Trace(ctx, owner))
+//@ ensures  res.Snapshot() == old(manager.Snapshot(ctx, owner))
 // TODO manager, ctx, owner should be ghost
 func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tr.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
 	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }

@@ -52,7 +52,7 @@ func (l *LabeledLibrary) GenerateKey(/*@ ghost usageString string @*/) (pk, sk l
 	/*@
 	ghost if (err == nil) {
 		skT = tm.random(lib.Abs(sk), keyLabel, u.PkeKey(usageString))
-		l.ctx.GetLabeling().CanFlowReflexive(l.manager.Trace(l.ctx, l.owner), keyLabel)
+		l.ctx.GetLabeling().CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
 		l.manager.LogNonce(l.ctx, l.owner, skT)
 	}
 	@*/

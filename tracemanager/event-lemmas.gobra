@@ -61,26 +61,26 @@ func (es EventSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires snap.isSuffix(m.Trace(ctx, owner))
+requires snap.isSuffix(m.Snapshot(ctx, owner))
 requires snap.eventOccurs(principal, event)
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isEvent()
-ensures  prev.isSuffix(m.Trace(ctx, owner))
+ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  prev.isEventAt(principal, event)
 ensures  ctx.pureEventInv(principal, event, tr.getPrev(prev))
-ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) EventOccursImpliesEventInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, principal p.Principal, event ev.Event) (prev tr.TraceEntry) {
     searcher := EventSearcher{ ctx, principal, event }
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
-    prev.isSuffixTransitive(snap, m.Trace(ctx, owner))
+    prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))
 }
 
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires m.Trace(ctx, owner).eventOccurs(principal1, event1)
-requires m.Trace(ctx, owner).eventOccurs(principal2, event2)
+requires m.Snapshot(ctx, owner).eventOccurs(principal1, event1)
+requires m.Snapshot(ctx, owner).eventOccurs(principal2, event2)
 requires ctx.IsUnique(event1.typ)
 requires event1.typ == event2.typ
 requires ctx.EventConsistency(event1) && ctx.EventConsistency(event2)
@@ -88,13 +88,13 @@ requires ctx.UniquenessWitness(event1) == ctx.UniquenessWitness(event2)
 ensures  m.Mem(ctx, owner)
 ensures  principal1 == principal2
 ensures  event1 == event2
-ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 // this lemma is part of the manager as it requires the validTrace predicate
 func (m *TraceManager) UniqueEventsAreUnique(ctx tr.TraceContext, owner Client, principal1, principal2 p.Principal, event1, event2 ev.Event) {
     // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
     inv := ManagerInv{ ctx }
-    lastSeenTrace := m.Trace(ctx, owner)
+    lastSeenTrace := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)
     trace := m.mutex.Lock(inv, owner)
     unfold inv.CurrentValueInv(trace)
@@ -119,17 +119,17 @@ func (m *TraceManager) UniqueEventsAreUnique(ctx tr.TraceContext, owner Client, 
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires suffix.isSuffix(m.Trace(ctx, owner))
+requires suffix.isSuffix(m.Snapshot(ctx, owner))
 requires suffix.eventOccurs(principal, event)
 requires ctx.IsUnique(event.typ)
 ensures  m.Mem(ctx, owner)
-ensures  m.Trace(ctx, owner).eventOccurs(principal, event)
-ensures  suffix.eventOccursWitness(principal, event) == m.Trace(ctx, owner).eventOccursWitness(principal, event)
-ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  m.Snapshot(ctx, owner).eventOccurs(principal, event)
+ensures  suffix.eventOccursWitness(principal, event) == m.Snapshot(ctx, owner).eventOccursWitness(principal, event)
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) UniqueEventsOccurOnlyOnce(ctx tr.TraceContext, owner Client, suffix tr.TraceEntry, principal p.Principal, event ev.Event) {
     inv := ManagerInv{ ctx }
-    lastSeenTrace := m.Trace(ctx, owner)
+    lastSeenTrace := m.Snapshot(ctx, owner)
     suffix.eventOccursMonotonic(lastSeenTrace, principal, event)
 
     suffixWitness := suffix.eventOccursWitness(principal, event)

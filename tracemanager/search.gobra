@@ -16,7 +16,7 @@ ghost
 decreases
 requires m.Mem(ctx, owner)
 ensures  tr.validTrace(ctx, snapshot)
-ensures  old(m.Trace(ctx, owner)) == lastSeenSnapshot
+ensures  old(m.Snapshot(ctx, owner)) == lastSeenSnapshot
 ensures  lastSeenSnapshot.isSuffix(snapshot)
 ensures  m.memLocked(ctx, owner, lastSeenSnapshot, snapshot)
 ensures  old(unfolding m.Mem(ctx, owner) in m.mutex) == unfolding m.memLocked(ctx, owner, lastSeenSnapshot, snapshot) in m.mutex
@@ -24,7 +24,7 @@ ensures  old(unfolding m.Mem(ctx, owner) in m.mutex) == unfolding m.memLocked(ct
 func (m *TraceManager) acquireValidTrace(ctx tr.TraceContext, owner Client) (lastSeenSnapshot, snapshot tr.TraceEntry) {
     // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
     inv := ManagerInv{ ctx }
-    lastSeenSnapshot := m.Trace(ctx, owner)
+    lastSeenSnapshot := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)
     snapshot = m.mutex.Lock(inv, owner)
     unfold inv.CurrentValueInv(snapshot)
@@ -36,7 +36,7 @@ decreases
 requires m.memLocked(ctx, owner, lastSeenSnapshot, snapshot)
 requires tr.validTrace(ctx, snapshot)
 ensures  m.Mem(ctx, owner)
-ensures  m.Trace(ctx, owner) == lastSeenSnapshot
+ensures  m.Snapshot(ctx, owner) == lastSeenSnapshot
 ensures  (unfolding m.Mem(ctx, owner) in m.mutex) == old(unfolding m.memLocked(ctx, owner, lastSeenSnapshot, snapshot) in m.mutex)
 func (m *TraceManager) releaseValidTrace(ctx tr.TraceContext, owner Client, lastSeenSnapshot, snapshot tr.TraceEntry) {
     inv := ManagerInv{ ctx }
@@ -135,29 +135,29 @@ func (m *TraceManager) findEntryWithInv(searcher TraceSearcher, validTraceEntry,
 ghost
 decreases
 requires m.Mem(searcher.Ctx(), owner)
-requires searcher.Occurs(m.Trace(searcher.Ctx(), owner))
+requires searcher.Occurs(m.Snapshot(searcher.Ctx(), owner))
 ensures  m.Mem(searcher.Ctx(), owner)
-ensures  prev.isSuffix(m.Trace(searcher.Ctx(), owner)) && searcher.Matches(prev)
+ensures  prev.isSuffix(m.Snapshot(searcher.Ctx(), owner)) && searcher.Matches(prev)
 ensures  searcher.PureEntryInv(prev)
-ensures  old(m.Trace(searcher.Ctx(), owner)) == m.Trace(searcher.Ctx(), owner)
+ensures  old(m.Snapshot(searcher.Ctx(), owner)) == m.Snapshot(searcher.Ctx(), owner)
 ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searcher.Ctx(), owner))
 /**
  * Searches on the trace for an existing entry and returns this entry.
  * Furthermore, the pure invariant for the located entry is returned.
  */
 func (m *TraceManager) findEntryWithPureInv(searcher TraceSearcher, owner Client) (prev tr.TraceEntry) {
-    prev = m.findEntryWithPureInvWithSnap(searcher, owner, m.Trace(searcher.Ctx(), owner))
+    prev = m.findEntryWithPureInvWithSnap(searcher, owner, m.Snapshot(searcher.Ctx(), owner))
 }
 
 ghost
 decreases
 requires m.Mem(searcher.Ctx(), owner)
-requires snap.isSuffix(m.Trace(searcher.Ctx(), owner))
+requires snap.isSuffix(m.Snapshot(searcher.Ctx(), owner))
 requires searcher.Occurs(snap)
 ensures  m.Mem(searcher.Ctx(), owner)
 ensures  prev.isSuffix(snap) && searcher.Matches(prev)
 ensures  searcher.PureEntryInv(prev)
-ensures  old(m.Trace(searcher.Ctx(), owner)) == m.Trace(searcher.Ctx(), owner)
+ensures  old(m.Snapshot(searcher.Ctx(), owner)) == m.Snapshot(searcher.Ctx(), owner)
 ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searcher.Ctx(), owner))
 /**
  * Searches on the trace for an existing entry and returns this entry.

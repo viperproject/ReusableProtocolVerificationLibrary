@@ -74,7 +74,7 @@ pred (m *TraceManager) Mem(ctx tr.TraceContext, owner Client) {
 
 ghost
 requires acc(m.Mem(ctx, owner), _)
-pure func (m *TraceManager) Trace(ctx tr.TraceContext, owner Client) tr.TraceEntry {
+pure func (m *TraceManager) Snapshot(ctx tr.TraceContext, owner Client) tr.TraceEntry {
     return unfolding acc(m.Mem(ctx, owner), _) in m.mutex.LastSeenValue(ManagerInv{ ctx }, owner)
 }
 
@@ -94,14 +94,14 @@ pure func (m *TraceManager) ImmutableState(ctx tr.TraceContext, owner Client) Im
 ghost
 requires m.Mem(ctx, owner)
 ensures  m.Mem(ctx, owner)
-ensures  trace == m.Trace(ctx, owner)
-ensures  old(m.Trace(ctx, owner)).isSuffix(trace)
+ensures  trace == m.Snapshot(ctx, owner)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(trace)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 // this method simply updates the local snapshot to the global trace and returns
 // the updated snapshot for convenience reasons
 func (m *TraceManager) Sync(ctx tr.TraceContext, owner Client) (trace tr.TraceEntry) {
     inv := ManagerInv{ ctx }
-    lastSeenTrace := m.Trace(ctx, owner)
+    lastSeenTrace := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)
     trace = m.mutex.Lock(inv, owner)
     // we have obtained the global trace `trace` and immediately release the lock again:
@@ -115,11 +115,11 @@ requires acc(origManager.Mem(ctx, origOwner), 1/8)
 requires destManager.ImmutableState(ctx, destOwner) == origManager.ImmutableState(ctx, origOwner)
 ensures  destManager.Mem(ctx, destOwner)
 ensures  acc(origManager.Mem(ctx, origOwner), 1/8)
-ensures  (destManager.Trace(ctx, destOwner)) == (origManager.Trace(ctx, origOwner))
+ensures  (destManager.Snapshot(ctx, destOwner)) == (origManager.Snapshot(ctx, origOwner))
 ensures  destManager.ImmutableState(ctx, destOwner) == old(destManager.ImmutableState(ctx, destOwner))
 func (destManager *TraceManager) SetSnapshot(origManager *TraceManager, ctx tr.TraceContext, destOwner, origOwner Client) {
 	inv := ManagerInv{ ctx }
-    lastSeenTrace := destManager.Trace(ctx, destOwner)
+    lastSeenTrace := destManager.Snapshot(ctx, destOwner)
     unfold destManager.Mem(ctx, destOwner)
     trace := destManager.mutex.Lock(inv, destOwner)
     // leave trace unchanged and only update snapshot
@@ -145,18 +145,18 @@ func (destManager *TraceManager) SetSnapshot(origManager *TraceManager, ctx tr.T
 
 ghost
 requires m.Mem(ctx, owner)
-requires ctx.eventInv(owner.getPrincipal(), event, m.Trace(ctx, owner))
+requires ctx.eventInv(owner.getPrincipal(), event, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
 // note that we do not specify here that the event occurs at the most recent trace entry because this property
 // would not hold since the trace might have been extended by another participant or the attacker after
 // releasing the lock. However, the event occurs at the most recent trace entry from this participant's
 // snapshot of the trace.
-ensures  (m.Trace(ctx, owner)).isEventAt(owner.getPrincipal(), event)
-ensures  old(m.Trace(ctx, owner)).isSuffix(m.Trace(ctx, owner))
+ensures  (m.Snapshot(ctx, owner)).isEventAt(owner.getPrincipal(), event)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) LogEvent(ctx tr.TraceContext, owner Client, event ev.Event) {
     inv := ManagerInv{ ctx }
-    lastSeenTrace := m.Trace(ctx, owner)
+    lastSeenTrace := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)
     prevTrace := m.mutex.Lock(inv, owner)
     unfold inv.CurrentValueInv(prevTrace)
@@ -171,14 +171,14 @@ func (m *TraceManager) LogEvent(ctx tr.TraceContext, owner Client, event ev.Even
 
 ghost
 requires m.Mem(ctx, owner)
-requires tr.messageInv(ctx, owner.getPrincipal(), receiver, message, m.Trace(ctx, owner))
+requires tr.messageInv(ctx, owner.getPrincipal(), receiver, message, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
-ensures  (m.Trace(ctx, owner)).isMessageAt(owner.getPrincipal(), receiver, message)
-ensures  old(m.Trace(ctx, owner)).isSuffix(m.Trace(ctx, owner))
+ensures  (m.Snapshot(ctx, owner)).isMessageAt(owner.getPrincipal(), receiver, message)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) LogSend(ctx tr.TraceContext, owner Client, receiver p.Principal, message tm.Term) {
     inv := ManagerInv{ ctx }
-    lastSeenTrace := m.Trace(ctx, owner)
+    lastSeenTrace := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)
     prevTrace := m.mutex.Lock(inv, owner)
     unfold inv.CurrentValueInv(prevTrace)
@@ -193,14 +193,14 @@ func (m *TraceManager) LogSend(ctx tr.TraceContext, owner Client, receiver p.Pri
 
 ghost
 requires m.Mem(ctx, owner)
-requires tr.madePublicInv(ctx, term, m.Trace(ctx, owner))
+requires tr.madePublicInv(ctx, term, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
-ensures  (m.Trace(ctx, owner)).isPublic() && tr.getPayload(m.Trace(ctx, owner)) == term
-ensures  old(m.Trace(ctx, owner)).isSuffix(m.Trace(ctx, owner))
+ensures  (m.Snapshot(ctx, owner)).isPublic() && tr.getPayload(m.Snapshot(ctx, owner)) == term
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) LogPublish(ctx tr.TraceContext, owner Client, term tm.Term) {
     inv := ManagerInv{ ctx }
-    lastSeenTrace := m.Trace(ctx, owner)
+    lastSeenTrace := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)
     prevTrace := m.mutex.Lock(inv, owner)
     unfold inv.CurrentValueInv(prevTrace)
@@ -220,15 +220,15 @@ requires ctx.GetLabeling().NonceIsUnique(nonce)
 // the following precondition specifies that `owner` can read the nonce
 // i.e. this enforces for upper library layers that an owner cannot create nonces
 // or keys that it cannot read itself
-requires ctx.GetLabeling().CanFlow(m.Trace(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ owner }))
+requires ctx.GetLabeling().CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ owner }))
 ensures  m.Mem(ctx, owner)
-ensures  m.Trace(ctx, owner).isNonceAt(nonce)
-ensures  old(m.Trace(ctx, owner)).isSuffix(m.Trace(ctx, owner))
+ensures  m.Snapshot(ctx, owner).isNonceAt(nonce)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 // TODO require that at least `owner` is in the set of readers of nonce
 func (m *TraceManager) LogNonce(ctx tr.TraceContext, owner Client, nonce tm.Term) {
     inv := ManagerInv{ ctx }
-    lastSeenTrace := m.Trace(ctx, owner)
+    lastSeenTrace := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)
     prevTrace := m.mutex.Lock(inv, owner)
     unfold inv.CurrentValueInv(prevTrace)

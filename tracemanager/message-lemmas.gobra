@@ -60,17 +60,17 @@ func (ms MessageSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
 ghost
 decreases
 requires m.Mem(ctx, owner)
-requires snap.isSuffix(m.Trace(ctx, owner))
+requires snap.isSuffix(m.Snapshot(ctx, owner))
 requires snap.messageOccurs(sender, receiver, payload)
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isMessage()
-ensures  prev.isSuffix(m.Trace(ctx, owner))
+ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  prev.isMessageAt(sender, receiver, payload)
 ensures  tr.messageInv(ctx, sender, receiver, payload, tr.getPrev(prev))
-ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
     searcher := MessageSearcher{ ctx, sender, receiver, payload }
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
-    prev.isSuffixTransitive(snap, m.Trace(ctx, owner))
+    prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))
 }
