@@ -11,7 +11,7 @@ import (
 	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 	//@ tman "gitlab.inf.ethz.ch/arquintl/prototrace/tracemanager"
-	//@ ts "gitlab.inf.ethz.ch/arquintl/prototrace/twostate"
+	//@ ts "gitlab.inf.ethz.ch/arquintl/prototrace/concurrentdatastructure"
 	//@ u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
 )
 
@@ -21,7 +21,7 @@ type LabeledLibrary struct {
 	com Communication
 	//@ ctx tr.TraceContext
 	//@ manager *tman.TraceManager
-	//@ owner p.Principal
+	//@ owner p.Id
 }
 
 /*@
@@ -62,7 +62,7 @@ pure func (l *LabeledLibrary) Manager() *tman.TraceManager {
 
 ghost
 requires acc(l.Mem(), _)
-pure func (l *LabeledLibrary) Owner() p.Principal {
+pure func (l *LabeledLibrary) Owner() p.Id {
 	return unfolding acc(l.Mem(), _) in l.owner
 }
 
@@ -91,7 +91,7 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Trace(ctx, owner))
 // TODO manager, ctx, owner should be ghost
-func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tr.TraceContext, owner p.Principal @*/) (res *LabeledLibrary) {
+func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tr.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
 	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
 	//@ fold res.Mem()
 	return
@@ -495,15 +495,15 @@ func (l *LabeledLibrary) PublishedTermImpliesMadePublicInvWithSnap(snap tr.Trace
 
 ghost
 requires l.Mem()
-requires (l.Ctx()).eventInv(l.Owner(), event, l.Snapshot())
+requires (l.Ctx()).eventInv(l.Owner().getPrincipal(), event, l.Snapshot())
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
-ensures  (l.Snapshot()).isEventAt(l.Owner(), event)
+ensures  (l.Snapshot()).isEventAt(l.Owner().getPrincipal(), event)
 func (l *LabeledLibrary) TriggerEvent(event ev.Event) {
 	unfold l.Mem()
 	l.manager.LogEvent(l.ctx, l.owner, event)
 	fold l.Mem()
-	assert (l.Snapshot()).isEventAt(l.Owner(), event)
+	assert (l.Snapshot()).isEventAt(l.Owner().getPrincipal(), event)
 }
 @*/

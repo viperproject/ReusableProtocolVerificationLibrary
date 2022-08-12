@@ -1,0 +1,314 @@
+package concurrentdatastructure
+
+import "sync"
+import arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
+import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
+import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+
+type ClientId = p.Id
+type ValueType = tr.TraceEntry
+
+type ClientHistoryMutex struct {
+    mutex *sync.Mutex
+    /** each client has a last seen value */
+    snapshots map[ClientId]*ValueType
+    currentValue *ValueType
+}
+
+pred (m *ClientHistoryMutex) ClientHistoryMutexStateInit() {
+    acc(m) &&
+    acc(m.mutex) && *m.mutex == sync.Mutex{} &&
+    acc(m.snapshots) && len(m.snapshots) == 0 &&
+    acc(m.currentValue)
+}
+
+pred (m *ClientHistoryMutex) ClientHistoryMutexStateInitWithInv(inv ClientHistoryInv, ghost clients set[ClientId]) {
+    acc(m) && acc(m.snapshots) &&
+    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
+    clients == domain(m.snapshots) &&
+    (forall client1, client2 ClientId :: client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]) &&
+    (forall snapshot *ValueType :: snapshot in range(m.snapshots) ==> acc(snapshot, 1/2))
+}
+
+/** represents the state in the mutex's unlocked state */
+pred (m *ClientHistoryMutex) ClientHistoryMutexState(inv ClientHistoryInv, client ClientId) {
+    // clients == domain(m.snapshots)
+    // the idea is that each client get 1/len(clients) many permissions
+    acc(m, _) &&
+    acc(m.snapshots, _) &&
+    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
+    client in domain(m.snapshots) &&
+    // remaining 1/2 permission to value in snapshot belonging to current client:
+    acc((m.snapshots)[client], 1/2)
+}
+
+/** represents the state in the mutex's locked state */
+pred (m *ClientHistoryMutex) ClientHistoryMutexStateLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) {
+    // beginning copy of clientHistoryMutexState
+    acc(m, _) &&
+    acc(m.snapshots, _) &&
+    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
+    client in domain(m.snapshots) &&
+    // remaining 1/2 permission to value in snapshot belonging to current client:
+    acc((m.snapshots)[client], 1/2) &&
+    // end of copy of clientHistoryMutexState
+    m.mutex.UnlockP() &&
+    acc(m.currentValue) &&
+    *m.currentValue == currentValue &&
+    (forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, *m.currentValue) } snapshot in range(m.snapshots) ==> acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *m.currentValue))
+}
+
+/** represents the invariant that is associated with the mutex */
+pred ClientHistoryMutexInv(inv ClientHistoryInv, currentValue *ValueType, ghost snapshots set[*ValueType]) {
+    acc(currentValue) &&
+    inv.CurrentValueInv(*currentValue) &&
+    (forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, *currentValue) } snapshot in snapshots ==>
+        acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *currentValue))
+}
+
+type ClientHistoryInv interface {
+    /** invariant to specify properties that hold for the current value */
+    pred CurrentValueInv(value ValueType)
+
+    /** two step invariant */
+    ghost
+    pure TwoStepValueInv(oldValue ValueType, currentValue ValueType) bool
+    
+    /** proof obligation to show that the two step invariant is reflexive */
+    ghost
+    decreases
+    ensures TwoStepValueInv(value, value)
+    TwoStepValueInvReflexive(value ValueType)
+
+    /** proof obligation to show that the two step invariant is transitive */
+    ghost
+    decreases
+    requires TwoStepValueInv(val1, val2) && TwoStepValueInv(val2, val3)
+    ensures  TwoStepValueInv(val1, val3)
+    TwoStepValueInvTransitive(val1, val2, val3 ValueType)
+}
+
+requires acc(m.ClientHistoryMutexState(inv, client), _)
+pure func (m *ClientHistoryMutex) LastSeenValue(inv ClientHistoryInv, client ClientId) ValueType {
+    return unfolding acc(m.ClientHistoryMutexState(inv, client), _) in *(m.snapshots)[client]
+}
+
+requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
+pure func (m *ClientHistoryMutex) LastSeenValueLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) ValueType {
+    return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in *(m.snapshots)[client]
+}
+
+ghost
+requires acc(m.ClientHistoryMutexState(inv, client), _)
+pure func (m *ClientHistoryMutex) Clients(inv ClientHistoryInv, client ClientId) set[ClientId] {
+    return unfolding acc(m.ClientHistoryMutexState(inv, client), _) in domain(m.snapshots)
+}
+
+ghost
+requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
+pure func (m *ClientHistoryMutex) ClientsLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) set[ClientId] {
+    return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in domain(m.snapshots)
+}
+
+ghost
+requires acc(m.ClientHistoryMutexState(inv, client1), 1/16)
+requires acc(m.ClientHistoryMutexState(inv, client2), 1/16)
+ensures  acc(m.ClientHistoryMutexState(inv, client1), 1/16)
+ensures  acc(m.ClientHistoryMutexState(inv, client2), 1/16)
+ensures  m.Clients(inv, client1) == m.Clients(inv, client2)
+func (m *ClientHistoryMutex) ClientsAreIdentical(inv ClientHistoryInv, client1, client2 ClientId) {
+    assert unfolding acc(m.ClientHistoryMutexState(inv, client1), 1/16) in unfolding acc(m.ClientHistoryMutexState(inv, client2), 1/16) in true
+}
+
+ghost
+requires acc(m.ClientHistoryMutexStateLocked(inv, client1, currentValue1), 1/16)
+requires acc(m.ClientHistoryMutexState(inv, client2), 1/16)
+ensures  acc(m.ClientHistoryMutexStateLocked(inv, client1, currentValue1), 1/16)
+ensures  acc(m.ClientHistoryMutexState(inv, client2), 1/16)
+ensures  m.ClientsLocked(inv, client1, currentValue1) == m.Clients(inv, client2)
+func (m *ClientHistoryMutex) ClientsAreIdenticalLocked1(inv ClientHistoryInv, client1, client2 ClientId, currentValue1 ValueType) {
+    assert unfolding acc(m.ClientHistoryMutexStateLocked(inv, client1, currentValue1), 1/16) in unfolding acc(m.ClientHistoryMutexState(inv, client2), 1/16) in true
+}
+
+ensures  m.ClientHistoryMutexStateInit()
+func NewClientHistoryMutex() (m *ClientHistoryMutex) {
+    m = &ClientHistoryMutex{}
+    m.mutex = &sync.Mutex{}
+    var value@ ValueType
+    m.currentValue = &value
+    m.snapshots = make(map[ClientId]*ValueType)
+    fold m.ClientHistoryMutexStateInit()
+}
+
+requires m.ClientHistoryMutexStateInit()
+requires isComparable(inv)
+requires noPerm < p && p <= writePerm
+requires 0 < len(clients)
+requires forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
+requires forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
+requires inv.CurrentValueInv(initVal)
+ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
+ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
+ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> m.ClientHistoryMutexState(inv, clients[j])
+ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < len(clients) && 0 <= k && k < len(clients) ==> clients[k] in m.Clients(inv, clients[j])
+func (m *ClientHistoryMutex) SetInv(inv ClientHistoryInv, clients []ClientId, initVal ValueType, ghost p perm) /* (ghost clientSeq seq[ClientId]) */ {
+    unfold m.ClientHistoryMutexStateInit()
+
+    /** sequence representation of clients */
+    clientSeq := seq[ClientId]{}
+    
+    invariant 0 <= i && i <= len(clients)
+    // we have permissions to m, its fields, and the clients (which are pairwise disjoint):
+    invariant acc(m, 1/2) && acc(m.snapshots)
+    invariant forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
+    invariant forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
+    // clientSeq becomes more and more an abstraction of `clients`:
+    invariant len(clientSeq) == i
+    invariant forall j int :: { clientSeq[j] } 0 <= j && j < i ==> clients[j] == clientSeq[j]
+    invariant domain(m.snapshots) == set(clientSeq)
+    // each client has its own snapshot pointer and each snapshot satisfies the invariant:
+    invariant forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, initVal) } snapshot in range(m.snapshots) ==> acc(snapshot) && inv.TwoStepValueInv(*snapshot, initVal)
+    invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
+    for i := 0; i < len(clients); i++ {
+        client := clients[i]
+        clientSeq = clientSeq ++ seq[ClientId]{ client }
+        clientValue@ := initVal
+        length := len(m.snapshots)
+        assert !(client in domain(m.snapshots))
+        (m.snapshots)[client] = &clientValue
+        assert len(m.snapshots) == length + 1
+        inv.TwoStepValueInvReflexive(initVal)
+    }
+
+    *m.currentValue = initVal
+    fold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
+    m.mutex.SetInv(ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>)
+
+    fold m.ClientHistoryMutexStateInitWithInv(inv, set(clientSeq))
+    m.split(inv, clientSeq)
+    // the following assert stmt is necessary:
+    assert forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> clients[j] == clientSeq[j]
+}
+
+ghost
+requires 0 < len(clients)
+requires forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
+requires m.ClientHistoryMutexStateInitWithInv(inv, set(clients))
+ensures forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> m.ClientHistoryMutexState(inv, clients[j])
+ensures forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> set(clients) subset m.Clients(inv, clients[j])
+func (m *ClientHistoryMutex) split(inv ClientHistoryInv, ghost clients seq[ClientId]) {
+    unfold m.ClientHistoryMutexStateInitWithInv(inv, set(clients))
+
+    // some abbreviations for the following loop:
+    currentValue := m.currentValue
+    mutex := m.mutex
+
+    invariant 0 <= i && i <= len(clients)
+    invariant forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
+    invariant acc(m, _)
+    invariant m.currentValue == currentValue && m.mutex == mutex
+    invariant acc(m.snapshots, _)
+    invariant acc(mutex.LockP(), _) && mutex.LockInv() == ClientHistoryMutexInv!<inv, currentValue, range(m.snapshots)!>;
+    invariant forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> clients[j] in domain(m.snapshots)
+    invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
+    invariant forall j int :: { clients[j] } i <= j && j < len(clients) ==> acc((m.snapshots)[clients[j]], 1/2)
+    // in each iteration an additional predicate instance is constructed:
+    invariant forall j int :: { clients[j] } 0 <= j && j < i ==> m.ClientHistoryMutexState(inv, clients[j])
+    invariant forall j int :: { clients[j] } 0 <= j && j < i ==> set(clients) subset m.Clients(inv, clients[j])
+    for i := 0; i < len(clients); i++ {
+        client := clients[i]
+        fold m.ClientHistoryMutexState(inv, client)
+    }
+}
+
+// TODO prove termination. This is currently not possible because we cannot show
+// that `Lock` eventually succeeds.
+decreases _
+requires m.ClientHistoryMutexState(inv, client)
+ensures  m.ClientHistoryMutexStateLocked(inv, client, currentValue)
+ensures  inv.TwoStepValueInv(m.LastSeenValueLocked(inv, client, currentValue), currentValue)
+ensures  inv.CurrentValueInv(currentValue)
+// LastSeenValue remains unchanged:
+ensures  m.LastSeenValueLocked(inv, client, currentValue) == old(m.LastSeenValue(inv, client))
+ensures  m.ClientsLocked(inv, client, currentValue) == old(m.Clients(inv, client))
+func (m *ClientHistoryMutex) Lock(inv ClientHistoryInv, client ClientId) (currentValue ValueType) {
+    unfold m.ClientHistoryMutexState(inv, client)
+    m.mutex.Lock()
+    unfold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
+    currentValue = *m.currentValue
+    fold m.ClientHistoryMutexStateLocked(inv, client, currentValue)
+}
+
+ghost
+decreases
+requires m.ClientHistoryMutexStateLocked(inv, client, currentValue)
+requires inv.TwoStepValueInv(m.LastSeenValueLocked(inv, client, currentValue), currentValue)
+requires inv.TwoStepValueInv(currentValue, newValue)
+// the following precondition enforces that the global trace can only be extended by up to a single trace entry:
+requires newValue == currentValue || tr.getPrev(newValue) == currentValue
+requires inv.CurrentValueInv(newValue)
+ensures  m.ClientHistoryMutexState(inv, client)
+ensures  unfolding m.ClientHistoryMutexState(inv, client) in *(m.snapshots)[client] == newValue
+ensures  m.Clients(inv, client) == old(m.ClientsLocked(inv, client, currentValue))
+func (m *ClientHistoryMutex) Unlock(inv ClientHistoryInv, client ClientId, currentValue, newValue ValueType) {
+    inv.TwoStepValueInvReflexive(newValue)
+    m.UnlockWithSnapshot(inv, client, currentValue, newValue, newValue)
+}
+
+ghost
+decreases
+requires m.ClientHistoryMutexStateLocked(inv, client, currentValue)
+requires inv.TwoStepValueInv(m.LastSeenValueLocked(inv, client, currentValue), currentValue)
+requires inv.TwoStepValueInv(currentValue, newValue)
+// the following precondition enforces that the global trace can only be extended by up to a single trace entry:
+requires newValue == currentValue || tr.getPrev(newValue) == currentValue
+requires inv.TwoStepValueInv(snapshot, newValue)
+requires inv.CurrentValueInv(newValue)
+ensures  m.ClientHistoryMutexState(inv, client)
+ensures  unfolding m.ClientHistoryMutexState(inv, client) in *(m.snapshots)[client] == snapshot
+ensures  m.Clients(inv, client) == old(m.ClientsLocked(inv, client, currentValue))
+/** 
+ * similar to `Unlock` in the sense that the lock is released.
+ * however, this method allows to manually specify the snapshot to which this client's lastSeenValue should be set
+ */
+func (m *ClientHistoryMutex) UnlockWithSnapshot(inv ClientHistoryInv, client ClientId, currentValue, newValue, snapshot ValueType) {
+    unfold m.ClientHistoryMutexStateLocked(inv, client, currentValue)
+    m.applyInvTransitivity(inv, range(m.snapshots), currentValue, newValue, 1/2)
+    *(m.snapshots)[client] = snapshot
+    *m.currentValue = newValue
+    fold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
+    m.mutex.Unlock()
+    fold m.ClientHistoryMutexState(inv, client)
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, currentValue) } snapshot in snapshots ==>
+    acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, currentValue)
+requires inv.TwoStepValueInv(currentValue, newValue)
+ensures  forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot in snapshots ==>
+    acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, newValue)
+func (m *ClientHistoryMutex) applyInvTransitivity(inv ClientHistoryInv, snapshots set[*ValueType], currentValue, newValue ValueType, p perm) {
+    // non-deterministically choose a snapshot
+    arbitrarySnapshot@ := arb.GetArbTraceEntry()
+    if &arbitrarySnapshot in snapshots {
+        m.applyInvTransitivitySingle(inv, &arbitrarySnapshot, currentValue, newValue, p)
+        assert inv.TwoStepValueInv(arbitrarySnapshot, newValue)
+    }
+    // forall introduction:
+    assert &arbitrarySnapshot in snapshots ==>
+        inv.TwoStepValueInv(arbitrarySnapshot, newValue)
+    assume forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot in snapshots ==>
+        inv.TwoStepValueInv(*snapshot, newValue)
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, currentValue)
+requires inv.TwoStepValueInv(currentValue, newValue)
+ensures  acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, newValue)
+func (m *ClientHistoryMutex) applyInvTransitivitySingle(inv ClientHistoryInv, snapshot *ValueType, currentValue, newValue ValueType, p perm) {
+    inv.TwoStepValueInvTransitive(*snapshot, currentValue, newValue)
+}

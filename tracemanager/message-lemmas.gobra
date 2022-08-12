@@ -69,7 +69,7 @@ ensures  prev.isMessageAt(sender, receiver, payload)
 ensures  tr.messageInv(ctx, sender, receiver, payload, tr.getPrev(prev))
 ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tr.TraceContext, owner p.Principal, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
+func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
     searcher := MessageSearcher{ ctx, sender, receiver, payload }
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
     prev.isSuffixTransitive(snap, m.Trace(ctx, owner))

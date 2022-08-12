@@ -13,7 +13,7 @@ import . "gitlab.inf.ethz.ch/arquintl/prototrace/usagecontext"
 /** alias */
 type IdSet = set[p.Id]
 
-/** interface to collect all lemmas for convenience purposes */
+/** interface to collect all lemmas for convenience */
 type CanFlowLemmas_DYStar interface {
     ghost
     pure canFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) bool

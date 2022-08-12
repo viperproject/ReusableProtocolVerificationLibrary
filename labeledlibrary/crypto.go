@@ -12,12 +12,13 @@ import (
 )
 
 //@ requires l.Mem()
+//@ requires l.Ctx().GetLabeling().CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
 //@ ensures  err == nil ==> lib.Mem(nonce) && lib.Size(nonce) == lib.NonceLength
 //@ ensures  err == nil ==> lib.Abs(nonce) == tm.gamma(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)))
-//@ ensures  err == nil ==> (l.Snapshot()).isNonceAt(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)))
+//@ ensures  err == nil ==> l.Snapshot().isNonceAt(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> (l.LabelCtx()).NonceForEventIsUnique(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce lib.ByteString, err error) {
 	//@ unfold l.Mem()
@@ -40,17 +41,18 @@ func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, gh
 //@ ensures  err == nil ==> lib.Mem(pk)
 //@ ensures  err == nil ==> lib.Mem(sk)
 //@ ensures  err == nil ==> lib.Abs(sk) == tm.gamma(skT) && lib.Abs(pk) == tm.createPkB(lib.Abs(sk))
-//@ ensures  err == nil ==> (l.Snapshot()).isNonceAt(skT)
-//@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ p.principalId(l.Owner()) }), u.PkeKey(usageString))
+//@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
+//@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.Owner() }), u.PkeKey(usageString))
 // TODO make skT ghost
 func (l *LabeledLibrary) GenerateKey(/*@ ghost usageString string @*/) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
 	//@ unfold l.Mem()
-	//@ keyLabel := label.Readers(set[p.Id]{ p.principalId(l.owner) })
+	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
 	pk, sk, err = l.s.GenerateKey(/*@ l.ctx.GetLabeling(), keyLabel, usageString, set[ev.EventType]{} @*/)
 	// store sk on trace
 	/*@
 	ghost if (err == nil) {
 		skT = tm.random(lib.Abs(sk), keyLabel, u.PkeKey(usageString))
+		l.ctx.GetLabeling().CanFlowReflexive(l.manager.Trace(l.ctx, l.owner), keyLabel)
 		l.manager.LogNonce(l.ctx, l.owner, skT)
 	}
 	@*/
@@ -63,7 +65,7 @@ func (l *LabeledLibrary) GenerateKey(/*@ ghost usageString string @*/) (pk, sk l
 //@ requires lib.Abs(msg) == tm.gamma(msgT)
 //@ requires acc(lib.Mem(pk), 1/8)
 //@ requires lib.Abs(pk) == tm.gamma(pkT)
-//@ requires l.LabelCtx().CanEncrypt(l.Snapshot(), msgT, pkT) || ((l.LabelCtx()).IsPublishable(l.Snapshot(), msgT) && (l.LabelCtx()).IsPublishable(l.Snapshot(), pkT))
+//@ requires l.LabelCtx().CanEncrypt(l.Snapshot(), msgT, pkT) || (l.LabelCtx().IsPublishable(l.Snapshot(), msgT) && l.LabelCtx().IsPublishable(l.Snapshot(), pkT))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot())

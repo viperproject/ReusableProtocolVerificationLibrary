@@ -107,6 +107,9 @@ type LabelingContext interface {
     pure IsPublishable(t TraceEntry, term tm.Term) bool
 
     ghost
+    pure CanFlow(t TraceEntry, l1, l2 label.SecrecyLabel) bool
+
+    ghost
     decreases
     requires t1.isSuffix(t2)
     requires IsSecret(t1, term, l, usage)
@@ -126,6 +129,11 @@ type LabelingContext interface {
     requires IsPublishable(t1, term)
     ensures  IsPublishable(t2, term)
     IsPublishableMonotonic(t1, t2 TraceEntry, term tm.Term)
+
+    ghost
+    decreases
+    ensures CanFlow(t, l, l)
+    CanFlowReflexive(t TraceEntry, l label.SecrecyLabel)
 
     ghost
     pure CanEncrypt(t TraceEntry, msg, pk tm.Term) bool

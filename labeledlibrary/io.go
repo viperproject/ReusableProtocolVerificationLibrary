@@ -39,7 +39,7 @@ type Communication interface {
  * trace trace
  */
 //@ requires l.Mem()
-//@ requires l.Owner() == idSender
+//@ requires l.Owner().getPrincipal() == idSender
 //@ requires acc(lib.Mem(msg), 1/16)
 //@ requires tm.gamma(msgT) == lib.Abs(msg)
 //@ requires tr.messageInv(l.Ctx(), idSender, idReceiver, msgT, l.Snapshot())
@@ -50,7 +50,7 @@ type Communication interface {
 //@ ensures  err == nil ==> (l.Snapshot()).isMessageAt(idSender, idReceiver, msgT)
 func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteString /*@, ghost msgT tm.Term @*/) (err error) {
 	//@ unfold l.Mem()
-	//@ l.manager.LogSend(l.ctx, idSender, idReceiver, msgT)
+	//@ l.manager.LogSend(l.ctx, l.owner, idReceiver, msgT)
 	//@ snapshot := l.manager.Trace(l.ctx, l.owner)
 	err = l.com.Send(idSender, idReceiver, msg /*@, msgT, snapshot @*/)
 	//@ fold l.Mem()
@@ -58,7 +58,7 @@ func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteStri
 }
 
 //@ requires l.Mem()
-//@ requires l.Owner() == idReceiver
+//@ requires l.Owner().getPrincipal() == idReceiver
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())

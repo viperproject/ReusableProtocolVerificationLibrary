@@ -1,6 +1,5 @@
 package tracemanager
 
-import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
@@ -66,7 +65,7 @@ ensures  prev.isSuffix(m.Trace(ctx, owner))
 ensures  tr.publicInv(ctx, snap.getPublicTerms(), prev)
 ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) PublicTermImpliesPublicInvWithSnap(ctx tr.TraceContext, owner p.Principal, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
+func (m *TraceManager) PublicTermImpliesPublicInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublicTermSearcher{ ctx, term }
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
     prev.getPublicTermsMonotonic(snap)

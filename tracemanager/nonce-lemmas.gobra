@@ -1,6 +1,5 @@
 package tracemanager
 
-import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
 import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
 import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
 
@@ -67,7 +66,7 @@ ensures  prev.isNonceAt(nonce)
 ensures  tr.pureRandInv(ctx, nonce, tr.getPrev(prev))
 ensures  old(m.Trace(ctx, owner)) == m.Trace(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) NonceOccursImpliesRandInv(ctx tr.TraceContext, owner p.Principal, nonce tm.Term) (prev tr.TraceEntry) {
+func (m *TraceManager) NonceOccursImpliesRandInv(ctx tr.TraceContext, owner Client, nonce tm.Term) (prev tr.TraceEntry) {
     searcher := NonceSearcher{ ctx, nonce }
     prev = m.findEntryWithPureInv(searcher, owner)
 }
