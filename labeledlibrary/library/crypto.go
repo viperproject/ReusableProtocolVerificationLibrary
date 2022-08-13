@@ -8,12 +8,12 @@ import (
 	"errors"
 	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
 	io "io"
-	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
-	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
-	//@ u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
+	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
+	p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 )
 
 

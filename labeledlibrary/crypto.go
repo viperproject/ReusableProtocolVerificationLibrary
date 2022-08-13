@@ -1,14 +1,14 @@
 package labeledlibrary
 
 import (
-	//@ arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
-	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
-	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
-	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
-	//@ p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-	//@ u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
+	//@ arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
+	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
+	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
+	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
+	//@ p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 )
 
 //@ requires l.Mem()

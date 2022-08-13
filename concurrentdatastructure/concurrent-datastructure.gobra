@@ -1,9 +1,9 @@
 package concurrentdatastructure
 
 import "sync"
-import arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
-import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 
 type ClientId = p.Id
 type ValueType = tr.TraceEntry

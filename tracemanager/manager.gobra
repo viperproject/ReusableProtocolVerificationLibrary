@@ -2,12 +2,12 @@ package tracemanager
 
 // uses concurrent datastructure to establish the invariant that any older trace is a suffix of the current one
 
-import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-import "gitlab.inf.ethz.ch/arquintl/prototrace/label"
-import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
-import ts "gitlab.inf.ethz.ch/arquintl/prototrace/concurrentdatastructure"
+import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+import "github.com/ModularVerification/ReusableVerificationLibrary/label"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import ts "github.com/ModularVerification/ReusableVerificationLibrary/concurrentdatastructure"
 
 
 type TraceManager struct {

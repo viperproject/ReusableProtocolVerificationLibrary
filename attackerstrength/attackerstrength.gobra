@@ -1,9 +1,9 @@
 package attackerstrength
 
-import att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
-import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary"
-import lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
-import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
+import att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
+import ll "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary"
+import lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 
 
 /**

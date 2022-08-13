@@ -1,18 +1,18 @@
 package labeledlibrary
 
 import (
-	//@ arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
-	//@ att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
-	//@ ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/label"
-	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
-	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
-	//@ p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
-	//@ tman "gitlab.inf.ethz.ch/arquintl/prototrace/tracemanager"
-	//@ ts "gitlab.inf.ethz.ch/arquintl/prototrace/concurrentdatastructure"
-	//@ u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
+	//@ arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
+	//@ att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
+	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
+	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
+	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
+	//@ p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+	//@ tman "github.com/ModularVerification/ReusableVerificationLibrary/tracemanager"
+	//@ ts "github.com/ModularVerification/ReusableVerificationLibrary/concurrentdatastructure"
+	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 )
 
 // TODO ghost fields should be ghost

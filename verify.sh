@@ -11,7 +11,7 @@ isCi=$CI
 mkdir -p $scriptDir/.gobra
 
 gobraJar="/gobra/gobra.jar"
-additionalGobraArgs="--module gitlab.inf.ethz.ch/arquintl/prototrace --gobraDirectory $scriptDir/.gobra"
+additionalGobraArgs="--module github.com/ModularVerification/ReusableVerificationLibrary --gobraDirectory $scriptDir/.gobra"
 
 if [ $isCi ]; then
     echo -e "\033[0Ksection_start:`date +%s`:verify[collapsed=true]\r\033[0KVerifying packages"

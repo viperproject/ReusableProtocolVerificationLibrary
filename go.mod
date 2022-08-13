@@ -1,4 +1,4 @@
-module gitlab.inf.ethz.ch/arquintl/prototrace
+module github.com/ModularVerification/ReusableVerificationLibrary
 
 go 1.16
 

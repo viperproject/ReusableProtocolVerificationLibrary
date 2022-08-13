@@ -1,13 +1,13 @@
 package labeling
 
-import arb "gitlab.inf.ethz.ch/arquintl/prototrace/arbitrary"
-import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-import "gitlab.inf.ethz.ch/arquintl/prototrace/label"
-import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
-import u "gitlab.inf.ethz.ch/arquintl/prototrace/usage"
-import . "gitlab.inf.ethz.ch/arquintl/prototrace/usagecontext"
+import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
+import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+import "github.com/ModularVerification/ReusableVerificationLibrary/label"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+import . "github.com/ModularVerification/ReusableVerificationLibrary/usagecontext"
 
 
 /** alias */

@@ -1,6 +1,6 @@
 package tracemanager
 
-import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 
 
 /** represents the state after acquiring the mutex to then use it prove a lemma */

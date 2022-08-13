@@ -1,10 +1,10 @@
 package channelcommunication
 
-//@ import ll "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary"
-import lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
-import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-//@ import tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-//@ import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+//@ import ll "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary"
+import lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+//@ import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+//@ import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 
 
 type ChannelCommunicaton struct {

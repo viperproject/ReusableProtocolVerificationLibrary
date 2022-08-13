@@ -1,8 +1,8 @@
 package tracemanager
 
-import ev "gitlab.inf.ethz.ch/arquintl/prototrace/event"
-import p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-import tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 
 
 type EventSearcher struct {

@@ -1,12 +1,12 @@
 package labeledlibrary
 
 import (
-	//@ att "gitlab.inf.ethz.ch/arquintl/prototrace/attacker"
-	//@ "gitlab.inf.ethz.ch/arquintl/prototrace/labeling"
-	lib "gitlab.inf.ethz.ch/arquintl/prototrace/labeledlibrary/library"
-	p "gitlab.inf.ethz.ch/arquintl/prototrace/principal"
-	//@ tm "gitlab.inf.ethz.ch/arquintl/prototrace/term"
-	//@ tr "gitlab.inf.ethz.ch/arquintl/prototrace/trace"
+	//@ att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
+	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
+	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
+	p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 )
 
 
