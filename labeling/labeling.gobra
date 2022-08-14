@@ -133,14 +133,7 @@ pure func (ctx DefaultLabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bo
         (term.IsAead() ==>
             ctx.IsValidAead(t, tm.getAeadKey(term), tm.getAeadNonce(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)), tm.getAuthtext(term))) &&
         (term.IsRandom() ==>
-            // (tm.getRandomTrace(term)).traceLen() <= t.traceLen() &&
-            // TODO isn't the following expression trivially true?
-            // (tm.getRandomTrace(term)).isNonceAt(term) &&
-            // (tm.getRandomTrace(term)).isNonce() && tr.getNonce(tm.getRandomTrace(term)) == tm.gamma(term)) &&
-            // this is equivalent to saying that `term` occurs in a nonce entry on the trace because
-            // the random term determines its label and usage. However, `nonceOccurs` saves us from
-            // writing yet another function to simply state that `term` is on the trace
-            // t.nonceOccurs(term, tm.getRandomLabel(term), tm.getRandomUsage(term))) &&
+            // `nonceOccurs` saves us from writing yet another function to simply state that `term` is on the trace
             t.OnlyNonceOccurs(term)) &&
         (term.IsExp() ==> exists base, e tm.Term :: { tm.exp(base, e) } term == tm.exp(base, e) && ctx.IsValid(t, base) && ctx.IsValid(t, e)) &&
         ((term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> ctx.IsValid(t, tm.getInput(term))) &&
@@ -166,7 +159,7 @@ pure func (ctx DefaultLabelingContext) IsValidEncrypt(t tr.TraceEntry, pk, plain
 
 ghost
 requires ctx.GetLabel(plaintext) == plaintextLabel
-pure func (ctx DefaultLabelingContext) IsValidAead(t tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term /*, authLabel label.SecrecyLabel*/) bool {
+pure func (ctx DefaultLabelingContext) IsValidAead(t tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term) bool {
     return ctx.IsValid(t, key) &&
         ctx.IsValid(t, nonce) &&
         ctx.IsValid(t, plaintext) &&
