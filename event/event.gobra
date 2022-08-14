@@ -1,13 +1,10 @@
 package event
 
-// type Event interface {}
-// comparing interface values in axioms is not yet supported
-// type Event int
 
-type EventParams interface {
-    // ghost
-    // pure getTerms() set[tr.Term]
-}
+// we model events by a type and some parameters.
+// a protocol implementation will specify the event types relevant
+// for the protocol and the concrete parameters for each event type.
+type EventParams interface {}
 
 type EventType int
 type Event struct {

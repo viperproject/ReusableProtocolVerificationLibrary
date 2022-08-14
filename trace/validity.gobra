@@ -230,7 +230,6 @@ pred validTrace(ctx TraceContext, t TraceEntry) {
 ghost
 requires t.isRoot()
 pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
-    // TODO: using t is a bit artificial because using getPrev(t) would make more sense but does not exist
     return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> (ctx.GetLabeling()).IsPublishable(t, publicTerm)
 }
 
@@ -238,11 +237,6 @@ ghost
 pure func messageInv(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, prev TraceEntry) bool {
     return (ctx.GetLabeling()).IsPublishable(prev, payload)
 }
-/*
-pred messageInv(ctx TraceContext, sender, receiver Principal, payload Term, prev TraceEntry) {
-    (ctx.GetLabeling()).IsPublishable(prev, payload)
-}
-*/
 
 ghost
 decreases
@@ -250,9 +244,7 @@ requires t1.isSuffix(t2)
 requires messageInv(ctx, sender, receiver, payload, t1)
 ensures  messageInv(ctx, sender, receiver, payload, t2)
 func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, t1, t2 TraceEntry) {
-    // unfold messageInv(ctx, sender, receiver, payload, t1)
-    (ctx.GetLabeling()).IsPublishableMonotonic(t1, t2, payload)
-    // fold messageInv(ctx, sender, receiver, payload, t2)
+    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, payload)
 }
 
 pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {

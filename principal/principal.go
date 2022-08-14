@@ -129,5 +129,4 @@ ensures id.getPrincipalId().Covers(id)
 func (id Id) CoveredByPrincipal() {
 	// no body needed
 }
-
 @*/

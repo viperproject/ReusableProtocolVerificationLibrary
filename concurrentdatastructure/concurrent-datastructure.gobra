@@ -32,7 +32,6 @@ pred (m *ClientHistoryMutex) ClientHistoryMutexStateInitWithInv(inv ClientHistor
 
 /** represents the state in the mutex's unlocked state */
 pred (m *ClientHistoryMutex) ClientHistoryMutexState(inv ClientHistoryInv, client ClientId) {
-    // clients == domain(m.snapshots)
     // the idea is that each client get 1/len(clients) many permissions
     acc(m, _) &&
     acc(m.snapshots, _) &&
@@ -151,7 +150,7 @@ ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clie
 ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
 ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> m.ClientHistoryMutexState(inv, clients[j])
 ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < len(clients) && 0 <= k && k < len(clients) ==> clients[k] in m.Clients(inv, clients[j])
-func (m *ClientHistoryMutex) SetInv(inv ClientHistoryInv, clients []ClientId, initVal ValueType, ghost p perm) /* (ghost clientSeq seq[ClientId]) */ {
+func (m *ClientHistoryMutex) SetInv(inv ClientHistoryInv, clients []ClientId, initVal ValueType, ghost p perm) {
     unfold m.ClientHistoryMutexStateInit()
 
     /** sequence representation of clients */

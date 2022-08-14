@@ -29,19 +29,3 @@ type UsageContext interface {
     ensures  AeadPred(t2, usageString, key, nonce, plaintext, authtext)
     AeadPredMonotonic(t1, t2 tr.TraceEntry, usageString string, key, nonce, plaintext, authtext tm.Term)
 }
-
-// ghost
-// pure func GetUsage(ctx UsageContext, t tm.Term) option[u.Usage] {
-//     return t.IsRandom() ? some(tm.getRandomUsage(t)) :
-//         (t.IsKdf() && HasKdfUsage(ctx, tm.getInput(t))) ? ctx.KdfUsage(t, u.GetUsageString(get(GetUsage(ctx, tm.getInput(t))))) :
-//         t.IsTuple2() ? ctx.Tuple2Usage(t) :
-//         // TODO add other usages e.g. for DH or key expansion
-//         none[u.Usage]
-// }
-
-// ghost
-// /** input is the term that is used as key argument to a KDF function */
-// pure func HasKdfUsage(ctx UsageContext, t tm.Term) bool {
-//     return GetUsage(ctx, t) != none[u.Usage] &&
-//         get(GetUsage(ctx, t)).IsKdfKey()
-// }

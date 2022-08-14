@@ -40,14 +40,8 @@ type SecrecyLabel domain {
     axiom { // readers type implies its construction
         forall l SecrecyLabel :: { GetType(l) == 1 } GetType(l) == 1 ==> l == Readers(GetReaders(l))
     }
-    /*
-    axiom { // meet is injective
-        forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } GetType(Meet(l1, l2)) == 2 &&
-            GetFirstLabel(Meet(l1, l2)) == l1 &&
-            GetSecondLabel(Meet(l1, l2)) == l2
-    }
-    */
-    axiom { // meet is pseudo-injective
+
+    axiom { // meet is pseudo-injective, i.e. injective modulo commutativity
         forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } GetType(Meet(l1, l2)) == 2 &&
             ((
                 GetFirstLabel(Meet(l1, l2)) == l1 &&
@@ -63,14 +57,7 @@ type SecrecyLabel domain {
         forall l SecrecyLabel :: { GetType(l) == 2 } GetType(l) == 2 ==> l == Meet(GetFirstLabel(l), GetSecondLabel(l))
     }
 
-    /*
-    axiom { // join is injective
-        forall l1, l2 SecrecyLabel :: { Join(l1, l2) } GetType(Join(l1, l2)) == 3 &&
-            GetFirstLabel(Join(l1, l2)) == l1 &&
-            GetSecondLabel(Join(l1, l2)) == l2
-    }
-    */
-    axiom { // join is pseudo-injective
+    axiom { // join is pseudo-injective, i.e. injective modulo commutativity
         forall l1, l2 SecrecyLabel :: { Join(l1, l2) } GetType(Join(l1, l2)) == 3 &&
             ((
                 GetFirstLabel(Join(l1, l2)) == l1 &&

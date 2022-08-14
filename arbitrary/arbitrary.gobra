@@ -37,12 +37,3 @@ func GetArbString() string
 
 decreases
 func GetArbUInt32() uint32
-
-/*
-func sanityCheck() {
-    term1 := GetArbTerm()
-    term2 := GetArbTerm()
-    // the following assertion should fail:
-    assert term1 == term2
-}
-*/

@@ -225,7 +225,6 @@ ensures  m.Mem(ctx, owner)
 ensures  m.Snapshot(ctx, owner).isNonceAt(nonce)
 ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-// TODO require that at least `owner` is in the set of readers of nonce
 func (m *TraceManager) LogNonce(ctx tr.TraceContext, owner Client, nonce tm.Term) {
     inv := ManagerInv{ ctx }
     lastSeenTrace := m.Snapshot(ctx, owner)
