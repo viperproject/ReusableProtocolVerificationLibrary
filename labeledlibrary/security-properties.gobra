@@ -40,7 +40,6 @@ requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) NonInjectiveAgreement(actor, peer p.Principal, commit, running ev.Event, honestIds set[p.Id]) bool {
     return l.Ctx().EventConsistency(running) &&
         l.Ctx().EventConsistency(commit) &&
-        l.Ctx().IsUnique(commit.typ) &&
         l.Snapshot().eventOccurs(actor, commit) &&
         ( // there is another running session with the same parameters...
             l.Snapshot().eventOccurs(peer, running) ||
@@ -52,6 +51,7 @@ ghost
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) InjectiveAgreement(actor, peer p.Principal, commit, running ev.Event, honestIds set[p.Id]) bool {
     return l.NonInjectiveAgreement(actor, peer, commit, running, honestIds) &&
+        l.Ctx().IsUnique(commit.typ) &&
         (!tr.containsCorruptId((l.Snapshot()).getCorruptIds(), honestIds) ==>
             // if no corruption has occurred, then there is no other commit with the same parameters:
             l.EventIsUnique(actor, commit))
