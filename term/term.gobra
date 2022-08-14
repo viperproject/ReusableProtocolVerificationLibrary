@@ -51,60 +51,53 @@ type Term domain {
     func getPk(Term) Term
 
     // type 12
-    // TODO remove
-    func ok() Term
-
-    // type 13
     /** symmetric key, nonce, plaintext, auth text (i.e. text to be authenticated but not encrypted) */
     func aead(Term, Term, Term, Term) Term
     func getAeadKey(Term) Term
     func getAeadNonce(Term) Term
     func getAuthtext(Term) Term
     
-    // type 14
+    // type 13
     func const1() Term
 
-    // type 15
+    // type 14
     func exp(Term, Term) Term
     func getBase(Term) Term
     func getExponent(Term) Term
 
-    // type 16
+    // type 15
     func mult(Term, Term) Term
 
-    // type 17
+    // type 16
     func stringTerm(string) Term
     func getString(Term) string
 
-    // type 18
+    // type 17
     func zeroString(int) Term
 
-    // type 19
+    // type 18
     func integer64(uint64) Term
     func getInt64(Term) uint64
 
-    // type 20
+    // type 19
     func integer32(uint32) Term
     func getInt32(Term) uint32
 
-    // type 21
+    // type 20
     func infoTerm() Term
 
-    // type 22
+    // type 21
     func prologueTerm() Term
 
-    // type 23
+    // type 22
     func generator() Term
-
-    // type 24
-    func subsequent(Term) Term
 
     // WARNING: adapt first axiom if another Term is added!
 
     func getTermType(Term) int
 
     axiom { // every term belongs to a known type
-        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 24
+        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 22
     }
 
 
@@ -215,55 +208,24 @@ type Term domain {
             t == encrypt(getPlaintext(t), getPk(t))
     }
 
-    /* decrypt is no longer a domain function but we added it below as a heap-dependent function
-    axiom decrypt_encrypt {
-        forall plaintext: Term, sk: Term :: { encrypt(plaintext, getPk(sk)) }
-            decrypt(encrypt(plaintext, getPk(sk)), sk) == Success(plaintext)
-    }
-    // the following 2 axioms is inspired from CrytoLib.fst line 193-198
-    axiom int_ctxt {
-        forall plaintext: Term, ciphertext: Term, sk: Term ::
-            // the other direction is already in decrypt_encrypt
-            decrypt(ciphertext, sk) == Success(plaintext) ==> 
-                ciphertext == encrypt(plaintext, getPk(sk))
-    }
-    axiom decrypt_wrong_key {
-        forall ciphertext: Term, sk1: Term, sk2: Term :: { decrypt(ciphertext, sk1), decrypt(ciphertext, sk2) }
-            isEncrypt(ciphertext) && getPk(ciphertext) == getPk(sk1) && sk1 != sk2 ==>
-                decrypt(ciphertext, sk2) == Failure()
-    }
-    */
-
-    axiom {
-        getTermType(ok()) == 12
-    }
-
     axiom { // aead is injective
-        forall key, nonce, plaintext, authtext Term :: { aead(key, nonce, plaintext, authtext) } getTermType(aead(key, nonce, plaintext, authtext)) == 13 &&
+        forall key, nonce, plaintext, authtext Term :: { aead(key, nonce, plaintext, authtext) } getTermType(aead(key, nonce, plaintext, authtext)) == 12 &&
             getAeadKey(aead(key, nonce, plaintext, authtext)) == key &&
             getAeadNonce(aead(key, nonce, plaintext, authtext)) == nonce &&
             getPlaintext(aead(key, nonce, plaintext, authtext)) == plaintext &&
             getAuthtext(aead(key, nonce, plaintext, authtext)) == authtext
     }
     axiom { // aead implies its constructions
-        forall t Term :: { getTermType(t) == 13 } getTermType(t) == 13 ==>
+        forall t Term :: { getTermType(t) == 12 } getTermType(t) == 12 ==>
             t == aead(getAeadKey(t), getAeadNonce(t), getPlaintext(t), getAuthtext(t))
     }
-    // decrypt & verify aead with same key and nonce
-    /*
-    axiom {
-        forall key, nonce, plaintext, additionalData Term :: { aead(key, nonce, plaintext, additionalData) } getTermType(aead(key, nonce, plaintext, additionalData)) == 13 &&
-            aeadDecrypt(key, nonce, aead(key, nonce, plaintext, additionalData)) == plaintext &&
-            aeadVerify(key, nonce, additionalData, aead(key, nonce, plaintext, additionalData)) == ok()
-    }
-    */
 
     axiom {
-        getTermType(const1()) == 14
+        getTermType(const1()) == 13
     }
 
     axiom { // exp has type
-        forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 15
+        forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 14
     }
     axiom { // exp is injective for a given base
         forall t1, t2, t3 Term :: { exp(t1, t2), exp(t1, t3) } exp(t1, t2) == exp(t1, t3) ==> t2 == t3
@@ -271,7 +233,7 @@ type Term domain {
     // exp is neither injective nor does it imply its construction as we can construct the same term by using exp and mult!
 
     axiom { // mult has type
-        forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 16
+        forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 15
     }
 
     // mult is commutative
@@ -305,47 +267,43 @@ type Term domain {
     // }
 
     axiom { // stringTerm is injective
-        forall s string :: { stringTerm(s) } getTermType(stringTerm(s)) == 17 &&
+        forall s string :: { stringTerm(s) } getTermType(stringTerm(s)) == 16 &&
             getString(stringTerm(s)) == s
     }
 
     axiom { // zero string has type
-        forall l int :: { zeroString(l) } getTermType(zeroString(l)) == 18
+        forall l int :: { zeroString(l) } getTermType(zeroString(l)) == 17
     }
 
     axiom { // integer64 is injective
-        forall value uint64 :: { integer64(value) } getTermType(integer64(value)) == 19 &&
+        forall value uint64 :: { integer64(value) } getTermType(integer64(value)) == 18 &&
             getInt64(integer64(value)) == value
     }
     axiom { // integer64 implies its construction
-        forall t Term :: { getTermType(t) == 19 } (getTermType(t) == 19) ==> t == integer64(getInt64(t))
+        forall t Term :: { getTermType(t) == 18 } (getTermType(t) == 18) ==> t == integer64(getInt64(t))
     }
 
     axiom { // integer32 is injective
-        forall value uint32 :: { integer32(value) } getTermType(integer32(value)) == 20 &&
+        forall value uint32 :: { integer32(value) } getTermType(integer32(value)) == 19 &&
             getInt32(integer32(value)) == value
     }
     axiom { // integer32 implies its construction
-        forall t Term :: { getTermType(t) == 20 } (getTermType(t) == 20) ==> t == integer32(getInt32(t))
+        forall t Term :: { getTermType(t) == 19 } (getTermType(t) == 19) ==> t == integer32(getInt32(t))
     }
 
     axiom {
-        getTermType(infoTerm()) == 21
+        getTermType(infoTerm()) == 20
     }
 
     axiom {
-        getTermType(prologueTerm()) == 22
+        getTermType(prologueTerm()) == 21
     }
 
     axiom {
-        getTermType(generator()) == 23
+        getTermType(generator()) == 22
     }
     axiom { // generator implies its construction
-        forall t Term :: { getTermType(t) == 23 } (getTermType(t) == 23) ==> t == generator()
-    }
-
-    axiom {
-        forall t Term :: { subsequent(t) } getTermType(subsequent(t)) == 24
+        forall t Term :: { getTermType(t) == 22 } (getTermType(t) == 22) ==> t == generator()
     }
 }
 
@@ -446,85 +404,71 @@ pure func (term Term) IsEncrypt() bool {
 
 ghost
 decreases
-pure func (term Term) IsOk() bool {
+pure func (term Term) IsAead() bool {
     return getTermType(term) == 12
 }
 
 ghost
 decreases
-pure func (term Term) IsAead() bool {
+pure func (term Term) IsConst1() bool {
     return getTermType(term) == 13
 }
 
 ghost
 decreases
-pure func (term Term) IsConst1() bool {
+pure func (term Term) IsExp() bool {
     return getTermType(term) == 14
 }
 
 ghost
 decreases
-pure func (term Term) IsExp() bool {
+pure func (term Term) IsMult() bool {
     return getTermType(term) == 15
 }
 
 ghost
 decreases
-pure func (term Term) IsMult() bool {
+pure func (term Term) IsString() bool {
     return getTermType(term) == 16
 }
 
 ghost
 decreases
-pure func (term Term) IsString() bool {
+pure func (term Term) IsZeroString() bool {
     return getTermType(term) == 17
 }
 
 ghost
 decreases
-pure func (term Term) IsZeroString() bool {
+pure func (term Term) IsInteger64() bool {
     return getTermType(term) == 18
 }
 
 ghost
 decreases
-pure func (term Term) IsInteger64() bool {
+pure func (term Term) IsInteger32() bool {
     return getTermType(term) == 19
 }
 
 ghost
 decreases
-pure func (term Term) IsInteger32() bool {
+pure func (term Term) IsInfo() bool {
     return getTermType(term) == 20
 }
 
 ghost
 decreases
-pure func (term Term) IsInfo() bool {
+pure func (term Term) IsPrologue() bool {
     return getTermType(term) == 21
 }
 
 ghost
 decreases
-pure func (term Term) IsPrologue() bool {
+pure func (term Term) IsGenerator() bool {
     return getTermType(term) == 22
 }
 
-ghost
-decreases
-pure func (term Term) IsGenerator() bool {
-    return getTermType(term) == 23
-}
 
-ghost
-decreases
-pure func (term Term) IsSubsequent() bool {
-    return getTermType(term) == 24
-}
-
-
-
-// inspired from CrytoLib.fst line 193-198
 ghost
 decreases
 pure func decrypt(ciphertext, sk Term) option[Term] {

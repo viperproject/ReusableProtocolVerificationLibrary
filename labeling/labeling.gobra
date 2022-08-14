@@ -384,33 +384,14 @@ ensures term.IsTuple() ==> res == ctx.nestedMeet(getTupleSeq(term), 0) // inters
 // if a term is `(g^x)^y` or equivalently `g^(x*y)` it results in the join label of x and y
 // i.e. the DH key can be read by all readers of x and y (set union) since it's sufficient
 // to either know x or y as the public key is public.
-// this could be extended to `((g^x)^y)^z` where it is sufficient to know two out of the three
-// secret keys x, y, and z and a public key. The resulting label would be:
-// `(l(x) ∩ l(y)) ∪ (l(x) ∩ l(z)) ∪ (l(y) ∩ l(z))` where `l(w)` denotes the label of term `w`.
-// Since this case does not occur in any case study considered so far, we over-approximate the
-// label (i.e. underapproximate the set of readers) by using `l((g^x)^y) ∩ l(z)` which is equivalent
-// to `(l(x) ∪ l(y)) ∩ l(z)`.
-// the `IsDHExp` cases also handles `g^(x*y)` as the terms are equal.
 // note that one must make sure the postconditions to not specify multiple labels for the same term, which
-// would immediately be a contradiction. Thus, the case where t1 is the generator has to be explicitly excluded
-// when specifying the label for t1^t2
-/*
-ensures forall t tm.Term :: { tm.exp(tm.generator(), t) } term == tm.exp(tm.generator(), t) && t.IsRandom() ==> res == label.Public()
-ensures forall t1, t2 tm.Term :: { tm.exp(tm.exp(tm.generator(), t1), t2) } term == tm.exp(tm.exp(tm.generator(), t1), t2) ==> res == label.Join(ctx.GetLabel(t1), ctx.GetLabel(t2))
-// we exclude both cases above and thus add two conjuncts to the lhs:
-ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) && !t1.IsGenerator() && !t1.IsExp() ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
-ensures forall t1, t2 tm.Term :: { tm.mult(t1, t2) } term == tm.mult(t1, t2) ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
-*/
-ensures forall t tm.Term :: { tm.exp(tm.generator(), t) } term == tm.exp(tm.generator(), t) && !t.IsMult() ==> res == label.Public()
-ensures forall t1, t2 tm.Term :: { tm.exp(tm.exp(tm.generator(), t1), t2) } term == tm.exp(tm.exp(tm.generator(), t1), t2) ==> res == label.Join(ctx.GetLabel(t1), ctx.GetLabel(t2))
-// we exclude both cases above and thus add two conjuncts to the lhs:
-ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) && !t1.IsGenerator() && !t1.IsExp() ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
-ensures forall t1, t2, t3 tm.Term :: { tm.exp(tm.exp(t1, t2), t3) } term == tm.exp(tm.exp(t1, t2), t3) && !t1.IsGenerator() ==> res == label.Meet(ctx.GetLabel(tm.exp(t1, t2)), ctx.GetLabel(t3))
-/*
-ensures forall t tm.Term :: { tm.exp(tm.generator(), t) } term == tm.exp(tm.generator(), t) && !t.IsMult() ==> res == label.Public()
-ensures forall t1, t2 tm.Term :: { tm.exp(tm.generator(), tm.mult(t1, t2)) } term == tm.exp(tm.generator(), tm.mult(t1, t2)) ==> res == label.Join(ctx.GetLabel(t1), ctx.GetLabel(t2))
-ensures forall t1, t2 tm.Term :: { term == tm.exp(t1, t2) } term == tm.exp(t1, t2) && !t1.IsGenerator() ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
-*/
+// would immediately be a contradiction. Thus, the case where t1 is an exponent of the generator and another term `e1` has to be explicitly excluded
+// as this case is already covered via `mult`, i.e. (g^e1)^t2 == g^(e1 * t2)
+ensures forall t1, t2 tm.Term :: { tm.mult(t1, t2) } term == tm.mult(t1, t2) ==> res == label.Join(ctx.GetLabel(t1), ctx.GetLabel(t2))
+ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) ==>
+    (t1.IsGenerator() && t2.IsRandom() ? res == label.Public() :
+        t1.IsGenerator() /* && !t2.IsRandom() */ ? res == ctx.GetLabel(t2) :
+            !(exists e1 tm.Term :: { tm.exp(tm.generator(), e1) } t1 == tm.exp(tm.generator(), e1)) ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2)))
 /**
   * WARNING:
   * 2 terms that are equal based on the equational theory must return the same label!
@@ -737,6 +718,28 @@ func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs_DYStar(corruptId
             ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, label.GetSecondLabel(l1), l2, l3)
         }
     }
+}
+
+ghost
+decreases
+requires ctx.CanFlow(t, l1, l3) || ctx.CanFlow(t, l2, l3)
+ensures  ctx.CanFlow(t, label.Join(l1, l2), l3)
+func (ctx DefaultLabelingContext) CanFlowCreateJoinLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+    ctx.canFlowInternalCreateJoinLhs(t.getCorruptIds(), l1, l2, l3)
+}
+
+ghost
+decreases
+requires ctx.canFlowInternal(corruptIds, l1, l3) || ctx.canFlowInternal(corruptIds, l2, l3)
+ensures  ctx.canFlowInternal(corruptIds, label.Join(l1, l2), l3)
+func (ctx DefaultLabelingContext) canFlowInternalCreateJoinLhs(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel) {
+    if ctx.canFlowInternal(corruptIds, l1, l3) {
+        ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l3)
+    } else {
+        ctx.canFlowInternalImpliesDYStar(corruptIds, l2, l3)
+    }
+    ctx.canFlowInternalCreateJoinLhs_DYStar(corruptIds, l1, l2, l3)
+    ctx.canFlowInternalIsImpliesByDYStar(corruptIds, label.Join(l1, l2), l3)
 }
 
 ghost

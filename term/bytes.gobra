@@ -14,7 +14,6 @@ type Bytes domain {
     func kdf3B(Bytes) Bytes
     func createPkB(Bytes) Bytes
     func encryptB(Bytes, Bytes) Bytes
-    func okB() Bytes
     func aeadB(Bytes, Bytes, Bytes, Bytes) Bytes
     func const1B() Bytes
     func expB(Bytes, Bytes) Bytes
@@ -33,7 +32,6 @@ type Bytes domain {
     func getTupleElemB(Bytes, int) Bytes
     func decryptB(Bytes, Bytes) Bytes
     func aeadDecryptB(Bytes, Bytes, Bytes) Bytes
-    func aeadVerifyB(Bytes, Bytes, Bytes, Bytes) Bytes
     func invB(Bytes) Bytes
 
 
@@ -83,14 +81,9 @@ type Bytes domain {
         forall plaintext, secretKey Bytes :: { decryptB(encryptB(plaintext, createPkB(secretKey)), secretKey) } decryptB(encryptB(plaintext, createPkB(secretKey)), secretKey) == plaintext
     }
 
-    // decryptB aeadB with same key and nonce
+    // aeadDecryptB aeadB with same key and nonce
     axiom {
         forall key, nonce, plaintext, additionalData Bytes :: { aeadDecryptB(key, nonce, aeadB(key, nonce, plaintext, additionalData)) } aeadDecryptB(key, nonce, aeadB(key, nonce, plaintext, additionalData)) == plaintext
-    }
-
-    // verifyB aeadB with same key and nonce
-    axiom {
-        forall key, nonce, plaintext, additionalData Bytes :: { aeadVerifyB(key, nonce, additionalData, aeadB(key, nonce, plaintext, additionalData)) } aeadVerifyB(key, nonce, additionalData, aeadB(key, nonce, plaintext, additionalData)) == okB()
     }
 }
 
@@ -115,7 +108,6 @@ type Gamma domain {
     (forall b Term :: {gamma(kdf3(b))} gamma(kdf3(b)) == kdf3B(gamma(b))) &&
     (forall sk Term :: {gamma(createPk(sk))} gamma(createPk(sk)) == createPkB(gamma(sk))) &&
     (forall p, pk Term :: {gamma(encrypt(p,pk))} gamma(encrypt(p,pk)) == encryptB(gamma(p), gamma(pk))) &&
-    (gamma(ok()) == okB()) &&
     (forall k, n, p, a Term :: {gamma(aead(k,n,p,a))} gamma(aead(k,n,p,a)) == aeadB(gamma(k), gamma(n), gamma(p), gamma(a))) &&
     (gamma(const1()) == const1B()) &&
     (forall l, r Term :: {gamma(exp(l,r))} gamma(exp(l,r)) == expB(gamma(l), gamma(r))) &&

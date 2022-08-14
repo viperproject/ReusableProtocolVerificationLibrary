@@ -22,7 +22,7 @@ requires att.attackerKnows(l.Snapshot(), pk)
 requires att.attackerKnows(l.Snapshot(), plaintext)
 ensures  l.Mem()
 ensures  err == nil ==> att.attackerKnows(l.Snapshot(), ciphertext)
-func pkeEnc(l *ll.LabeledLibrary, pk, senderPrivateKey, plaintext tm.Term) (ciphertext tm.Term, err error) {
+func pkeEnc(l *ll.LabeledLibrary, pk, plaintext tm.Term) (ciphertext tm.Term, err error) {
     pkBytes := lib.NewByteStringWithContent(tm.gamma(pk))
     plaintextBytes := lib.NewByteStringWithContent(tm.gamma(plaintext))
     l.AttackerOnlyKnowsPublishableValues(pk)
