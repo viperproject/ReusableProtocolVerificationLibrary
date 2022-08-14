@@ -50,7 +50,7 @@ type Communication interface {
 //@ ensures  err == nil ==> (l.Snapshot()).isMessageAt(idSender, idReceiver, msgT)
 func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteString /*@, ghost msgT tm.Term @*/) (err error) {
 	//@ unfold l.Mem()
-	//@ l.manager.LogSend(l.ctx, l.owner, idReceiver, msgT)
+	//@ l.manager.LogSend(l.ctx, l.owner, l.owner, idReceiver, msgT)
 	//@ snapshot := l.manager.Snapshot(l.ctx, l.owner)
 	err = l.com.Send(idSender, idReceiver, msg /*@, msgT, snapshot @*/)
 	//@ fold l.Mem()

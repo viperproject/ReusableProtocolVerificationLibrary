@@ -1525,7 +1525,7 @@ func (ctx DefaultLabelingContext) includesIdsSubset(ids1, ids2 set[p.Id]) {
 
 ghost
 pure func (ctx DefaultLabelingContext) GetSkLabel(pk tm.Term) label.SecrecyLabel {
-    return (pk.IsPk() && ctx.IsPkeKey(tm.getSk(pk))) ?
+    return (pk.IsPk()) ?
         ctx.GetLabel(tm.getSk(pk)) :
         label.Public()
 }
@@ -1735,6 +1735,7 @@ func (ctx DefaultLabelingContext) NonceForEventContradiction(nonce tm.Term, even
 ghost
 pure func (ctx DefaultLabelingContext) CanEncrypt(t tr.TraceEntry, msg, pk tm.Term) bool {
     return ctx.IsPublishable(t, pk) &&
+        ctx.IsPkeKey(tm.getSk(pk)) &&
         ctx.IsMsg(t, msg, ctx.GetSkLabel(pk)) &&
         (forall usageString string :: { ctx.usage.PkePred(t, usageString, msg, pk) } ctx.IsPublicEncKeyExistential(t, pk, ctx.GetSkLabel(pk), usageString) ==>
             ctx.usage.PkePred(t, usageString, msg, pk))
@@ -1755,16 +1756,24 @@ func (ctx DefaultLabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, 
 
 ghost
 pure func (ctx DefaultLabelingContext) CanDecrypt(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) bool {
-    return ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner })) &&
-        ctx.IsPublishable(t, ciphertext) &&
+    return ctx.IsPublishable(t, ciphertext) &&
         (ctx.IsPublishable(t, sk) || exists usageString string :: { ctx.IsPrivateDecKey(t, skOwner, sk, usageString) } ctx.IsPrivateDecKey(t, skOwner, sk, usageString))
 }
 
 ghost
 pure func (ctx DefaultLabelingContext) WasDecrypted(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) bool {
-    return ctx.IsMsg(t, msg, label.Readers(set[p.Id]{ skOwner })) &&
+    return ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner })) ==>
+        (ctx.IsMsg(t, msg, label.Readers(set[p.Id]{ skOwner })) &&
         (forall usageString string :: { ctx.IsPrivateDecKey(t, skOwner, sk, usageString) } ctx.IsPrivateDecKey(t, skOwner, sk, usageString) ==>
-            ctx.IsPublishable(t, msg) || ctx.usage.PkePred(t, usageString, msg, tm.createPk(sk)))
+            ctx.IsPublishable(t, msg) || ctx.usage.PkePred(t, usageString, msg, tm.createPk(sk))))
+}
+
+ghost
+decreases
+requires ctx.IsPublishable(t, ciphertext) && ctx.IsPublishable(t, sk)
+ensures  ctx.CanDecrypt(t, ciphertext, sk, skOwner)
+func (ctx DefaultLabelingContext) CanDecryptWithPublicSk(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) {
+    // no body needed
 }
 
 ghost
@@ -1783,6 +1792,19 @@ func (ctx DefaultLabelingContext) DecryptSatisfiesInvariant(t tr.TraceEntry, msg
 }
 
 ghost
+decreases
+requires ctx.IsPublishable(t, tm.encrypt(msg, tm.createPk(sk))) && ctx.IsPublishable(t, sk)
+ensures  ctx.IsPublishable(t, msg)
+func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublicSk(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
+    pk := tm.createPk(sk)
+	plaintextLabel := ctx.GetLabel(msg)
+	skLabel := ctx.GetLabel(sk)
+	// the following assertion is necessary to derive that `ctx.IsMsg(t, msg, skLabel)`
+	assert ctx.IsValidEncrypt(t, pk, msg, plaintextLabel)
+    ctx.CanFlowTransitive(t, plaintextLabel, skLabel, label.Public())
+}
+
+ghost
 pure func (ctx DefaultLabelingContext) CanAeadEncrypt(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool {
     return ctx.IsLabeledRelaxed(t, key, keyL) &&
         (ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
@@ -1790,14 +1812,6 @@ pure func (ctx DefaultLabelingContext) CanAeadEncrypt(t tr.TraceEntry, key, nonc
         ctx.IsMsg(t, msg, keyL) &&
         ctx.IsPublishable(t, ad) &&
         (forall usageString string :: ctx.IsAeadKey(t, key, keyL, usageString) ==> ctx.usage.AeadPred(t, usageString, key, nonce, msg, ad))
-    /*
-    return keyL == ctx.GetLabel(key) &&
-        (ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
-        ctx.IsPublishable(t, nonce) &&
-        ctx.IsMsg(t, msg, keyL) &&
-        ctx.IsPublishable(t, ad) &&
-        (forall usageString string :: ctx.IsAeadKey(t, key, keyL, usageString) ==> ctx.usage.AeadPred(t, usageString, key, nonce, msg, ad))
-    */
 }
 
 ghost
@@ -1840,6 +1854,14 @@ pure func (ctx DefaultLabelingContext) WasAeadDecrypted(t tr.TraceEntry, key, no
 
 ghost
 decreases
+requires ctx.IsPublishable(t, key) && ctx.IsPublishable(t, nonce) && ctx.IsPublishable(t, ciphertext) && ctx.IsPublishable(t, ad)
+ensures  ctx.CanAeadDecrypt(t, key, nonce, ciphertext, ad, keyL)
+func (ctx DefaultLabelingContext) CanAeadDecryptWithPublishableKey(t tr.TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+decreases
 requires ctx.CanAeadDecrypt(t, key, nonce, tm.aead(key, nonce, msg, ad), ad, keyL)
 ensures  ctx.WasAeadDecrypted(t, key, nonce, msg, ad, keyL)
 func (ctx DefaultLabelingContext) AeadDecryptSatisfiesInvariant(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
@@ -1856,8 +1878,23 @@ func (ctx DefaultLabelingContext) AeadDecryptSatisfiesInvariant(t tr.TraceEntry,
     }
 }
 
-// TODO: do we need a lemma that specifies that `CanAeadDecrypt` is satisfiable with all ciphertexts that have been encrypted?
-// (i.e. including those that are coming from the attacker?)
+ghost
+decreases
+requires ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) && ctx.IsPublishable(t, key) && ctx.IsPublishable(t, nonce) && ctx.IsPublishable(t, ad)
+ensures  ctx.IsPublishable(t, msg)
+func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublishableKey(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
+    if ((ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
+        ctx.IsPublishable(t, nonce) &&
+        ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) &&
+        ctx.IsPublishable(t, ad)) {
+        msgL := ctx.GetLabel(msg)
+	    // the following assertion is necessary to derive that `ctx.IsMsg(t, msg, keyL)`
+	    assert ctx.IsValidAead(t, key, nonce, msg, msgL, ad)
+	    if !ctx.CanFlow(t, msgL, label.Public()) {
+            ctx.CanFlowTransitive(t, msgL, ctx.GetLabel(key), label.Public())
+        }
+    }
+}
 
 ghost
 decreases

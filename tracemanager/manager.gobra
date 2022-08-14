@@ -171,20 +171,20 @@ func (m *TraceManager) LogEvent(ctx tr.TraceContext, owner Client, event ev.Even
 
 ghost
 requires m.Mem(ctx, owner)
-requires tr.messageInv(ctx, owner.getPrincipal(), receiver, message, m.Snapshot(ctx, owner))
+requires tr.messageInv(ctx, sender, receiver, message, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
-ensures  (m.Snapshot(ctx, owner)).isMessageAt(owner.getPrincipal(), receiver, message)
+ensures  (m.Snapshot(ctx, owner)).isMessageAt(sender, receiver, message)
 ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) LogSend(ctx tr.TraceContext, owner Client, receiver p.Principal, message tm.Term) {
+func (m *TraceManager) LogSend(ctx tr.TraceContext, owner Client, sender, receiver p.Principal, message tm.Term) {
     inv := ManagerInv{ ctx }
     lastSeenTrace := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)
     prevTrace := m.mutex.Lock(inv, owner)
     unfold inv.CurrentValueInv(prevTrace)
     // extend trace
-    trace := tr.makeMessage(prevTrace, owner.getPrincipal(), receiver, message)
-    tr.messageInvTransitive(ctx, owner.getPrincipal(), receiver, message, lastSeenTrace, prevTrace)
+    trace := tr.makeMessage(prevTrace, sender, receiver, message)
+    tr.messageInvTransitive(ctx, sender, receiver, message, lastSeenTrace, prevTrace)
     fold tr.validTrace(ctx, trace)
     fold inv.CurrentValueInv(trace)
     m.mutex.Unlock(inv, owner, prevTrace, trace)

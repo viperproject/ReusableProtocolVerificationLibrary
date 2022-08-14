@@ -152,9 +152,21 @@ type LabelingContext interface {
 
     ghost
     decreases
+    requires IsPublishable(t, ciphertext) && IsPublishable(t, sk)
+    ensures  CanDecrypt(t, ciphertext, sk, skOwner)
+    CanDecryptWithPublicSk(t TraceEntry, ciphertext, sk tm.Term, skOwner p.Id)
+
+    ghost
+    decreases
     requires CanDecrypt(t, tm.encrypt(msg, tm.createPk(sk)), sk, skOwner)
     ensures  WasDecrypted(t, msg, sk, skOwner)
     DecryptSatisfiesInvariant(t TraceEntry, msg, sk tm.Term, skOwner p.Id)
+
+    ghost
+    decreases
+    requires IsPublishable(t, tm.encrypt(msg, tm.createPk(sk))) && IsPublishable(t, sk)
+    ensures  IsPublishable(t, msg)
+    PlaintextIsPublishableForPublicSk(t TraceEntry, msg, sk tm.Term, skOwner p.Id)
 
     ghost
     pure CanAeadEncrypt(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool
@@ -173,9 +185,21 @@ type LabelingContext interface {
 
     ghost
     decreases
+    requires IsPublishable(t, key) && IsPublishable(t, nonce) && IsPublishable(t, ciphertext) && IsPublishable(t, ad)
+    ensures  CanAeadDecrypt(t, key, nonce, ciphertext, ad, keyL)
+    CanAeadDecryptWithPublishableKey(t TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel)
+
+    ghost
+    decreases
     requires CanAeadDecrypt(t, key, nonce, tm.aead(key, nonce, msg, ad), ad, keyL)
     ensures  WasAeadDecrypted(t, key, nonce, msg, ad, keyL)
     AeadDecryptSatisfiesInvariant(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel)
+
+    ghost
+    decreases
+    requires IsPublishable(t, tm.aead(key, nonce, msg, ad)) && IsPublishable(t, key) && IsPublishable(t, nonce) && IsPublishable(t, ad)
+    ensures  IsPublishable(t, msg)
+    PlaintextIsPublishableForPublishableKey(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel)
 
     ghost
     decreases

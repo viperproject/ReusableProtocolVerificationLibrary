@@ -1,13 +1,20 @@
 package attackerstrength
 
+import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
 import att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
+import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+import "github.com/ModularVerification/ReusableVerificationLibrary/label"
 import ll "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary"
 import lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
+import "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
 import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 
 
 /**
- * This file shows that the attacker can use the same functionality from the 
+ * This file shows that the attacker can use the same functionality as the 
  * labeledlibrary, i.e. the attacker can invoke all library functions with
  * bytes known to him (i.e. public/derivable bytes) and will get back bytes
  * (e.g. the ciphertext in the case of encrypt) that are also derivable.
@@ -18,11 +25,118 @@ import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 
 ghost
 requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), msg)
+ensures  l.Mem()
+ensures  err == nil ==> l.Snapshot().isMessageAt(idSender, idReceiver, msg)
+func Send(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.Term) (err error) {
+    msgBytes := lib.NewByteStringWithContent(tm.gamma(msg))
+    l.AttackerOnlyKnowsPublishableValues(msg)
+    unfold l.Mem()
+    l.manager.LogSend(l.ctx, l.owner, idSender, idReceiver, msg)
+    snapshot := l.manager.Snapshot(l.ctx, l.owner)
+    err = l.com.Send(idSender, idReceiver, msgBytes, msg, snapshot)
+	fold l.Mem()
+}
+
+ghost
+requires l.Mem()
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), msg)
+func Recv(l *ll.LabeledLibrary, idSender, idReceiver p.Principal) (err error, msg tm.Term) {
+    snapshot := l.Snapshot()
+    unfold l.Mem()
+    _, err, msg = l.com.Receive(idSender, idReceiver, snapshot)
+    fold l.Mem()
+    ghost if err == nil {
+		prev := l.MessageOccursImpliesMessageInv(idSender, idReceiver, msg)
+		(tr.getPrev(prev)).isSuffixTransitive(prev, l.Snapshot())
+		tr.messageInvTransitive(l.Ctx(), idSender, idReceiver, msg, tr.getPrev(prev), l.Snapshot())
+        l.Publish(msg)
+	}
+}
+
+
+// since marshalling & unmarshalling of messages is left to particular protocol
+// implementations, we show here prototypical that the attacker can nevertheless construct and
+// deconstruct them on the term-level.
+// To do so, we show how `ctx.IsMsg(t, term, label.Public()) holds for every
+// term in the attacker knowledge. This is a sufficient precondition to then call
+// the corresponding constructor or deconstructor in package `labeling` (see file `label-preservation.gobra`):
+ghost
+requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext // needed to have access to the proven lemmas
+requires att.attackerKnows(l.Snapshot(), t1)
+requires att.attackerKnows(l.Snapshot(), t2)
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), tm.tuple2(t1, t2))
+func Tuple2(l *ll.LabeledLibrary, t1, t2 tm.Term) (err error) {
+    l.AttackerOnlyKnowsPublishableValues(t1)
+    l.AttackerOnlyKnowsPublishableValues(t2)
+    (l.LabelCtx()).(labeling.DefaultLabelingContext).tuple2(l.Snapshot(), t1, t2, label.Public())
+    l.Publish(tm.tuple2(t1, t2))
+}
+
+
+ghost
+requires l.Mem()
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), nonce)
+func CreateNonce(l *ll.LabeledLibrary, usageString string) (nonce tm.Term, err error) {
+    unfold l.Mem()
+    var nonceB lib.ByteString
+    nonceB, err = l.s.CreateNonce(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    if err == nil {
+        nonce = tm.random(lib.Abs(nonceB), label.Public(), u.Nonce(usageString))
+        l.manager.LogNonce(l.ctx, l.owner, nonce)
+        fold l.Mem()
+        l.Publish(nonce)
+    } else {
+        fold l.Mem()
+    }
+}
+
+ghost
+requires l.Mem()
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
+func GeneratePkeKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
+    unfold l.Mem()
+    var skB lib.ByteString
+    _, skB, err = l.s.GeneratePkeKey(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    if err == nil {
+        sk = tm.random(lib.Abs(skB), label.Public(), u.PkeKey(usageString))
+        l.manager.LogNonce(l.ctx, l.owner, sk)
+        fold l.Mem()
+        l.Publish(sk)
+    } else {
+        fold l.Mem()
+    }
+}
+
+ghost
+requires l.Mem()
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
+func GenerateDHKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
+    unfold l.Mem()
+    var skB lib.ByteString
+    skB, err = l.s.GenerateDHKey(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    if err == nil {
+        sk = tm.random(lib.Abs(skB), label.Public(), u.DhKey(usageString))
+        l.manager.LogNonce(l.ctx, l.owner, sk)
+        fold l.Mem()
+        l.Publish(sk)
+    } else {
+        fold l.Mem()
+    }
+}
+
+ghost
+requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), pk)
 requires att.attackerKnows(l.Snapshot(), plaintext)
 ensures  l.Mem()
 ensures  err == nil ==> att.attackerKnows(l.Snapshot(), ciphertext)
-func pkeEnc(l *ll.LabeledLibrary, pk, plaintext tm.Term) (ciphertext tm.Term, err error) {
+func Enc(l *ll.LabeledLibrary, pk, plaintext tm.Term) (ciphertext tm.Term, err error) {
     pkBytes := lib.NewByteStringWithContent(tm.gamma(pk))
     plaintextBytes := lib.NewByteStringWithContent(tm.gamma(plaintext))
     l.AttackerOnlyKnowsPublishableValues(pk)
@@ -32,4 +146,106 @@ func pkeEnc(l *ll.LabeledLibrary, pk, plaintext tm.Term) (ciphertext tm.Term, er
         ciphertext = tm.encrypt(plaintext, pk)
         l.Publish(ciphertext)
     }
+}
+
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), ciphertext)
+requires att.attackerKnows(l.Snapshot(), sk)
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), plaintext)
+func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err error) {
+    skBytes := lib.NewByteStringWithContent(tm.gamma(sk))
+    ciphertextBytes := lib.NewByteStringWithContent(tm.gamma(ciphertext))
+    l.AttackerOnlyKnowsPublishableValues(ciphertext)
+    l.AttackerOnlyKnowsPublishableValues(sk)
+    skOwner := arb.GetArbId()
+    l.LabelCtx().CanDecryptWithPublicSk(l.Snapshot(), ciphertext, sk, skOwner)
+    _, err = l.Dec(ciphertextBytes, skBytes, ciphertext, sk, skOwner)
+    if err != nil {
+        return
+    }
+    optPlaintext := tm.decrypt(ciphertext, sk)
+    if optPlaintext == none[tm.Term] {
+        // the attacker can use the labeled decryption function
+        // however, the attacker will only obtain guarantees on the byte-level.
+        // we model the attacker to operate on symbolic terms.
+        // thus, we additionally call decrypt on the term-level and abort
+        // if decryption fails
+        err = lib.NewError("decryption failed")
+        return
+    }
+    plaintext = get(optPlaintext)
+    l.LabelCtx().PlaintextIsPublishableForPublicSk(l.Snapshot(), plaintext, sk, skOwner)
+    l.Publish(plaintext)
+}
+
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), key)
+requires att.attackerKnows(l.Snapshot(), nonce)
+requires att.attackerKnows(l.Snapshot(), plaintext)
+requires att.attackerKnows(l.Snapshot(), additionalData)
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), ciphertext)
+func AeadEnc(l *ll.LabeledLibrary, key, nonce, plaintext, additionalData tm.Term) (ciphertext tm.Term, err error) {
+    keyBytes := lib.NewByteStringWithContent(tm.gamma(key))
+    nonceBytes := lib.NewByteStringWithContent(tm.gamma(nonce))
+    plaintextBytes := lib.NewByteStringWithContent(tm.gamma(plaintext))
+    additionalDataBytes := lib.NewByteStringWithContent(tm.gamma(additionalData))
+    l.AttackerOnlyKnowsPublishableValues(key)
+    l.AttackerOnlyKnowsPublishableValues(nonce)
+    l.AttackerOnlyKnowsPublishableValues(plaintext)
+    l.AttackerOnlyKnowsPublishableValues(additionalData)
+    if lib.Size(keyBytes) != 32 || lib.Size(nonceBytes) != 12 {
+        err = lib.NewError("key or nonce have invalid length")
+        return
+    }
+    _, err = l.AeadEnc(keyBytes, nonceBytes, plaintextBytes, additionalDataBytes, key, nonce, plaintext, additionalData, label.Public())
+    if err == nil {
+        ciphertext = tm.aead(key, nonce, plaintext, additionalData)
+        l.Publish(ciphertext)
+    }
+}
+
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), key)
+requires att.attackerKnows(l.Snapshot(), nonce)
+requires att.attackerKnows(l.Snapshot(), ciphertext)
+requires att.attackerKnows(l.Snapshot(), additionalData)
+ensures  l.Mem()
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), plaintext)
+func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Term) (plaintext tm.Term, err error) {
+    keyBytes := lib.NewByteStringWithContent(tm.gamma(key))
+    nonceBytes := lib.NewByteStringWithContent(tm.gamma(nonce))
+    ciphertextBytes := lib.NewByteStringWithContent(tm.gamma(ciphertext))
+    additionalDataBytes := lib.NewByteStringWithContent(tm.gamma(additionalData))
+    l.AttackerOnlyKnowsPublishableValues(key)
+    l.AttackerOnlyKnowsPublishableValues(nonce)
+    l.AttackerOnlyKnowsPublishableValues(ciphertext)
+    l.AttackerOnlyKnowsPublishableValues(additionalData)
+    if lib.Size(keyBytes) != 32 || lib.Size(nonceBytes) != 12 {
+        err = lib.NewError("key or nonce have invalid length")
+        return
+    }
+    // skOwner := arb.GetArbId()
+    l.LabelCtx().CanAeadDecryptWithPublishableKey(l.Snapshot(), key, nonce, ciphertext, additionalData, label.Public())
+    _, err = l.AeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, key, nonce, ciphertext, additionalData, label.Public())
+    if err != nil {
+        return
+    }
+    optPlaintext := tm.AeadDecrypt(ciphertext, key, nonce, additionalData)
+    if optPlaintext == none[tm.Term] {
+        // the attacker can use the labeled decryption function
+        // however, the attacker will only obtain guarantees on the byte-level.
+        // we model the attacker to operate on symbolic terms.
+        // thus, we additionally call decrypt on the term-level and abort
+        // if decryption fails
+        err = lib.NewError("decryption failed")
+        return
+    }
+    plaintext = get(optPlaintext)
+    l.LabelCtx().PlaintextIsPublishableForPublishableKey(l.Snapshot(), key, nonce, plaintext, additionalData, label.Public())
+    l.Publish(plaintext)
 }

@@ -496,11 +496,11 @@ func keyMismatchResultsInFailure(sk1, sk2, ciphertext, plaintext Term) {
 
 ghost
 decreases
-pure func AeadDecrypt(ciphertext, key, nonce Term) option[Term] {
+pure func AeadDecrypt(ciphertext, key, nonce, ad Term) option[Term] {
     return ciphertext.IsAead() ?
-        ((getAeadKey(ciphertext) == key && getAeadNonce(ciphertext) == nonce) ?
+        ((getAeadKey(ciphertext) == key && getAeadNonce(ciphertext) == nonce && getAuthtext(ciphertext) == ad) ?
             some(getPlaintext(ciphertext)) :
-            // key or nonce does not match:
+            // key, nonce or additional data does not match:
             none[Term]) :
         none[Term] // not an AEAD ciphertext
 }
