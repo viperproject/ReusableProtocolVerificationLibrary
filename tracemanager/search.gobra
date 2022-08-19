@@ -54,7 +54,9 @@ type TraceSearcher interface {
     // TODO: adding termination to Matches and Occurs results in a failing internal postcondition (i.e. without positional information)
     ghost
     // decreases
-    pure Matches(entry tr.TraceEntry) bool
+    requires entry.isSuffix(snapshot)
+    requires Occurs(snapshot)
+    pure Matches(snapshot, entry tr.TraceEntry) bool
 
     ghost
     // decreases
@@ -66,19 +68,37 @@ type TraceSearcher interface {
 
     ghost
     decreases
+    requires entry.isSuffix(snapshot)
+    requires Occurs(snapshot)
     requires Occurs(entry)
-    ensures  (!entry.isRoot() && Occurs(tr.getPrev(entry))) || Matches(entry)
+    ensures  (!entry.isRoot() && Occurs(tr.getPrev(entry))) || Matches(snapshot, entry)
     /** 
      * Occurs implies that either there is a match at the current entry or the right
      * entry will occur further in the trace's past. This then also implies that we
      * cannot have reached the root yet
      */
-    OccursImpliesAnEventualMatch(entry tr.TraceEntry)
+    OccursImpliesAnEventualMatch(snapshot, entry tr.TraceEntry)
+
+    ghost
+    decreases
+    requires snapshot1 == tr.getPrev(snapshot2)
+    requires entry.isSuffix(snapshot1)
+    requires entry.isSuffix(snapshot2)
+    requires Occurs(snapshot1)
+    requires Occurs(snapshot2)
+    requires Matches(snapshot1, entry)
+    requires !Matches(snapshot2, entry)
+    ensures  Occurs(snapshot2)
+    ensures  entry.isSuffix(snapshot2)
+    ensures  Matches(snapshot2, entry)
+    MatchesTransitive(snapshot1, snapshot2, entry tr.TraceEntry)
 
     ghost
     decreases
     requires noPerm < p && p <= writePerm
-    requires Matches(entry)
+    requires entry.isSuffix(snapshot)
+    requires Occurs(snapshot)
+    requires Matches(snapshot, entry)
     requires acc(tr.validTrace(Ctx(), entry), p)
     ensures  PureEntryInv(entry)
     ensures  acc(tr.validTrace(Ctx(), entry), p)
@@ -86,7 +106,7 @@ type TraceSearcher interface {
      * pure component of the `validTrace` invariant that belongs to the entry that
      * was searched.
      */
-    ExtractPureEntryInv(entry tr.TraceEntry, p perm)
+    ExtractPureEntryInv(snapshot, entry tr.TraceEntry, p perm)
 }
 
 ghost
@@ -95,7 +115,7 @@ requires noPerm < p && p <= writePerm
 requires acc(tr.validTrace(searcher.Ctx(), validTraceEntry), p)
 requires entry.isSuffix(validTraceEntry)
 requires searcher.Occurs(entry)
-ensures  prev.isSuffix(entry) && searcher.Matches(prev)
+ensures  prev.isSuffix(entry) && searcher.Matches(entry, prev)
 ensures  searcher.PureEntryInv(prev)
 ensures  acc(tr.validTrace(searcher.Ctx(), prev), p)
 ensures  acc(tr.validTrace(searcher.Ctx(), prev), p) --* acc(tr.validTrace(searcher.Ctx(), validTraceEntry), p)
@@ -108,15 +128,17 @@ ensures  acc(tr.validTrace(searcher.Ctx(), prev), p) --* acc(tr.validTrace(searc
  */
 func (m *TraceManager) findEntryWithInv(searcher TraceSearcher, validTraceEntry, entry tr.TraceEntry, p perm) (prev tr.TraceEntry) {
     ctx := searcher.Ctx()
-    searcher.OccursImpliesAnEventualMatch(entry)
+    searcher.OccursImpliesAnEventualMatch(entry, entry)
     if (validTraceEntry == entry) {
-        if (searcher.Matches(entry)) {
+        if (searcher.Matches(entry, entry)) {
             prev = entry
             package acc(tr.validTrace(ctx, prev), p) --* acc(tr.validTrace(ctx, validTraceEntry), p)
-            searcher.ExtractPureEntryInv(prev, p)
+            searcher.ExtractPureEntryInv(entry, prev, p)
         } else {
             unfold acc(tr.validTrace(ctx, validTraceEntry), p)
             prev = m.findEntryWithInv(searcher, tr.getPrev(validTraceEntry), tr.getPrev(entry), p)
+            assert !searcher.Matches(entry, entry)
+            searcher.MatchesTransitive(tr.getPrev(entry), entry, prev)
             package acc(tr.validTrace(ctx, prev), p) --* acc(tr.validTrace(ctx, validTraceEntry), p) {
                 apply acc(tr.validTrace(ctx, prev), p) --* acc(tr.validTrace(ctx, tr.getPrev(validTraceEntry)), p)
                 fold acc(tr.validTrace(ctx, validTraceEntry), p)
@@ -137,7 +159,8 @@ decreases
 requires m.Mem(searcher.Ctx(), owner)
 requires searcher.Occurs(m.Snapshot(searcher.Ctx(), owner))
 ensures  m.Mem(searcher.Ctx(), owner)
-ensures  prev.isSuffix(m.Snapshot(searcher.Ctx(), owner)) && searcher.Matches(prev)
+ensures  searcher.Occurs(m.Snapshot(searcher.Ctx(), owner))
+ensures  prev.isSuffix(m.Snapshot(searcher.Ctx(), owner)) && searcher.Matches(m.Snapshot(searcher.Ctx(), owner), prev)
 ensures  searcher.PureEntryInv(prev)
 ensures  old(m.Snapshot(searcher.Ctx(), owner)) == m.Snapshot(searcher.Ctx(), owner)
 ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searcher.Ctx(), owner))
@@ -155,7 +178,7 @@ requires m.Mem(searcher.Ctx(), owner)
 requires snap.isSuffix(m.Snapshot(searcher.Ctx(), owner))
 requires searcher.Occurs(snap)
 ensures  m.Mem(searcher.Ctx(), owner)
-ensures  prev.isSuffix(snap) && searcher.Matches(prev)
+ensures  prev.isSuffix(snap) && searcher.Matches(snap, prev)
 ensures  searcher.PureEntryInv(prev)
 ensures  old(m.Snapshot(searcher.Ctx(), owner)) == m.Snapshot(searcher.Ctx(), owner)
 ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searcher.Ctx(), owner))
@@ -190,8 +213,10 @@ requires searcher1.Ctx() == searcher2.Ctx()
 requires tr.validTrace(searcher1.Ctx(), validTraceEntry)
 requires searcher1.Occurs(validTraceEntry)
 requires searcher2.Occurs(validTraceEntry)
-ensures  searcher1.Matches(s1)
-ensures  searcher2.Matches(s2)
+ensures  s1.isSuffix(validTraceEntry)
+ensures  searcher1.Matches(validTraceEntry, s1)
+ensures  s2.isSuffix(validTraceEntry)
+ensures  searcher2.Matches(validTraceEntry, s2)
 ensures  s1 == s2 ==>
     localValidTrace(searcher1.Ctx(), s1) &&
     (localValidTrace(searcher1.Ctx(), s1) --* tr.validTrace(searcher1.Ctx(), validTraceEntry))
@@ -208,13 +233,16 @@ func (m *TraceManager) findEntriesWithInv(searcher1, searcher2 TraceSearcher, va
     done := false
     package tr.validTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry)
     
+    invariant curT.isSuffix(validTraceEntry)
     invariant  atSameTime == (s1Found && s2Found && s1 == s2)
     invariant !atSameTime ==> tr.validTrace(ctx, curT)
     invariant !s1Found ==> searcher1.Occurs(curT)
-    invariant  s1Found ==> searcher1.Matches(s1) &&
+    invariant  s1Found ==> s1.isSuffix(validTraceEntry) &&
+                            searcher1.Matches(validTraceEntry, s1) &&
                             localValidTrace(searcher1.Ctx(), s1)
     invariant !s2Found ==> searcher2.Occurs(curT)
-    invariant  s2Found ==> searcher2.Matches(s2)
+    invariant  s2Found ==> s2.isSuffix(validTraceEntry) &&
+                            searcher2.Matches(validTraceEntry, s2)
     invariant (s2Found && !atSameTime) ==> localValidTrace(searcher2.Ctx(), s2)
     // magic wands to later be able to recover `tr.validTrace(ctx, validTraceEntry)` if `atSameTime` is true:
     invariant !s1Found && !s2Found ==> tr.validTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry)
@@ -224,13 +252,13 @@ func (m *TraceManager) findEntriesWithInv(searcher1, searcher2 TraceSearcher, va
     decreases curT.traceLen()
     for !atSameTime && !curT.isRoot() {
         unfold tr.validTrace(ctx, curT)
-        if (!s1Found && searcher1.Matches(curT)) {
+        if (!s1Found && searcher1.Matches(validTraceEntry, curT)) {
             // entry1 has been found
             s1Found = true
             s1 = curT
             fold localValidTrace(searcher1.Ctx(), s1)
             // check if entry2 happens simultaneously:
-            if (!s2Found && searcher2.Matches(curT)) {
+            if (!s2Found && searcher2.Matches(validTraceEntry, curT)) {
                 s2Found = true
                 s2 = curT
                 atSameTime = true
@@ -241,7 +269,7 @@ func (m *TraceManager) findEntriesWithInv(searcher1, searcher2 TraceSearcher, va
                 }
             }
         }
-        if (!s2Found && searcher2.Matches(curT)) {
+        if (!s2Found && searcher2.Matches(validTraceEntry, curT)) {
             // entry2 has been found
             s2Found = true
             s2 = curT
@@ -250,14 +278,15 @@ func (m *TraceManager) findEntriesWithInv(searcher1, searcher2 TraceSearcher, va
         }
 
         if !s1Found {
-            searcher1.OccursImpliesAnEventualMatch(curT)
+            searcher1.OccursImpliesAnEventualMatch(validTraceEntry, curT)
         }
         if !s2Found {
-            searcher2.OccursImpliesAnEventualMatch(curT)
+            searcher2.OccursImpliesAnEventualMatch(validTraceEntry, curT)
         }
 
         prevT := curT
         curT = tr.getPrev(curT)
+        curT.isSuffixTransitive(prevT, validTraceEntry)
 
         if (!s1Found && !s2Found) {
             package tr.validTrace(ctx, curT) --* tr.validTrace(ctx, validTraceEntry) {
@@ -272,12 +301,12 @@ func (m *TraceManager) findEntriesWithInv(searcher1, searcher2 TraceSearcher, va
     // the root entry must be checked now:
     if !atSameTime {
         if !s1Found {
-            searcher1.OccursImpliesAnEventualMatch(curT)
+            searcher1.OccursImpliesAnEventualMatch(validTraceEntry, curT)
             s1Found = true
             s1 = curT
         }
         if !s2Found {
-            searcher2.OccursImpliesAnEventualMatch(curT)
+            searcher2.OccursImpliesAnEventualMatch(validTraceEntry, curT)
             s2Found = true
             s2 = curT
         }

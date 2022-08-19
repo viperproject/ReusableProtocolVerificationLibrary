@@ -19,8 +19,11 @@ pure func (es EventSearcher) Ctx() tr.TraceContext {
 
 ghost
 decreases
-pure func (es EventSearcher) Matches(entry tr.TraceEntry) bool {
-    return entry.isEventAt(es.principal, es.event)
+requires entry.isSuffix(snapshot)
+requires es.Occurs(snapshot)
+pure func (es EventSearcher) Matches(snapshot tr.TraceEntry, entry tr.TraceEntry) bool {
+    return entry.isEventAt(es.principal, es.event) &&
+        entry == snapshot.eventOccursWitness(es.principal, es.event)
 }
 
 ghost
@@ -37,20 +40,40 @@ pure func (es EventSearcher) PureEntryInv(entry tr.TraceEntry) bool {
 
 ghost
 decreases
+requires entry.isSuffix(snapshot)
+requires es.Occurs(snapshot)
 requires es.Occurs(entry)
-ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(entry)
-func (es EventSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(snapshot, entry)
+func (es EventSearcher) OccursImpliesAnEventualMatch(snapshot tr.TraceEntry, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires snapshot1 == tr.getPrev(snapshot2)
+requires entry.isSuffix(snapshot1)
+requires entry.isSuffix(snapshot2)
+requires es.Occurs(snapshot1)
+requires es.Occurs(snapshot2)
+requires es.Matches(snapshot1, entry)
+requires !es.Matches(snapshot2, entry)
+ensures  es.Occurs(entry)
+ensures  entry.isSuffix(snapshot2)
+ensures  es.Matches(snapshot2, entry)
+func (es EventSearcher) MatchesTransitive(snapshot1, snapshot2, entry tr.TraceEntry) {
     // no body needed
 }
 
 ghost
 decreases
 requires noPerm < p && p <= writePerm
-requires es.Matches(entry)
+requires entry.isSuffix(snapshot)
+requires es.Occurs(snapshot)
+requires es.Matches(snapshot, entry)
 requires acc(tr.validTrace(es.Ctx(), entry), p)
 ensures  es.PureEntryInv(entry)
 ensures  acc(tr.validTrace(es.Ctx(), entry), p)
-func (es EventSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+func (es EventSearcher) ExtractPureEntryInv(snapshot, entry tr.TraceEntry, p perm) {
     unfold acc(tr.validTrace(es.Ctx(), entry), p)
     (es.Ctx()).getPureEventInv(es.principal, es.event, tr.getPrev(entry), p)
     fold acc(tr.validTrace(es.Ctx(), entry), p)
@@ -67,6 +90,7 @@ ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isEvent()
 ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  prev.isEventAt(principal, event)
+ensures  prev == m.Snapshot(ctx, owner).eventOccursWitness(principal, event)
 ensures  ctx.pureEventInv(principal, event, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))

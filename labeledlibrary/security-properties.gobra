@@ -43,7 +43,7 @@ pure func (l *LabeledLibrary) NonInjectiveAgreement(actor, peer p.Principal, com
         l.Snapshot().eventOccurs(actor, commit) &&
         ( // there is another running session with the same parameters occurring before the commit event...
             l.Snapshot().eventOccursWitness(actor, commit).eventOccurs(peer, running) ||
-            // ... or corruption has occurred:
+            // ... or corruption has occurred before the commit event:
             tr.containsCorruptId(l.Snapshot().eventOccursWitness(actor, commit).getCorruptIds(), honestIds))
 }
 
