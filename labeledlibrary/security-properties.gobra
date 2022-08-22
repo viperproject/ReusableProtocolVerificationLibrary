@@ -52,7 +52,7 @@ requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) InjectiveAgreement(actor, peer p.Principal, commit, running ev.Event, honestIds set[p.Id]) bool {
     return l.NonInjectiveAgreement(actor, peer, commit, running, honestIds) &&
         l.Ctx().IsUnique(commit.typ) &&
-        (!tr.containsCorruptId((l.Snapshot()).getCorruptIds(), honestIds) ==>
+        (!tr.containsCorruptId(l.Snapshot().eventOccursWitness(actor, commit).getCorruptIds(), honestIds) ==>
             // if no corruption has occurred, then there is no other commit with the same parameters:
             l.EventIsUnique(actor, commit))
 }
