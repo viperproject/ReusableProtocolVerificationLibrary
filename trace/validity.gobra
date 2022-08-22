@@ -71,7 +71,7 @@ type TraceContext interface {
     requires t1.isSuffix(t2)
     requires eventInv(principal, ev, t1)
     ensures  eventInv(principal, ev, t2)
-    eventInvTransitive(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
+    eventInvMonotonic(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
 
     ghost
     decreases

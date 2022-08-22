@@ -162,7 +162,7 @@ func (m *TraceManager) LogEvent(ctx tr.TraceContext, owner Client, event ev.Even
     unfold inv.CurrentValueInv(prevTrace)
     // extend trace
     trace := tr.makeEvent(prevTrace, owner.getPrincipal(), event)
-    ctx.eventInvTransitive(owner.getPrincipal(), event, lastSeenTrace, prevTrace)
+    ctx.eventInvMonotonic(owner.getPrincipal(), event, lastSeenTrace, prevTrace)
     fold tr.validTrace(ctx, trace)
     fold inv.CurrentValueInv(trace)
     m.mutex.Unlock(inv, owner, prevTrace, trace)
