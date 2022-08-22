@@ -19,10 +19,16 @@ pure func (es EventSearcher) Ctx() tr.TraceContext {
 
 ghost
 decreases
+pure func (es EventSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isEventAt(es.principal, es.event)
+}
+
+ghost
+decreases
 requires entry.isSuffix(snapshot)
-requires es.Occurs(snapshot)
-pure func (es EventSearcher) Matches(snapshot tr.TraceEntry, entry tr.TraceEntry) bool {
-    return entry.isEventAt(es.principal, es.event) &&
+requires es.Matches(entry)
+pure func (es EventSearcher) MatchProperties(snapshot tr.TraceEntry, entry tr.TraceEntry) bool {
+    return snapshot.eventOccurs(es.principal, es.event) &&
         entry == snapshot.eventOccursWitness(es.principal, es.event)
 }
 
@@ -35,45 +41,44 @@ pure func (es EventSearcher) Occurs(entry tr.TraceEntry) bool {
 ghost
 // decreases
 pure func (es EventSearcher) PureEntryInv(entry tr.TraceEntry) bool {
-    return (es.ctx).pureEventInv(es.principal, es.event, tr.getPrev(entry))
+    return es.ctx.pureEventInv(es.principal, es.event, tr.getPrev(entry))
 }
 
 ghost
 decreases
-requires entry.isSuffix(snapshot)
-requires es.Occurs(snapshot)
-requires es.Occurs(entry)
-ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(snapshot, entry)
-func (es EventSearcher) OccursImpliesAnEventualMatch(snapshot tr.TraceEntry, entry tr.TraceEntry) {
+requires es.Matches(entry)
+ensures  es.MatchProperties(entry, entry)
+func (es EventSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
     // no body needed
 }
 
 ghost
 decreases
-requires snapshot1 == tr.getPrev(snapshot2)
-requires entry.isSuffix(snapshot1)
-requires entry.isSuffix(snapshot2)
-requires es.Occurs(snapshot1)
-requires es.Occurs(snapshot2)
-requires es.Matches(snapshot1, entry)
-requires !es.Matches(snapshot2, entry)
-ensures  es.Occurs(entry)
-ensures  entry.isSuffix(snapshot2)
-ensures  es.Matches(snapshot2, entry)
-func (es EventSearcher) MatchesTransitive(snapshot1, snapshot2, entry tr.TraceEntry) {
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+requires !es.Matches(snapshot)
+requires es.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  es.MatchProperties(snapshot, entry)
+func (es EventSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires es.Occurs(entry)
+ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(entry)
+func (es EventSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
     // no body needed
 }
 
 ghost
 decreases
 requires noPerm < p && p <= writePerm
-requires entry.isSuffix(snapshot)
-requires es.Occurs(snapshot)
-requires es.Matches(snapshot, entry)
+requires es.Matches(entry)
 requires acc(tr.validTrace(es.Ctx(), entry), p)
 ensures  es.PureEntryInv(entry)
 ensures  acc(tr.validTrace(es.Ctx(), entry), p)
-func (es EventSearcher) ExtractPureEntryInv(snapshot, entry tr.TraceEntry, p perm) {
+func (es EventSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
     unfold acc(tr.validTrace(es.Ctx(), entry), p)
     (es.Ctx()).getPureEventInv(es.principal, es.event, tr.getPrev(entry), p)
     fold acc(tr.validTrace(es.Ctx(), entry), p)
@@ -90,7 +95,8 @@ ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isEvent()
 ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  prev.isEventAt(principal, event)
-ensures  prev == m.Snapshot(ctx, owner).eventOccursWitness(principal, event)
+ensures  snap.eventOccurs(principal, event)
+ensures  prev == snap.eventOccursWitness(principal, event)
 ensures  ctx.pureEventInv(principal, event, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))

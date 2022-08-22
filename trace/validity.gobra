@@ -10,6 +10,7 @@ type TraceContext interface {
     pred eventInv(principal p.Principal, ev Event, prev TraceEntry)
 
     ghost
+    // decreases
     /**
      * Specifies consistency conditions for an event. These conditions
      * have to be implied by `pureEventInv`
@@ -17,6 +18,7 @@ type TraceContext interface {
     pure EventConsistency(ev Event) bool
 
     ghost
+    // decreases
     pure pureEventInv(principal p.Principal, ev Event, prev TraceEntry) bool
 
     ghost
@@ -26,6 +28,7 @@ type TraceContext interface {
     eventInvImpliesConsistency(principal p.Principal, ev Event, prev TraceEntry)
     
     ghost
+    // decreases
     /**
      * expresses whether an event type does only occur once with 
      * certain parameters
@@ -33,6 +36,7 @@ type TraceContext interface {
     pure IsUnique(typ EventType) bool
 
     ghost
+    // decreases
     requires EventConsistency(ev)
     requires IsUnique(ev.typ)
     /** 
@@ -74,16 +78,17 @@ type TraceContext interface {
     requires t1.isSuffix(t2)
     requires pureEventInv(principal, ev, t1)
     ensures  pureEventInv(principal, ev, t2)
-    pureEventInvTransitive(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
+    pureEventInvMonotonic(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
 
     ghost
     decreases
     requires t1.isSuffix(t2)
     requires corruptInv(id, t1)
     ensures  corruptInv(id, t2)
-    corruptInvTransitive(id p.Id, t1 TraceEntry, t2 TraceEntry)
+    corruptInvMonotonic(id p.Id, t1 TraceEntry, t2 TraceEntry)
 
     ghost
+    // decreases
     pure GetLabeling() LabelingContext
 }
 

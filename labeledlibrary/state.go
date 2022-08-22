@@ -365,7 +365,7 @@ ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
 ensures  prev.isSuffix(snap)
 ensures  prev.isEventAt(principal, event)
-ensures  prev == l.Snapshot().eventOccursWitness(principal, event)
+ensures  prev == snap.eventOccursWitness(principal, event)
 ensures  l.Ctx().pureEventInv(principal, event, tr.getPrev(prev))
 ensures  l.Ctx().pureEventInv(principal, event, snap)
 ensures  l.Ctx().pureEventInv(principal, event, l.Snapshot())
@@ -374,8 +374,8 @@ func (l *LabeledLibrary) EventOccursImpliesEventInvWithSnap(snap tr.TraceEntry, 
 	prev = l.manager.EventOccursImpliesEventInvWithSnap(l.ctx, l.owner, snap, principal, event)
 	fold l.Mem()
 	tr.getPrev(prev).isSuffixTransitive(prev, snap)
-	l.Ctx().pureEventInvTransitive(principal, event, tr.getPrev(prev), snap)
-	l.Ctx().pureEventInvTransitive(principal, event, snap, l.Snapshot())
+	l.Ctx().pureEventInvMonotonic(principal, event, tr.getPrev(prev), snap)
+	l.Ctx().pureEventInvMonotonic(principal, event, snap, l.Snapshot())
 }
 
 ghost

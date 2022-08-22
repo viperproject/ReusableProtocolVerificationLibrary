@@ -16,10 +16,16 @@ pure func (es EntrySearcher) Ctx() tr.TraceContext {
 
 ghost
 decreases
-requires entry.isSuffix(snapshot)
-requires es.Occurs(snapshot)
-pure func (es EntrySearcher) Matches(snapshot, entry tr.TraceEntry) bool {
+pure func (es EntrySearcher) Matches(entry tr.TraceEntry) bool {
     return entry == es.entry
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+pure func (es EntrySearcher) MatchProperties(snapshot, entry tr.TraceEntry) bool {
+    return true
 }
 
 ghost
@@ -36,39 +42,39 @@ pure func (es EntrySearcher) PureEntryInv(entry tr.TraceEntry) bool {
 
 ghost
 decreases
-requires entry.isSuffix(snapshot)
-requires es.Occurs(snapshot)
-requires es.Occurs(entry)
-ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(snapshot, entry)
-func (es EntrySearcher) OccursImpliesAnEventualMatch(snapshot, entry tr.TraceEntry) {
+requires es.Matches(entry)
+ensures  es.MatchProperties(entry, entry)
+func (es EntrySearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
     // no body needed
 }
 
 ghost
 decreases
-requires snapshot1 == tr.getPrev(snapshot2)
-requires entry.isSuffix(snapshot1)
-requires entry.isSuffix(snapshot2)
-requires es.Occurs(snapshot1)
-requires es.Occurs(snapshot2)
-requires es.Matches(snapshot1, entry)
-ensures  es.Occurs(snapshot2)
-ensures  entry.isSuffix(snapshot2)
-ensures  es.Matches(snapshot2, entry)
-func (es EntrySearcher) MatchesTransitive(snapshot1, snapshot2, entry tr.TraceEntry) {
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+requires !es.Matches(snapshot)
+requires es.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  es.MatchProperties(snapshot, entry)
+func (es EntrySearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires es.Occurs(entry)
+ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(entry)
+func (es EntrySearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
     // no body needed
 }
 
 ghost
 decreases
 requires noPerm < p && p <= writePerm
-requires entry.isSuffix(snapshot)
-requires es.Occurs(snapshot)
-requires es.Matches(snapshot, entry)
+requires es.Matches(entry)
 requires acc(tr.validTrace(es.Ctx(), entry), p)
 ensures  es.PureEntryInv(entry)
 ensures  acc(tr.validTrace(es.Ctx(), entry), p)
-func (es EntrySearcher) ExtractPureEntryInv(snapshot, entry tr.TraceEntry, p perm) {
+func (es EntrySearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
     unfold acc(tr.validTrace(es.Ctx(), entry), p)
     if es.entry.isEvent() {
         es.Ctx().getPureEventInv(tr.getPrincipal(es.entry), tr.getEvent(es.entry), tr.getPrev(entry), p)
