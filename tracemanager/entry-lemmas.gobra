@@ -22,6 +22,14 @@ pure func (es EntrySearcher) Matches(entry tr.TraceEntry) bool {
 
 ghost
 decreases
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+pure func (es EntrySearcher) MatchProperties(snapshot, entry tr.TraceEntry) bool {
+    return true
+}
+
+ghost
+decreases
 pure func (es EntrySearcher) Occurs(entry tr.TraceEntry) bool {
     return es.entry.isSuffix(entry)
 }
@@ -30,6 +38,25 @@ ghost
 // decreases
 pure func (es EntrySearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return es.entry.isEvent() ==> es.ctx.pureEventInv(tr.getPrincipal(es.entry), tr.getEvent(es.entry), tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires es.Matches(entry)
+ensures  es.MatchProperties(entry, entry)
+func (es EntrySearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+requires !es.Matches(snapshot)
+requires es.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  es.MatchProperties(snapshot, entry)
+func (es EntrySearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
 }
 
 ghost

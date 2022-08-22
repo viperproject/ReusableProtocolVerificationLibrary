@@ -26,6 +26,14 @@ pure func (ms MessageSearcher) Matches(entry tr.TraceEntry) bool {
 
 ghost
 decreases
+requires entry.isSuffix(snapshot)
+requires ms.Matches(entry)
+pure func (ms MessageSearcher) MatchProperties(snapshot, entry tr.TraceEntry) bool {
+    return true
+}
+
+ghost
+decreases
 pure func (ms MessageSearcher) Occurs(entry tr.TraceEntry) bool {
     return entry.messageOccurs(ms.sender, ms.receiver, ms.payload)
 }
@@ -34,6 +42,25 @@ ghost
 // decreases
 pure func (ms MessageSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.messageInv(ms.ctx, ms.sender, ms.receiver, ms.payload, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ms.Matches(entry)
+ensures  ms.MatchProperties(entry, entry)
+func (ms MessageSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ms.Matches(entry)
+requires !ms.Matches(snapshot)
+requires ms.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  ms.MatchProperties(snapshot, entry)
+func (ms MessageSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
 }
 
 ghost

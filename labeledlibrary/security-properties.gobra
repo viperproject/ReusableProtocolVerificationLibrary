@@ -29,7 +29,7 @@ ghost
 requires prev.isSuffix(snapshot)
 // `honestIds` can be corrupted at any time and `prevHonestIds` must have been already been corrupted at `prev`
 // in order that `term` is considered forward secret despite the attacker knowing the value.
-pure func forwardSecrecy(snapshot, prev tr.TraceEntry, term tm.Term, prevHonestIds, honestIds set[p.Id]) bool {
+pure func ForwardSecrecy(snapshot, prev tr.TraceEntry, term tm.Term, prevHonestIds, honestIds set[p.Id]) bool {
     return att.isUnknownToAttacker(snapshot, term) ||
         tr.containsCorruptId(prev.getCorruptIds(), prevHonestIds) ||
         tr.containsCorruptId(snapshot.getCorruptIds(), honestIds)
@@ -41,10 +41,10 @@ pure func (l *LabeledLibrary) NonInjectiveAgreement(actor, peer p.Principal, com
     return l.Ctx().EventConsistency(running) &&
         l.Ctx().EventConsistency(commit) &&
         l.Snapshot().eventOccurs(actor, commit) &&
-        ( // there is another running session with the same parameters...
-            l.Snapshot().eventOccurs(peer, running) ||
-            // ... or corruption has occurred:
-            tr.containsCorruptId(l.Snapshot().getCorruptIds(), honestIds))
+        ( // there is another running session with the same parameters occurring before the commit event...
+            l.Snapshot().eventOccursWitness(actor, commit).eventOccurs(peer, running) ||
+            // ... or corruption has occurred before the commit event:
+            tr.containsCorruptId(l.Snapshot().eventOccursWitness(actor, commit).getCorruptIds(), honestIds))
 }
 
 ghost
@@ -52,7 +52,7 @@ requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) InjectiveAgreement(actor, peer p.Principal, commit, running ev.Event, honestIds set[p.Id]) bool {
     return l.NonInjectiveAgreement(actor, peer, commit, running, honestIds) &&
         l.Ctx().IsUnique(commit.typ) &&
-        (!tr.containsCorruptId((l.Snapshot()).getCorruptIds(), honestIds) ==>
+        (!tr.containsCorruptId(l.Snapshot().eventOccursWitness(actor, commit).getCorruptIds(), honestIds) ==>
             // if no corruption has occurred, then there is no other commit with the same parameters:
             l.EventIsUnique(actor, commit))
 }

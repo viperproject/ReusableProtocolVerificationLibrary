@@ -23,6 +23,14 @@ pure func (ps PublishedTermSearcher) Matches(entry tr.TraceEntry) bool {
 
 ghost
 decreases
+requires entry.isSuffix(snapshot)
+requires ps.Matches(entry)
+pure func (ps PublishedTermSearcher) MatchProperties(snapshot, entry tr.TraceEntry) bool {
+    return true
+}
+
+ghost
+decreases
 pure func (ps PublishedTermSearcher) Occurs(entry tr.TraceEntry) bool {
     return ps.term in entry.getTermsMadePublic()
 }
@@ -31,6 +39,25 @@ ghost
 // decreases
 pure func (ps PublishedTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.madePublicInv(ps.ctx, ps.term, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ps.Matches(entry)
+ensures  ps.MatchProperties(entry, entry)
+func (ps PublishedTermSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ps.Matches(entry)
+requires !ps.Matches(snapshot)
+requires ps.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  ps.MatchProperties(snapshot, entry)
+func (ps PublishedTermSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
 }
 
 ghost

@@ -23,6 +23,14 @@ pure func (ns NonceSearcher) Matches(entry tr.TraceEntry) bool {
 
 ghost
 decreases
+requires entry.isSuffix(snapshot)
+requires ns.Matches(entry)
+pure func (ns NonceSearcher) MatchProperties(snapshot, entry tr.TraceEntry) bool {
+    return true
+}
+
+ghost
+decreases
 pure func (ns NonceSearcher) Occurs(entry tr.TraceEntry) bool {
     return entry.OnlyNonceOccurs(ns.nonce)
 }
@@ -31,6 +39,25 @@ ghost
 // decreases
 pure func (ns NonceSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ns.Matches(entry)
+ensures  ns.MatchProperties(entry, entry)
+func (ns NonceSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ns.Matches(entry)
+requires !ns.Matches(snapshot)
+requires ns.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  ns.MatchProperties(snapshot, entry)
+func (ns NonceSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
 }
 
 ghost
