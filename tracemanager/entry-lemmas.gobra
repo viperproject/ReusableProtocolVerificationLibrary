@@ -36,6 +36,7 @@ pure func (es EntrySearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 // decreases
+requires es.Ctx() != nil
 pure func (es EntrySearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return es.entry.isEvent() ==> es.ctx.pureEventInv(tr.getPrincipal(es.entry), tr.getEvent(es.entry), tr.getPrev(entry))
 }
@@ -70,6 +71,7 @@ func (es EntrySearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires es.Ctx() != nil
 requires es.Matches(entry)
 requires acc(tr.validTrace(es.Ctx(), entry), p)
 ensures  es.PureEntryInv(entry)

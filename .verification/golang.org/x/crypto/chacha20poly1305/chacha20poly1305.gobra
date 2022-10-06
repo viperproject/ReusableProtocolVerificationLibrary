@@ -1,0 +1,4 @@
+package chacha20poly1305
+
+// empty but necessary since Gobra needs all transitively imported packages
+// to perform the global variable analysis

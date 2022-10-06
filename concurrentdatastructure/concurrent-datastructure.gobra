@@ -33,8 +33,7 @@ pred (m *ClientHistoryMutex) ClientHistoryMutexStateInitWithInv(inv ClientHistor
 /** represents the state in the mutex's unlocked state */
 pred (m *ClientHistoryMutex) ClientHistoryMutexState(inv ClientHistoryInv, client ClientId) {
     // the idea is that each client get 1/len(clients) many permissions
-    acc(m, _) &&
-    acc(m.snapshots, _) &&
+    acc(m, _) && acc(m.snapshots, _) && inv != nil &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
     client in domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
@@ -44,8 +43,7 @@ pred (m *ClientHistoryMutex) ClientHistoryMutexState(inv ClientHistoryInv, clien
 /** represents the state in the mutex's locked state */
 pred (m *ClientHistoryMutex) ClientHistoryMutexStateLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) {
     // beginning copy of clientHistoryMutexState
-    acc(m, _) &&
-    acc(m.snapshots, _) &&
+    acc(m, _) && acc(m.snapshots, _) && inv != nil &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
     client in domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
@@ -59,7 +57,7 @@ pred (m *ClientHistoryMutex) ClientHistoryMutexStateLocked(inv ClientHistoryInv,
 
 /** represents the invariant that is associated with the mutex */
 pred ClientHistoryMutexInv(inv ClientHistoryInv, currentValue *ValueType, ghost snapshots set[*ValueType]) {
-    acc(currentValue) &&
+    inv != nil && acc(currentValue) &&
     inv.CurrentValueInv(*currentValue) &&
     (forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, *currentValue) } snapshot in snapshots ==>
         acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *currentValue))
@@ -85,6 +83,14 @@ type ClientHistoryInv interface {
     requires TwoStepValueInv(val1, val2) && TwoStepValueInv(val2, val3)
     ensures  TwoStepValueInv(val1, val3)
     TwoStepValueInvTransitive(val1, val2, val3 ValueType)
+}
+
+// indirection for ClientHistoryInv that gives us the property that
+// `inv` is non-nil
+requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
+ensures  inv != nil
+pure func (m *ClientHistoryMutex) GetInvLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) ClientHistoryInv {
+    return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in inv
 }
 
 requires acc(m.ClientHistoryMutexState(inv, client), _)
@@ -140,7 +146,7 @@ func NewClientHistoryMutex() (m *ClientHistoryMutex) {
 }
 
 requires m.ClientHistoryMutexStateInit()
-requires isComparable(inv)
+requires inv != nil && isComparable(inv)
 requires noPerm < p && p <= writePerm
 requires 0 < len(clients)
 requires forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
@@ -190,7 +196,7 @@ func (m *ClientHistoryMutex) SetInv(inv ClientHistoryInv, clients []ClientId, in
 }
 
 ghost
-requires 0 < len(clients)
+requires inv != nil && 0 < len(clients)
 requires forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
 requires m.ClientHistoryMutexStateInitWithInv(inv, set(clients))
 ensures forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> m.ClientHistoryMutexState(inv, clients[j])
@@ -224,7 +230,7 @@ func (m *ClientHistoryMutex) split(inv ClientHistoryInv, ghost clients seq[Clien
 // that `Lock` eventually succeeds.
 decreases _
 requires m.ClientHistoryMutexState(inv, client)
-ensures  m.ClientHistoryMutexStateLocked(inv, client, currentValue)
+ensures  m.ClientHistoryMutexStateLocked(inv, client, currentValue) && inv != nil
 ensures  inv.TwoStepValueInv(m.LastSeenValueLocked(inv, client, currentValue), currentValue)
 ensures  inv.CurrentValueInv(currentValue)
 // LastSeenValue remains unchanged:
@@ -241,7 +247,7 @@ func (m *ClientHistoryMutex) Lock(inv ClientHistoryInv, client ClientId) (curren
 ghost
 decreases
 requires m.ClientHistoryMutexStateLocked(inv, client, currentValue)
-requires inv.TwoStepValueInv(m.LastSeenValueLocked(inv, client, currentValue), currentValue)
+requires m.GetInvLocked(inv, client, currentValue).TwoStepValueInv(m.LastSeenValueLocked(inv, client, currentValue), currentValue)
 requires inv.TwoStepValueInv(currentValue, newValue)
 // the following precondition enforces that the global trace can only be extended by up to a single trace entry:
 requires newValue == currentValue || tr.getPrev(newValue) == currentValue
@@ -257,7 +263,7 @@ func (m *ClientHistoryMutex) Unlock(inv ClientHistoryInv, client ClientId, curre
 ghost
 decreases
 requires m.ClientHistoryMutexStateLocked(inv, client, currentValue)
-requires inv.TwoStepValueInv(m.LastSeenValueLocked(inv, client, currentValue), currentValue)
+requires m.GetInvLocked(inv, client, currentValue).TwoStepValueInv(m.LastSeenValueLocked(inv, client, currentValue), currentValue)
 requires inv.TwoStepValueInv(currentValue, newValue)
 // the following precondition enforces that the global trace can only be extended by up to a single trace entry:
 requires newValue == currentValue || tr.getPrev(newValue) == currentValue
@@ -283,6 +289,7 @@ func (m *ClientHistoryMutex) UnlockWithSnapshot(inv ClientHistoryInv, client Cli
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires inv != nil
 requires forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, currentValue) } snapshot in snapshots ==>
     acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, currentValue)
 requires inv.TwoStepValueInv(currentValue, newValue)
@@ -305,6 +312,7 @@ func (m *ClientHistoryMutex) applyInvTransitivity(inv ClientHistoryInv, snapshot
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires inv != nil
 requires acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, currentValue)
 requires inv.TwoStepValueInv(currentValue, newValue)
 ensures  acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, newValue)

@@ -1,9 +1,10 @@
 {
     "gobraSettings.moduleName": "github.com/ModularVerification/ReusableVerificationLibrary",
     "gobraSettings.includeDirs": [
-        "."
+        ".",
+        ".verification"
     ],
-    "gobraSettings.buildVersion": "Local",
+    "gobraSettings.buildVersion": "Stable",
     "gobraSettings.autoVerify": false,
     "maptz.regionfolder": {
         "[gobra]": {                                      //Language selector

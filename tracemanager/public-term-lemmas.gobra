@@ -37,8 +37,9 @@ pure func (ps PublicTermSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 // decreases
+requires ps.Ctx() != nil
 pure func (ps PublicTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
-    return entry.isRoot() && tr.publicInv(ps.ctx, entry.getPublicTerms(), entry)
+    return entry.isRoot() && tr.publicInv(ps.Ctx(), entry.getPublicTerms(), entry)
 }
 
 ghost
@@ -71,6 +72,7 @@ func (ps PublicTermSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires ps.Ctx() != nil
 requires ps.Matches(entry)
 requires acc(tr.validTrace(ps.Ctx(), entry), p)
 ensures  ps.PureEntryInv(entry)
@@ -89,11 +91,13 @@ requires term in snap.getPublicTerms()
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isRoot()
 ensures  prev.isSuffix(m.Snapshot(ctx, owner))
-ensures  tr.publicInv(ctx, snap.getPublicTerms(), prev)
+ensures  tr.publicInv(m.Ctx(ctx, owner), snap.getPublicTerms(), prev)
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) PublicTermImpliesPublicInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublicTermSearcher{ ctx, term }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
     prev.getPublicTermsMonotonic(snap)
     prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))

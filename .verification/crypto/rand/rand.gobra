@@ -1,0 +1,4 @@
+package rand
+
+// empty but necessary since Gobra needs all transitively imported packages
+// to perform the global variable analysis

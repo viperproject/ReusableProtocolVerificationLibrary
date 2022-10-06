@@ -19,7 +19,7 @@ type Client = p.Id
 // currently necessary because Gobra does apparently not support a dot expression as map key type
 type MapKey = p.Id
 
-requires isComparable(ctx)
+requires ctx != nil && isComparable(ctx)
 requires len(clients) > 0
 requires tr.validTrace(ctx, root)
 requires noPerm < p && p <= writePerm
@@ -68,8 +68,16 @@ func NewTraceManager(ctx tr.TraceContext, clients []Client, root tr.TraceEntry, 
 
 pred (m *TraceManager) Mem(ctx tr.TraceContext, owner Client) {
     acc(m) && 0 < m.nClients &&
-    isComparable(ctx) &&
+    ctx != nil && isComparable(ctx) &&
     m.mutex.ClientHistoryMutexState(ManagerInv{ ctx }, owner)
+}
+
+ghost
+requires acc(m.Mem(ctx, owner), _)
+ensures  ctx != nil
+// indirection to learn that `ctx != nil`
+pure func (m *TraceManager) Ctx(ctx tr.TraceContext, owner Client) tr.TraceContext {
+    return unfolding acc(m.Mem(ctx, owner), _) in ctx
 }
 
 ghost
@@ -216,7 +224,7 @@ func (m *TraceManager) LogPublish(ctx tr.TraceContext, owner Client, term tm.Ter
 ghost
 requires m.Mem(ctx, owner)
 requires nonce.IsRandom()
-requires ctx.GetLabeling().NonceIsUnique(nonce)
+requires m.Ctx(ctx, owner).GetLabeling().NonceIsUnique(nonce)
 // the following precondition specifies that `owner` can read the nonce
 // i.e. this enforces for upper library layers that an owner cannot create nonces
 // or keys that it cannot read itself

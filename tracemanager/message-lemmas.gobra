@@ -40,6 +40,7 @@ pure func (ms MessageSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 // decreases
+requires ms.Ctx() != nil
 pure func (ms MessageSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.messageInv(ms.ctx, ms.sender, ms.receiver, ms.payload, tr.getPrev(entry))
 }
@@ -74,6 +75,7 @@ func (ms MessageSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires ms.Ctx() != nil
 requires ms.Matches(entry)
 requires acc(tr.validTrace(ms.Ctx(), entry), p)
 ensures  ms.PureEntryInv(entry)
@@ -98,6 +100,8 @@ ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
     searcher := MessageSearcher{ ctx, sender, receiver, payload }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
     prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))
 }

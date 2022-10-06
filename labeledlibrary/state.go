@@ -28,8 +28,9 @@ type LabeledLibrary struct {
 pred (l *LabeledLibrary) Mem() {
 	acc(l) &&
 	acc(l.s.Mem(), 1/8) &&
-	acc(l.com.LibMem(), 1/8) && isComparable(l.com) &&
-	isComparable(l.ctx) &&
+	acc(l.com.LibMem(), 1/8) &&
+	l.com != nil && isComparable(l.com) &&
+	l.ctx != nil && isComparable(l.ctx) &&
 	typeOf(l.ctx.GetLabeling()) == labeling.DefaultLabelingContext &&
 	l.manager.Mem(l.ctx, l.owner)
 }
@@ -49,7 +50,7 @@ pure func (l *LabeledLibrary) ImmutableState() ImmutableState {
 
 ghost
 requires acc(l.Mem(), _)
-ensures  isComparable(res)
+ensures  res != nil && isComparable(res)
 pure func (l *LabeledLibrary) Ctx() (res tr.TraceContext) {
 	return unfolding acc(l.Mem(), _) in l.ctx
 }
@@ -69,7 +70,7 @@ pure func (l *LabeledLibrary) Owner() p.Id {
 ghost
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) LabelCtx() tr.LabelingContext {
-	return (l.Ctx()).GetLabeling()
+	return l.Ctx().GetLabeling()
 }
 
 ghost
@@ -80,9 +81,10 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 @*/
 
 //@ requires acc(s.Mem(), 1/8)
-//@ requires acc(com.LibMem(), 1/8) && isComparable(com)
+//@ requires acc(com.LibMem(), 1/8)
+//@ requires com != nil && isComparable(com)
 //@ requires manager.Mem(ctx, owner)
-//@ requires isComparable(ctx)
+//@ requires ctx != nil && isComparable(ctx)
 //@ requires typeOf(ctx.GetLabeling()) == labeling.DefaultLabelingContext
 //@ ensures  res.Mem()
 //@ ensures  res.Ctx() == ctx
@@ -103,9 +105,9 @@ requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
-ensures  forall oldSnap tr.TraceEntry :: { oldSnap.getCorruptIds() } oldSnap.isSuffix(l.Snapshot()) ==> oldSnap.getCorruptIds() subset (l.Snapshot()).getCorruptIds()
-ensures  forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel, usage u.Usage :: { (l.LabelCtx()).IsSecret(oldSnap, term, sLabel, usage) } oldSnap.isSuffix(l.Snapshot()) && (l.LabelCtx()).IsSecret(oldSnap, term, sLabel, usage) ==> (l.LabelCtx()).IsSecret(l.Snapshot(), term, sLabel, usage)
-ensures  forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel :: { (l.LabelCtx()).IsLabeled(oldSnap, term, sLabel) } oldSnap.isSuffix(l.Snapshot()) && (l.LabelCtx()).IsLabeled(oldSnap, term, sLabel) ==> (l.LabelCtx()).IsLabeled(l.Snapshot(), term, sLabel)
+ensures  forall oldSnap tr.TraceEntry :: { oldSnap.getCorruptIds() } oldSnap.isSuffix(l.Snapshot()) ==> oldSnap.getCorruptIds() subset l.Snapshot().getCorruptIds()
+ensures  forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel, usage u.Usage :: { l.LabelCtx().IsSecret(oldSnap, term, sLabel, usage) } oldSnap.isSuffix(l.Snapshot()) && l.LabelCtx().IsSecret(oldSnap, term, sLabel, usage) ==> l.LabelCtx().IsSecret(l.Snapshot(), term, sLabel, usage)
+ensures  forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel :: { l.LabelCtx().IsLabeled(oldSnap, term, sLabel) } oldSnap.isSuffix(l.Snapshot()) && l.LabelCtx().IsLabeled(oldSnap, term, sLabel) ==> l.LabelCtx().IsLabeled(l.Snapshot(), term, sLabel)
 ensures  forall oldSnap tr.TraceEntry, principal p.Principal, event ev.Event :: { oldSnap.eventOccurs(principal, event) } oldSnap.isSuffix(l.Snapshot()) &&oldSnap.eventOccurs(principal, event) ==>  (l.Snapshot()).eventOccurs(principal, event)
 ensures  forall oldSnap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term :: { oldSnap.messageOccurs(sender, receiver, payload) } oldSnap.isSuffix(l.Snapshot()) &&oldSnap.messageOccurs(sender, receiver, payload) ==>  (l.Snapshot()).messageOccurs(sender, receiver, payload)
 ensures  forall oldSnap tr.TraceEntry, nonce tm.Term :: { oldSnap.OnlyNonceOccurs(nonce) } oldSnap.isSuffix(l.Snapshot()) && oldSnap.OnlyNonceOccurs(nonce) ==>  (l.Snapshot()).OnlyNonceOccurs(nonce)
@@ -125,14 +127,14 @@ func (l *LabeledLibrary) ApplyMonotonicity() {
 	arbNonceUsage := arb.GetArbUsage()
 	if (arbSnap.isSuffix(l.Snapshot())) {
 		arbSnap.getCorruptIdsMonotonic(l.Snapshot())
-		if ((l.LabelCtx()).IsSecret(arbSnap, arbTerm, arbLabel, arbUsage)) {
-			(l.LabelCtx()).IsSecretMonotonic(arbSnap, l.Snapshot(), arbTerm, arbLabel, arbUsage)
+		if (l.LabelCtx().IsSecret(arbSnap, arbTerm, arbLabel, arbUsage)) {
+			l.LabelCtx().IsSecretMonotonic(arbSnap, l.Snapshot(), arbTerm, arbLabel, arbUsage)
 		}
-		if ((l.LabelCtx()).IsLabeled(arbSnap, arbTerm, arbLabel)) {
-			(l.LabelCtx()).IsLabeledMonotonic(arbSnap, l.Snapshot(), arbTerm, arbLabel)
+		if (l.LabelCtx().IsLabeled(arbSnap, arbTerm, arbLabel)) {
+			l.LabelCtx().IsLabeledMonotonic(arbSnap, l.Snapshot(), arbTerm, arbLabel)
 		}
-		if ((l.LabelCtx()).IsPublishable(arbSnap, arbTerm)) {
-			(l.LabelCtx()).IsPublishableMonotonic(arbSnap, l.Snapshot(), arbTerm)
+		if (l.LabelCtx().IsPublishable(arbSnap, arbTerm)) {
+			l.LabelCtx().IsPublishableMonotonic(arbSnap, l.Snapshot(), arbTerm)
 		}
 		if (arbSnap.eventOccurs(arbPrincipal, arbEvent)) {
 			arbSnap.eventOccursMonotonic(l.Snapshot(), arbPrincipal, arbEvent)
@@ -149,12 +151,12 @@ func (l *LabeledLibrary) ApplyMonotonicity() {
 	}
 	assert arbSnap.isSuffix(l.Snapshot()) ==> arbSnap.getCorruptIds() subset (l.Snapshot()).getCorruptIds()
 	assume forall oldSnap tr.TraceEntry :: { oldSnap.getCorruptIds() } oldSnap.isSuffix(l.Snapshot()) ==> oldSnap.getCorruptIds() subset (l.Snapshot()).getCorruptIds()
-	assert arbSnap.isSuffix(l.Snapshot()) && (l.LabelCtx()).IsSecret(arbSnap, arbTerm, arbLabel, arbUsage) ==> (l.LabelCtx()).IsSecret(l.Snapshot(), arbTerm, arbLabel, arbUsage)
-	assume forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel, usage u.Usage :: { (l.LabelCtx()).IsSecret(oldSnap, term, sLabel, usage) } oldSnap.isSuffix(l.Snapshot()) && (l.LabelCtx()).IsSecret(oldSnap, term, sLabel, usage) ==> (l.LabelCtx()).IsSecret(l.Snapshot(), term, sLabel, usage)
-	assert arbSnap.isSuffix(l.Snapshot()) && (l.LabelCtx()).IsLabeled(arbSnap, arbTerm, arbLabel) ==> (l.LabelCtx()).IsLabeled(l.Snapshot(), arbTerm, arbLabel)
-	assume forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel :: { (l.LabelCtx()).IsLabeled(oldSnap, term, sLabel) } oldSnap.isSuffix(l.Snapshot()) && (l.LabelCtx()).IsLabeled(oldSnap, term, sLabel) ==> (l.LabelCtx()).IsLabeled(l.Snapshot(), term, sLabel)
-	assert arbSnap.isSuffix(l.Snapshot()) && (l.LabelCtx()).IsPublishable(arbSnap, arbTerm) ==> (l.LabelCtx()).IsPublishable(l.Snapshot(), arbTerm)
-	assume forall oldSnap tr.TraceEntry, term tm.Term :: { (l.LabelCtx()).IsPublishable(oldSnap, term) } oldSnap.isSuffix(l.Snapshot()) && (l.LabelCtx()).IsPublishable(oldSnap, term) ==> (l.LabelCtx()).IsPublishable(l.Snapshot(), term)
+	assert arbSnap.isSuffix(l.Snapshot()) && l.LabelCtx().IsSecret(arbSnap, arbTerm, arbLabel, arbUsage) ==> l.LabelCtx().IsSecret(l.Snapshot(), arbTerm, arbLabel, arbUsage)
+	assume forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel, usage u.Usage :: { l.LabelCtx().IsSecret(oldSnap, term, sLabel, usage) } oldSnap.isSuffix(l.Snapshot()) && l.LabelCtx().IsSecret(oldSnap, term, sLabel, usage) ==> l.LabelCtx().IsSecret(l.Snapshot(), term, sLabel, usage)
+	assert arbSnap.isSuffix(l.Snapshot()) && l.LabelCtx().IsLabeled(arbSnap, arbTerm, arbLabel) ==> l.LabelCtx().IsLabeled(l.Snapshot(), arbTerm, arbLabel)
+	assume forall oldSnap tr.TraceEntry, term tm.Term, sLabel label.SecrecyLabel :: { l.LabelCtx().IsLabeled(oldSnap, term, sLabel) } oldSnap.isSuffix(l.Snapshot()) && l.LabelCtx().IsLabeled(oldSnap, term, sLabel) ==> l.LabelCtx().IsLabeled(l.Snapshot(), term, sLabel)
+	assert arbSnap.isSuffix(l.Snapshot()) && l.LabelCtx().IsPublishable(arbSnap, arbTerm) ==> l.LabelCtx().IsPublishable(l.Snapshot(), arbTerm)
+	assume forall oldSnap tr.TraceEntry, term tm.Term :: { l.LabelCtx().IsPublishable(oldSnap, term) } oldSnap.isSuffix(l.Snapshot()) && l.LabelCtx().IsPublishable(oldSnap, term) ==> l.LabelCtx().IsPublishable(l.Snapshot(), term)
 	assert arbSnap.isSuffix(l.Snapshot()) && arbSnap.eventOccurs(arbPrincipal, arbEvent) ==> (l.Snapshot()).eventOccurs(arbPrincipal, arbEvent)
 	assume forall oldSnap tr.TraceEntry, principal p.Principal, event ev.Event :: { oldSnap.eventOccurs(principal, event) } oldSnap.isSuffix(l.Snapshot()) && oldSnap.eventOccurs(principal, event) ==> (l.Snapshot()).eventOccurs(principal, event)
 	assert arbSnap.isSuffix(l.Snapshot()) && arbSnap.messageOccurs(arbSender, arbReceiver, arbPayload) ==> (l.Snapshot()).messageOccurs(arbSender, arbReceiver, arbPayload)

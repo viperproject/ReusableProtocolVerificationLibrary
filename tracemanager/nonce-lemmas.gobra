@@ -37,6 +37,7 @@ pure func (ns NonceSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 // decreases
+requires ns.Ctx() != nil
 pure func (ns NonceSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))
 }
@@ -71,6 +72,7 @@ func (ns NonceSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires ns.Ctx() != nil
 requires ns.Matches(entry)
 requires acc(tr.validTrace(ns.Ctx(), entry), p)
 ensures  ns.PureEntryInv(entry)
@@ -95,5 +97,7 @@ ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) NonceOccursImpliesRandInv(ctx tr.TraceContext, owner Client, nonce tm.Term) (prev tr.TraceEntry) {
     searcher := NonceSearcher{ ctx, nonce }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
     prev = m.findEntryWithPureInv(searcher, owner)
 }

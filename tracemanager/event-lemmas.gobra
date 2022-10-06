@@ -40,8 +40,9 @@ pure func (es EventSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 // decreases
+requires es.Ctx() != nil
 pure func (es EventSearcher) PureEntryInv(entry tr.TraceEntry) bool {
-    return es.ctx.pureEventInv(es.principal, es.event, tr.getPrev(entry))
+    return es.Ctx().pureEventInv(es.principal, es.event, tr.getPrev(entry))
 }
 
 ghost
@@ -74,6 +75,7 @@ func (es EventSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
+requires es.Ctx() != nil
 requires es.Matches(entry)
 requires acc(tr.validTrace(es.Ctx(), entry), p)
 ensures  es.PureEntryInv(entry)
@@ -97,11 +99,13 @@ ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  prev.isEventAt(principal, event)
 ensures  snap.eventOccurs(principal, event)
 ensures  prev == snap.eventOccursWitness(principal, event)
-ensures  ctx.pureEventInv(principal, event, tr.getPrev(prev))
+ensures  m.Ctx(ctx, owner).pureEventInv(principal, event, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) EventOccursImpliesEventInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, principal p.Principal, event ev.Event) (prev tr.TraceEntry) {
     searcher := EventSearcher{ ctx, principal, event }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
     prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))
 }
@@ -111,7 +115,7 @@ decreases
 requires m.Mem(ctx, owner)
 requires m.Snapshot(ctx, owner).eventOccurs(principal1, event1)
 requires m.Snapshot(ctx, owner).eventOccurs(principal2, event2)
-requires ctx.IsUnique(event1.typ)
+requires m.Ctx(ctx, owner).IsUnique(event1.typ)
 requires event1.typ == event2.typ
 requires ctx.EventConsistency(event1) && ctx.EventConsistency(event2)
 requires ctx.UniquenessWitness(event1) == ctx.UniquenessWitness(event2)
@@ -151,7 +155,7 @@ decreases
 requires m.Mem(ctx, owner)
 requires suffix.isSuffix(m.Snapshot(ctx, owner))
 requires suffix.eventOccurs(principal, event)
-requires ctx.IsUnique(event.typ)
+requires m.Ctx(ctx, owner).IsUnique(event.typ)
 ensures  m.Mem(ctx, owner)
 ensures  m.Snapshot(ctx, owner).eventOccurs(principal, event)
 ensures  suffix.eventOccursWitness(principal, event) == m.Snapshot(ctx, owner).eventOccursWitness(principal, event)
