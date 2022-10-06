@@ -94,27 +94,33 @@ type TraceContext interface {
 }
 
 type LabelingContext interface {
-    pred Pred()
+    ghost
+    decreases
+    // pure properties that are carried along. Useful to specify (pure) properties about
+    // the fields of an implementation. Note that it's purposefully not a predicate such
+    // that the other pure functions in this interface remain heap-independent.
+    pure Props() bool
+
     pred NonceIsUnique(nonce tm.Term)
     pred NonceForEventIsUnique(nonce tm.Term, eventType EventType)
 
     ghost
     decreases
-    requires acc(Pred(), _)
+    requires Props()
     requires acc(NonceForEventIsUnique(nonce, eventType), 2/1)
     ensures  false
     NonceForEventContradiction(nonce tm.Term, eventType EventType)
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure IsSecret(t TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure IsLabeled(t TraceEntry, term tm.Term, l label.SecrecyLabel) bool
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure IsPublishable(t TraceEntry, term tm.Term) bool
 
     ghost
@@ -122,33 +128,27 @@ type LabelingContext interface {
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires t1.isSuffix(t2)
     requires IsSecret(t1, term, l, usage)
-    ensures  acc(Pred(), p)
     ensures  IsSecret(t2, term, l, usage)
-    IsSecretMonotonic(t1, t2 TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage, p perm)
+    IsSecretMonotonic(t1, t2 TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage)
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires t1.isSuffix(t2)
     requires IsLabeled(t1, term, l)
-    ensures  acc(Pred(), p)
     ensures  IsLabeled(t2, term, l)
-    IsLabeledMonotonic(t1, t2 TraceEntry, term tm.Term, l label.SecrecyLabel, p perm)
+    IsLabeledMonotonic(t1, t2 TraceEntry, term tm.Term, l label.SecrecyLabel)
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires t1.isSuffix(t2)
     requires IsPublishable(t1, term)
-    ensures  acc(Pred(), p)
     ensures  IsPublishable(t2, term)
-    IsPublishableMonotonic(t1, t2 TraceEntry, term tm.Term, p perm)
+    IsPublishableMonotonic(t1, t2 TraceEntry, term tm.Term)
 
     ghost
     decreases
@@ -156,111 +156,93 @@ type LabelingContext interface {
     CanFlowReflexive(t TraceEntry, l label.SecrecyLabel)
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure CanEncrypt(t TraceEntry, msg, pk tm.Term) bool
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires CanEncrypt(t, msg, pk) || (IsPublishable(t, msg) && IsPublishable(t, pk))
-    ensures  acc(Pred(), p)
     ensures  IsPublishable(t, tm.encrypt(msg, pk))
-    CiphertextIsPublishable(t TraceEntry, msg, pk tm.Term, p perm)
+    CiphertextIsPublishable(t TraceEntry, msg, pk tm.Term)
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure CanDecrypt(t TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) bool
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure WasDecrypted(t TraceEntry, msg, sk tm.Term, skOwner p.Id) bool
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires IsPublishable(t, ciphertext) && IsPublishable(t, sk)
-    ensures  acc(Pred(), p)
     ensures  CanDecrypt(t, ciphertext, sk, skOwner)
-    CanDecryptWithPublicSk(t TraceEntry, ciphertext, sk tm.Term, skOwner p.Id, p perm)
+    CanDecryptWithPublicSk(t TraceEntry, ciphertext, sk tm.Term, skOwner p.Id)
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires CanDecrypt(t, tm.encrypt(msg, tm.createPk(sk)), sk, skOwner)
-    ensures  acc(Pred(), p)
     ensures  WasDecrypted(t, msg, sk, skOwner)
-    DecryptSatisfiesInvariant(t TraceEntry, msg, sk tm.Term, skOwner p.Id, p perm)
+    DecryptSatisfiesInvariant(t TraceEntry, msg, sk tm.Term, skOwner p.Id)
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires IsPublishable(t, tm.encrypt(msg, tm.createPk(sk))) && IsPublishable(t, sk)
-    ensures  acc(Pred(), p)
     ensures  IsPublishable(t, msg)
-    PlaintextIsPublishableForPublicSk(t TraceEntry, msg, sk tm.Term, skOwner p.Id, p perm)
+    PlaintextIsPublishableForPublicSk(t TraceEntry, msg, sk tm.Term, skOwner p.Id)
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure CanAeadEncrypt(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires CanAeadEncrypt(t, key, nonce, msg, ad, keyL) || (IsPublishable(t, key) && IsPublishable(t, nonce) && IsPublishable(t, msg) && IsPublishable(t, ad))
-    ensures  acc(Pred(), p)
     ensures  IsPublishable(t, tm.aead(key, nonce, msg, ad))
-    AeadCiphertextIsPublishable(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel, p perm)
+    AeadCiphertextIsPublishable(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel)
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure CanAeadDecrypt(t TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) bool
 
     ghost
-    requires acc(Pred(), _)
+    requires Props()
     pure WasAeadDecrypted(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires IsPublishable(t, key) && IsPublishable(t, nonce) && IsPublishable(t, ciphertext) && IsPublishable(t, ad)
-    ensures  acc(Pred(), p)
     ensures  CanAeadDecrypt(t, key, nonce, ciphertext, ad, keyL)
-    CanAeadDecryptWithPublishableKey(t TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel, p perm)
+    CanAeadDecryptWithPublishableKey(t TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel)
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires CanAeadDecrypt(t, key, nonce, tm.aead(key, nonce, msg, ad), ad, keyL)
-    ensures  acc(Pred(), p)
     ensures  WasAeadDecrypted(t, key, nonce, msg, ad, keyL)
-    AeadDecryptSatisfiesInvariant(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel, p perm)
+    AeadDecryptSatisfiesInvariant(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel)
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires IsPublishable(t, tm.aead(key, nonce, msg, ad)) && IsPublishable(t, key) && IsPublishable(t, nonce) && IsPublishable(t, ad)
-    ensures  acc(Pred(), p)
     ensures  IsPublishable(t, msg)
-    PlaintextIsPublishableForPublishableKey(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel, p perm)
+    PlaintextIsPublishableForPublishableKey(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel)
 
     ghost
     decreases
-    requires noPerm < p && p <= writePerm
-    requires acc(Pred(), p)
+    requires Props()
     requires IsLabeled(t, term, l)
     requires l.IsReaders()
     requires !containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
-    ensures  acc(Pred(), p)
     ensures  !IsPublishable(t, term)
-    PublishableRequiresCorruption(t TraceEntry, term tm.Term, l label.SecrecyLabel, p perm)
+    PublishableRequiresCorruption(t TraceEntry, term tm.Term, l label.SecrecyLabel)
 
     // TODO: reduce this interface to the bare minimum (I guess `IsPublishable` & `IsLabeled`) and instead offer
     // a `ApplyMonotonicity` method that can have arbitrary spec for each labeling implementation
@@ -268,7 +250,7 @@ type LabelingContext interface {
 
 // because Go & Gobra do not allow receivers of interface type, `ctx` becomes the first argument:
 pred validTrace(ctx TraceContext, t TraceEntry) {
-    ctx != nil && ctx.GetLabeling().Pred() &&
+    ctx != nil && ctx.GetLabeling().Props() &&
     // invariant holds recursively:
     (!t.isRoot() ==> validTrace(ctx, getPrev(t))) &&
 
@@ -282,29 +264,26 @@ pred validTrace(ctx TraceContext, t TraceEntry) {
 }
 
 ghost
-requires ctx != nil && acc(ctx.GetLabeling().Pred(), _)
+requires ctx != nil && ctx.GetLabeling().Props()
 requires t.isRoot()
 pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
     return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> ctx.GetLabeling().IsPublishable(t, publicTerm)
 }
 
 ghost
-requires ctx != nil && acc(ctx.GetLabeling().Pred(), _)
+requires ctx != nil && ctx.GetLabeling().Props()
 pure func messageInv(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, prev TraceEntry) bool {
     return ctx.GetLabeling().IsPublishable(prev, payload)
 }
 
 ghost
 decreases
-requires ctx != nil
-requires noPerm < p && p <= writePerm
+requires ctx != nil && ctx.GetLabeling().Props()
 requires t1.isSuffix(t2)
-requires acc(ctx.GetLabeling().Pred(), p)
 requires messageInv(ctx, sender, receiver, payload, t1)
-ensures  acc(ctx.GetLabeling().Pred(), p)
 ensures  messageInv(ctx, sender, receiver, payload, t2)
-func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, t1, t2 TraceEntry, p perm) {
-    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, payload, p)
+func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, t1, t2 TraceEntry) {
+    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, payload)
 }
 
 pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {
@@ -319,20 +298,16 @@ pure func pureRandInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) bool {
 }
 
 ghost
-requires ctx != nil
-requires acc(ctx.GetLabeling().Pred(), _)
+requires ctx != nil && ctx.GetLabeling().Props()
 pure func madePublicInv(ctx TraceContext, term tm.Term, prev TraceEntry) bool {
     return ctx.GetLabeling().IsPublishable(prev, term)
 }
 
 ghost
-requires ctx != nil
-requires noPerm < p && p <= writePerm
-requires acc(ctx.GetLabeling().Pred(), p)
+requires ctx != nil && ctx.GetLabeling().Props()
 requires t1.isSuffix(t2)
 requires madePublicInv(ctx, term, t1)
-ensures  acc(ctx.GetLabeling().Pred(), p)
 ensures  madePublicInv(ctx, term, t2)
-func madePublicInvTransitive(ctx TraceContext, term tm.Term, t1, t2 TraceEntry, p perm) {
-    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, term, p)
+func madePublicInvTransitive(ctx TraceContext, term tm.Term, t1, t2 TraceEntry) {
+    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, term)
 }
