@@ -11,44 +11,58 @@ import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 // inputs
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.tuple2(t1, t2), l)
-func (ctx DefaultLabelingContext) tuple2(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleCreate(t, tm.tuple2(t1, t2), l)
+func (ctx DefaultLabelingContext) tuple2(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleCreate(t, tm.tuple2(t1, t2), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
 requires ctx.IsMsg(t, t3, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.tuple3(t1, t2, t3), l)
-func (ctx DefaultLabelingContext) tuple3(t tr.TraceEntry, t1, t2, t3 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleCreate(t, tm.tuple3(t1, t2, t3), l)
+func (ctx DefaultLabelingContext) tuple3(t tr.TraceEntry, t1, t2, t3 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleCreate(t, tm.tuple3(t1, t2, t3), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
 requires ctx.IsMsg(t, t3, l)
 requires ctx.IsMsg(t, t4, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.tuple4(t1, t2, t3, t4), l)
-func (ctx DefaultLabelingContext) tuple4(t tr.TraceEntry, t1, t2, t3, t4 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleCreate(t, tm.tuple4(t1, t2, t3, t4), l)
+func (ctx DefaultLabelingContext) tuple4(t tr.TraceEntry, t1, t2, t3, t4 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleCreate(t, tm.tuple4(t1, t2, t3, t4), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
 requires ctx.IsMsg(t, t3, l)
 requires ctx.IsMsg(t, t4, l)
 requires ctx.IsMsg(t, t5, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.tuple5(t1, t2, t3, t4, t5), l)
-func (ctx DefaultLabelingContext) tuple5(t tr.TraceEntry, t1, t2, t3, t4, t5 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleCreate(t, tm.tuple5(t1, t2, t3, t4, t5), l)
+func (ctx DefaultLabelingContext) tuple5(t tr.TraceEntry, t1, t2, t3, t4, t5 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleCreate(t, tm.tuple5(t1, t2, t3, t4, t5), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
 requires ctx.IsMsg(t, t3, l)
@@ -56,67 +70,89 @@ requires ctx.IsMsg(t, t4, l)
 requires ctx.IsMsg(t, t5, l)
 requires ctx.IsMsg(t, t6, l)
 requires ctx.IsMsg(t, t7, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
-func (ctx DefaultLabelingContext) tuple7(t tr.TraceEntry, t1, t2, t3, t4, t5, t6, t7 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleCreate(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
+func (ctx DefaultLabelingContext) tuple7(t tr.TraceEntry, t1, t2, t3, t4, t5, t6, t7 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleCreate(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, input, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.hash(input), l)
-func (ctx DefaultLabelingContext) hash(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) hash(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, input, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.kdf1(input), l)
 ensures  ctx.IsMsg(t, tm.kdf2(input), l)
 ensures  ctx.IsMsg(t, tm.kdf3(input), l)
-func (ctx DefaultLabelingContext) kdf(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) kdf(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, input, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.createPk(input), l)
-func (ctx DefaultLabelingContext) createPk(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) createPk(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, pk, l)
 requires ctx.IsMsg(t, plaintext, l)
 // requires that pk and plaintext can be encrypted:
 requires ctx.IsValid(t, tm.encrypt(plaintext, pk))
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.encrypt(plaintext, pk), l)
-func (ctx DefaultLabelingContext) encrypt(t tr.TraceEntry, pk, plaintext tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) encrypt(t tr.TraceEntry, pk, plaintext tm.Term, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, key, l)
 requires ctx.IsMsg(t, nonce, l)
 requires ctx.IsMsg(t, plaintext, l)
 requires ctx.IsMsg(t, auth, l)
 // requires that key, nonce, plaintext, and auth can be encrypted:
 requires ctx.IsValid(t, tm.aead(key, nonce, plaintext, auth))
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.aead(key, nonce, plaintext, auth), l)
-func (ctx DefaultLabelingContext) aead(t tr.TraceEntry, key, nonce, plaintext, auth tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) aead(t tr.TraceEntry, key, nonce, plaintext, auth tm.Term, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.const1(), l)
-func (ctx DefaultLabelingContext) const1(t tr.TraceEntry, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) const1(t tr.TraceEntry, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.exp(t1, t2), l)
-func (ctx DefaultLabelingContext) exp(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) exp(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel, p perm) {
     if t1 == tm.generator() {
         if exists e1, e2 tm.Term :: t2 == tm.mult(e1, e2) {
             // get witness:
@@ -147,52 +183,76 @@ func (ctx DefaultLabelingContext) exp(t tr.TraceEntry, t1, t2 tm.Term, l label.S
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.mult(t1, t2), l)
-func (ctx DefaultLabelingContext) mult(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) mult(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel, p perm) {
     ctx.CanFlowCreateJoinLhs(t, ctx.GetLabel(t1), ctx.GetLabel(t2), l)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.stringTerm(s), l)
-func (ctx DefaultLabelingContext) stringTerm(t tr.TraceEntry, s string, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) stringTerm(t tr.TraceEntry, s string, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.zeroString(n), l)
-func (ctx DefaultLabelingContext) zeroString(t tr.TraceEntry, n int, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) zeroString(t tr.TraceEntry, n int, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.integer64(n), l)
-func (ctx DefaultLabelingContext) integer64(t tr.TraceEntry, n uint64, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) integer64(t tr.TraceEntry, n uint64, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.integer32(n), l)
-func (ctx DefaultLabelingContext) integer32(t tr.TraceEntry, n uint32, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) integer32(t tr.TraceEntry, n uint32, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.infoTerm(), l)
-func (ctx DefaultLabelingContext) infoTerm(t tr.TraceEntry, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) infoTerm(t tr.TraceEntry, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.prologueTerm(), l)
-func (ctx DefaultLabelingContext) prologueTerm(t tr.TraceEntry, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) prologueTerm(t tr.TraceEntry, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, tm.generator(), l)
-func (ctx DefaultLabelingContext) generator(t tr.TraceEntry, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) generator(t tr.TraceEntry, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
@@ -202,45 +262,60 @@ func (ctx DefaultLabelingContext) generator(t tr.TraceEntry, l label.SecrecyLabe
 // an implementation. For example, we do not show label preservation for deconstructing
 // a hash since such a method does not exist in practice.
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, tm.tuple2(t1, t2), l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, t1, l)
 ensures  ctx.IsMsg(t, t2, l)
-func (ctx DefaultLabelingContext) untuple2(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleResolve(t, tm.tuple2(t1, t2), l)
+func (ctx DefaultLabelingContext) untuple2(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleResolve(t, tm.tuple2(t1, t2), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, tm.tuple3(t1, t2, t3), l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, t1, l)
 ensures  ctx.IsMsg(t, t2, l)
 ensures  ctx.IsMsg(t, t3, l)
-func (ctx DefaultLabelingContext) untuple3(t tr.TraceEntry, t1, t2, t3 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleResolve(t, tm.tuple3(t1, t2, t3), l)
+func (ctx DefaultLabelingContext) untuple3(t tr.TraceEntry, t1, t2, t3 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleResolve(t, tm.tuple3(t1, t2, t3), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, tm.tuple4(t1, t2, t3, t4), l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, t1, l)
 ensures  ctx.IsMsg(t, t2, l)
 ensures  ctx.IsMsg(t, t3, l)
 ensures  ctx.IsMsg(t, t4, l)
-func (ctx DefaultLabelingContext) untuple4(t tr.TraceEntry, t1, t2, t3, t4 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleResolve(t, tm.tuple4(t1, t2, t3, t4), l)
+func (ctx DefaultLabelingContext) untuple4(t tr.TraceEntry, t1, t2, t3, t4 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleResolve(t, tm.tuple4(t1, t2, t3, t4), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, tm.tuple5(t1, t2, t3, t4, t5), l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, t1, l)
 ensures  ctx.IsMsg(t, t2, l)
 ensures  ctx.IsMsg(t, t3, l)
 ensures  ctx.IsMsg(t, t4, l)
 ensures  ctx.IsMsg(t, t5, l)
-func (ctx DefaultLabelingContext) untuple5(t tr.TraceEntry, t1, t2, t3, t4, t5 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleResolve(t, tm.tuple5(t1, t2, t3, t4, t5), l)
+func (ctx DefaultLabelingContext) untuple5(t tr.TraceEntry, t1, t2, t3, t4, t5 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleResolve(t, tm.tuple5(t1, t2, t3, t4, t5), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, t1, l)
 ensures  ctx.IsMsg(t, t2, l)
 ensures  ctx.IsMsg(t, t3, l)
@@ -248,15 +323,18 @@ ensures  ctx.IsMsg(t, t4, l)
 ensures  ctx.IsMsg(t, t5, l)
 ensures  ctx.IsMsg(t, t6, l)
 ensures  ctx.IsMsg(t, t7, l)
-func (ctx DefaultLabelingContext) untuple7(t tr.TraceEntry, t1, t2, t3, t4, t5, t6, t7 tm.Term, l label.SecrecyLabel) {
-    ctx.IsMsgTupleResolve(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
+func (ctx DefaultLabelingContext) untuple7(t tr.TraceEntry, t1, t2, t3, t4, t5, t6, t7 tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsMsgTupleResolve(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l, p)
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, tm.encrypt(plaintext, tm.createPk(sk)), l)
 requires ctx.IsMsg(t, sk, l) // knowing the secret key is a requirement for decryption
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, plaintext, l)
-func (ctx DefaultLabelingContext) decrypt(t tr.TraceEntry, plaintext, sk tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) decrypt(t tr.TraceEntry, plaintext, sk tm.Term, l label.SecrecyLabel, p perm) {
     pk := tm.createPk(sk)
 	plaintextLabel := ctx.GetLabel(plaintext)
 	skLabel := ctx.GetLabel(sk)
@@ -266,12 +344,15 @@ func (ctx DefaultLabelingContext) decrypt(t tr.TraceEntry, plaintext, sk tm.Term
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, tm.aead(key, nonce, plaintext, ad), l)
 requires ctx.IsMsg(t, key, l) // knowing the key is a requirement for decryption
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, nonce, l)
 ensures  ctx.IsMsg(t, plaintext, l)
 ensures  ctx.IsMsg(t, ad, l)
-func (ctx DefaultLabelingContext) AeadDecrypt(t tr.TraceEntry, key, nonce, plaintext, ad tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) AeadDecrypt(t tr.TraceEntry, key, nonce, plaintext, ad tm.Term, l label.SecrecyLabel, p perm) {
     keyL := ctx.GetLabel(key)
     plaintextL := ctx.GetLabel(plaintext)
 	assert ctx.IsValidAead(t, key, nonce, plaintext, plaintextL, ad)

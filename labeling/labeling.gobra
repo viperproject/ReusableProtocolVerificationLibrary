@@ -3,7 +3,7 @@ package labeling
 import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
 import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
 import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import . "github.com/ModularVerification/ReusableVerificationLibrary/principal"
 import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
@@ -11,7 +11,7 @@ import . "github.com/ModularVerification/ReusableVerificationLibrary/usagecontex
 
 
 /** alias */
-type IdSet = set[p.Id]
+type IdSet = set[Id]
 
 /** interface to collect all lemmas for convenience */
 type CanFlowLemmas_DYStar interface {
@@ -112,12 +112,17 @@ type DefaultLabelingContext struct {
 DefaultLabelingContext implements tr.LabelingContext
 DefaultLabelingContext implements CanFlowLemmas_DYStar
 
+pred (ctx DefaultLabelingContext) Pred() {
+    ctx.usage != nil
+}
+
 // TODO make ghost
 pure func GetDefaultLabelingContext(usage UsageContext) (res DefaultLabelingContext) {
     return DefaultLabelingContext{ usage }
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bool {
     return (term.IsInteger64() ==> true) &&
         (term.IsInteger32() ==> true) &&
@@ -141,6 +146,7 @@ pure func (ctx DefaultLabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bo
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 requires ctx.GetLabel(plaintext) == plaintextLabel
 pure func (ctx DefaultLabelingContext) IsValidEncrypt(t tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel) bool {
     return ctx.IsValid(t, pk) &&
@@ -154,10 +160,12 @@ pure func (ctx DefaultLabelingContext) IsValidEncrypt(t tr.TraceEntry, pk, plain
             (
                 pk.IsPk() &&
                 ctx.IsPkeKey(tm.getSk(pk)) &&
-                ctx.usage.PkePred(t, u.GetUsageString(get(ctx.GetUsage(tm.getSk(pk)))), plaintext, pk)))
+                unfolding acc(ctx.Pred(), _) in
+                    ctx.usage.PkePred(t, u.GetUsageString(get(ctx.GetUsage(tm.getSk(pk)))), plaintext, pk)))
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 requires ctx.GetLabel(plaintext) == plaintextLabel
 pure func (ctx DefaultLabelingContext) IsValidAead(t tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term) bool {
     return ctx.IsValid(t, key) &&
@@ -174,81 +182,95 @@ pure func (ctx DefaultLabelingContext) IsValidAead(t tr.TraceEntry, key, nonce, 
             // ... or message can flow to key's label and AeadPred holds
             (ctx.CanFlow(t, plaintextLabel, ctx.GetLabel(key)) &&
                 ctx.HasAeadKeyUsage(key) &&
-                ctx.usage.AeadPred(t, u.GetUsageString(get(ctx.GetUsage(key))), key, nonce, plaintext, authtext)))
+                unfolding acc(ctx.Pred(), _) in
+                    ctx.usage.AeadPred(t, u.GetUsageString(get(ctx.GetUsage(key))), key, nonce, plaintext, authtext)))
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) IsAeadKey(t tr.TraceEntry, key tm.Term, keyL label.SecrecyLabel, usageString string) bool {
     return ctx.IsSecretRelaxed(t, key, keyL, u.AeadKey(usageString))
 }
 
 ghost
 decreases _ // TODO decreases because we apply an term ADT constructor in each recursive call
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsValid(t1, term)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsValid(t2, term)
-func (ctx DefaultLabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term) {
+func (ctx DefaultLabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term, p perm) {
     if (term.IsRandom()) {
         t1.OnlyNonceOccursMonotonic(t2, term)
     } else if (term.IsPk()) {
-        ctx.IsValidMonotonic(t1, t2, tm.getSk(term))
+        ctx.IsValidMonotonic(t1, t2, tm.getSk(term), p / 2)
     } else if (term.IsEncrypt()) {
         pk := tm.getPk(term)
         plaintext := tm.getPlaintext(term)
-        ctx.IsValidEncryptMonotonic(t1, t2, pk, plaintext, ctx.GetLabel(plaintext))
+        ctx.IsValidEncryptMonotonic(t1, t2, pk, plaintext, ctx.GetLabel(plaintext), p / 2)
     } else if term.IsAead() {
         key := tm.getAeadKey(term)
         nonce := tm.getAeadNonce(term)
         plaintext := tm.getPlaintext(term)
         authtext := tm.getAuthtext(term)
-        ctx.IsValidAeadMonotonic(t1, t2, key, nonce, plaintext, ctx.GetLabel(plaintext), authtext)
+        ctx.IsValidAeadMonotonic(t1, t2, key, nonce, plaintext, ctx.GetLabel(plaintext), authtext, p / 2)
     } else if term.IsExp() {
         assert exists base, e tm.Term :: { tm.exp(base, e) } term == tm.exp(base, e) && ctx.IsValid(t1, base) && ctx.IsValid(t1, e)
         base, e := arb.GetArbTerm(), arb.GetArbTerm()
         assume term == tm.exp(base, e) && ctx.IsValid(t1, base) && ctx.IsValid(t1, e)
-        ctx.IsValidMonotonic(t1, t2, base)
-        ctx.IsValidMonotonic(t1, t2, e)
+        ctx.IsValidMonotonic(t1, t2, base, p / 2)
+        ctx.IsValidMonotonic(t1, t2, e, p / 2)
     } else if (term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) {
-        ctx.IsValidMonotonic(t1, t2, tm.getInput(term))
+        ctx.IsValidMonotonic(t1, t2, tm.getInput(term), p / 2)
     } else if term.IsTuple() {
         invariant 0 <= i && i <= term.GetTupleArity()
+        invariant acc(ctx.Pred(), p / 2)
         invariant forall j int :: { tm.getTupleElem(term, j) } 0 <= j && j < term.GetTupleArity() ==> ctx.IsValid(t1, tm.getTupleElem(term, j))
         invariant forall j int :: { tm.getTupleElem(term, j) } 0 <= j && j < i ==> ctx.IsValid(t2, tm.getTupleElem(term, j))
         for i := 0; i < term.GetTupleArity(); i++ {
-            ctx.IsValidMonotonic(t1, t2, tm.getTupleElem(term, i))
+            ctx.IsValidMonotonic(t1, t2, tm.getTupleElem(term, i), p / 2)
         }
     }
 }
 
 ghost
 decreases _ // TODO decreases because we apply an term ADT constructor in each recursive call
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.GetLabel(plaintext) == plaintextLabel
 requires ctx.IsValidEncrypt(t1, pk, plaintext, plaintextLabel)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsValidEncrypt(t2, pk, plaintext, plaintextLabel)
-func (ctx DefaultLabelingContext) IsValidEncryptMonotonic(t1, t2 tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel) {
-    ctx.IsValidMonotonic(t1, t2, pk)
-    ctx.IsValidMonotonic(t1, t2, plaintext)
+func (ctx DefaultLabelingContext) IsValidEncryptMonotonic(t1, t2 tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel, p perm) {
+    ctx.IsValidMonotonic(t1, t2, pk, p / 2)
+    ctx.IsValidMonotonic(t1, t2, plaintext, p / 2)
     skLabel := ctx.GetSkLabel(pk)
     ctx.CanFlowMonotonic(t1, t2, plaintextLabel, skLabel)
     if (ctx.CanFlow(t1, plaintextLabel, label.Public())) {
         ctx.CanFlowMonotonic(t1, t2, plaintextLabel, label.Public())
     } else {
+        unfold acc(ctx.Pred(), p / 2)
         ctx.usage.PkePredMonotonic(t1, t2, u.GetUsageString(get(ctx.GetUsage(tm.getSk(pk)))), plaintext, pk)
+        fold acc(ctx.Pred(), p / 2)
     }
 }
 
 ghost
 decreases _ // TODO decreases because we apply an term ADT constructor in each recursive call
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.GetLabel(plaintext) == plaintextLabel
 requires ctx.IsValidAead(t1, key, nonce, plaintext, plaintextLabel, authtext)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsValidAead(t2, key, nonce, plaintext, plaintextLabel, authtext)
-func (ctx DefaultLabelingContext) IsValidAeadMonotonic(t1, t2 tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term) {
-    ctx.IsValidMonotonic(t1, t2, key)
-    ctx.IsValidMonotonic(t1, t2, nonce)
-    ctx.IsValidMonotonic(t1, t2, plaintext)
-    ctx.IsValidMonotonic(t1, t2, authtext)
+func (ctx DefaultLabelingContext) IsValidAeadMonotonic(t1, t2 tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term, p perm) {
+    ctx.IsValidMonotonic(t1, t2, key, p / 2)
+    ctx.IsValidMonotonic(t1, t2, nonce, p / 2)
+    ctx.IsValidMonotonic(t1, t2, plaintext, p / 2)
+    ctx.IsValidMonotonic(t1, t2, authtext, p / 2)
     ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(nonce), label.Public())
     ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(authtext), label.Public())
     if (ctx.CanFlow(t1, ctx.GetLabel(key), label.Public()) &&
@@ -257,11 +279,15 @@ func (ctx DefaultLabelingContext) IsValidAeadMonotonic(t1, t2 tr.TraceEntry, key
         ctx.CanFlowMonotonic(t1, t2, plaintextLabel, label.Public())
     } else {
         ctx.CanFlowMonotonic(t1, t2, plaintextLabel, ctx.GetLabel(key))
-        ctx.usage.AeadPredMonotonic(t1, t2, u.GetUsageString(get(ctx.GetUsage(key))), key, nonce, plaintext, authtext)
+        usageCtx := ctx.GetUsage(key)
+        unfold acc(ctx.Pred(), p / 2)
+        ctx.usage.AeadPredMonotonic(t1, t2, u.GetUsageString(get(usageCtx)), key, nonce, plaintext, authtext)
+        fold acc(ctx.Pred(), p / 2)
     }
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 /** expresses that a term is valid and that its label is `l` */
 pure func (ctx DefaultLabelingContext) IsLabeled(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
     return ctx.IsValid(t, term) &&
@@ -269,6 +295,7 @@ pure func (ctx DefaultLabelingContext) IsLabeled(t tr.TraceEntry, term tm.Term, 
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 /** expresses that a term is valid and that `l` flows to its label */
 pure func (ctx DefaultLabelingContext) IsLabeledRelaxed(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
     return ctx.IsValid(t, term) &&
@@ -276,6 +303,7 @@ pure func (ctx DefaultLabelingContext) IsLabeledRelaxed(t tr.TraceEntry, term tm
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 /** expresses that a term is valid and that `l` flows to its label and back */
 pure func (ctx DefaultLabelingContext) IsLabeledPrecise(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
     return ctx.IsValid(t, term) &&
@@ -285,47 +313,59 @@ pure func (ctx DefaultLabelingContext) IsLabeledPrecise(t tr.TraceEntry, term tm
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsLabeled(t1, term, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsLabeled(t2, term, l)
-func (ctx DefaultLabelingContext) IsLabeledMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
-    ctx.IsValidMonotonic(t1, t2, term)
+func (ctx DefaultLabelingContext) IsLabeledMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsValidMonotonic(t1, t2, term, p)
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsLabeledRelaxed(t1, term, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsLabeledRelaxed(t2, term, l)
-func (ctx DefaultLabelingContext) IsLabeledRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
-    ctx.IsValidMonotonic(t1, t2, term)
+func (ctx DefaultLabelingContext) IsLabeledRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsValidMonotonic(t1, t2, term, p)
     ctx.CanFlowMonotonic(t1, t2, l, ctx.GetLabel(term))
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsLabeledPrecise(t1, term, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsLabeledPrecise(t2, term, l)
-func (ctx DefaultLabelingContext) IsLabeledPreciseMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
-    ctx.IsValidMonotonic(t1, t2, term)
+func (ctx DefaultLabelingContext) IsLabeledPreciseMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsValidMonotonic(t1, t2, term, p)
     ctx.CanFlowMonotonic(t1, t2, l, ctx.GetLabel(term))
     ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(term), l)
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) IsSecret(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
     return ctx.IsLabeled(t, term, l) &&
         ctx.GetUsage(term) == some(usage)
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) IsSecretRelaxed(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
     return ctx.IsLabeledRelaxed(t, term, l) &&
         ctx.GetUsage(term) == some(usage)
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) IsSecretPrecise(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
     return ctx.IsLabeledPrecise(t, term, l) &&
         ctx.GetUsage(term) == some(usage)
@@ -333,24 +373,31 @@ pure func (ctx DefaultLabelingContext) IsSecretPrecise(t tr.TraceEntry, term tm.
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsSecret(t1, term, l, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsSecret(t2, term, l, usage)
-func (ctx DefaultLabelingContext) IsSecretMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
-    ctx.IsLabeledMonotonic(t1, t2, term, l)
+func (ctx DefaultLabelingContext) IsSecretMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage, p perm) {
+    ctx.IsLabeledMonotonic(t1, t2, term, l, p)
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsSecretRelaxed(t1, term, l, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsSecretRelaxed(t2, term, l, usage)
-func (ctx DefaultLabelingContext) IsSecretRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
-    ctx.IsLabeledRelaxedMonotonic(t1, t2, term, l)
+func (ctx DefaultLabelingContext) IsSecretRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage, p perm) {
+    ctx.IsLabeledRelaxedMonotonic(t1, t2, term, l, p)
 }
 
 ghost
 decreases _ // TODO over ADT structure of SecrecyLabel
+// we do not take any permission to `ctx.Pred()` since `GetLabel` does not depend on the UsageContext
 ensures term.IsInteger64() ==> res == label.Public()
 ensures term.IsInteger32() ==> res == label.Public()
 ensures term.IsConst1() ==> res == label.Public()
@@ -413,23 +460,27 @@ pure func (ctx DefaultLabelingContext) nestedMeet(terms seq[tm.Term], startIdx i
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) GetUsage(t tm.Term) option[u.Usage] {
-    return ctx.usage.GetUsage(t)
+    return unfolding acc(ctx.Pred(), _) in ctx.usage.GetUsage(t)
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 /** wrapper to get and check usage of a term for convenience */
 pure func (ctx DefaultLabelingContext) IsPkeKey(sk tm.Term) bool {
     return (ctx.GetUsage(sk) != none[u.Usage]) && (get(ctx.GetUsage(sk))).IsPkeKey()
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 /** wrapper to get and check usage of a term for convenience */
 pure func (ctx DefaultLabelingContext) HasAeadKeyUsage(key tm.Term) bool {
     return (ctx.GetUsage(key) != none[u.Usage]) && (get(ctx.GetUsage(key))).IsAeadKey()
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) IsMsg(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
     return ctx.IsValid(t, term) &&
         ctx.CanFlow(t, ctx.GetLabel(term), l)
@@ -437,30 +488,39 @@ pure func (ctx DefaultLabelingContext) IsMsg(t tr.TraceEntry, term tm.Term, l la
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsMsg(t1, term, l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t2, term, l)
-func (ctx DefaultLabelingContext) IsMsgMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
-    ctx.IsValidMonotonic(t1, t2, term)
+func (ctx DefaultLabelingContext) IsMsgMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
+    ctx.IsValidMonotonic(t1, t2, term, p)
     ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(term), l)
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.CanFlow(t, l1, l2)
 requires ctx.IsMsg(t, term, l1)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, term, l2)
-func (ctx DefaultLabelingContext) IsMsgTransitive(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) IsMsgTransitive(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel, p perm) {
     ctx.CanFlowTransitive(t, ctx.GetLabel(term), l1, l2)
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires term.IsTuple()
 requires forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsMsg(t, tm.getTupleElem(term, i), l)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, term, l)
 /** lemma for tuples having same label */
-func (ctx DefaultLabelingContext) IsMsgTupleCreate(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) IsMsgTupleCreate(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
     n := term.GetTupleArity()
     terms := getTupleSeq(term)
     secondToLastT := terms[n-2]
@@ -489,15 +549,19 @@ func (ctx DefaultLabelingContext) IsMsgTupleCreate(t tr.TraceEntry, term tm.Term
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires term.IsTuple()
 requires ctx.IsMsg(t, term, l)
+ensures  acc(ctx.Pred(), p)
 ensures  forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsMsg(t, tm.getTupleElem(term, i), l)
 /** lemma for tuples flowing to some label */
-func (ctx DefaultLabelingContext) IsMsgTupleResolve(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) IsMsgTupleResolve(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
     n := term.GetTupleArity()
     terms := getTupleSeq(term)
 
     invariant 0 <= i && i <= n - 2
+    invariant acc(ctx.Pred(), p / 2)
     invariant len(getTupleSeq(term)) == n
     invariant ctx.CanFlow(t, ctx.nestedMeet(terms, i), l)
     invariant forall j int :: { tm.getTupleElem(term, j) } 0 <= j && j < i ==> ctx.IsMsg(t, tm.getTupleElem(term, j), l)
@@ -529,7 +593,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, l1, l3)
 requires ctx.canFlowInternal(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal(corruptIds, label.Meet(l1, l2), l3)
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetLhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalCreateMeetLhs(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l3)
     ctx.canFlowInternalImpliesDYStar(corruptIds, l2, l3)
     ctx.canFlowInternalCreateMeetLhs_DYStar(corruptIds, l1, l2, l3)
@@ -541,7 +605,7 @@ decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 requires ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalCreateMeetLhs_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     // no body needed
 }
 
@@ -559,7 +623,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, label.Meet(l1, l2), l3)
 ensures  ctx.canFlowInternal(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal(corruptIds, l2, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetLhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetLhs(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, label.Meet(l1, l2), l3)
     ctx.canFlowInternalResolveMeetLhs_DYStar(corruptIds, l1, l2, l3)
     ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l1, l3)
@@ -571,7 +635,7 @@ decreases _ // TODO termination via SecurityLabel deconstructors
 requires ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetLhs_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     if (l3.IsMeet() || l3.IsJoin()) {
         if (ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), label.GetFirstLabel(l3))) {
             ctx.canFlowInternalResolveMeetLhs_DYStar(corruptIds, l1, l2, label.GetFirstLabel(l3))
@@ -594,7 +658,7 @@ ghost
 decreases
 requires ctx.canFlowInternal(corruptIds, l1, l2) || ctx.canFlowInternal(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal(corruptIds, l1, label.Meet(l2, l3))
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalCreateMeetRhs(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l1, l2) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
     }
@@ -609,7 +673,7 @@ ghost
 decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2) || ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalCreateMeetRhs_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     // no body needed
 }
 
@@ -625,7 +689,7 @@ ghost
 requires ctx.canFlowInternal(corruptIds, l1, l2)
 requires ctx.canFlowInternal(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth(corruptIds set[p.Id], l1, l2, l3, l4 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth(corruptIds set[Id], l1, l2, l3, l4 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
     ctx.canFlowInternalImpliesDYStar(corruptIds, l3, l4)
     ctx.canFlowInternalCreateMeetBoth_DYStar(corruptIds, l1, l2, l3, l4)
@@ -636,7 +700,7 @@ ghost
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 requires ctx.canFlowInternal_DYStar(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth_DYStar(corruptIds set[p.Id], l1, l2, l3, l4 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth_DYStar(corruptIds set[Id], l1, l2, l3, l4 label.SecrecyLabel) {
     ctx.canFlowInternalCreateMeetRhs_DYStar(corruptIds, l1, l2, l4)
     ctx.canFlowInternalCreateMeetRhs_DYStar(corruptIds, l3, l2, l4)
 }
@@ -683,7 +747,7 @@ decreases _ // TODO termination via SecurityLabel deconstructors
 requires ctx.canFlowInternal(corruptIds, l1, label.Meet(l2, l3))
 requires ctx.canFlowInternal(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Meet(l2, l3))
     ctx.canFlowInternalImpliesDYStar(corruptIds, l2, l3)
     ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, l1, l2, l3)
@@ -695,7 +759,7 @@ decreases _ // TODO termination via SecurityLabel deconstructors
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
 requires ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     if ctx.canFlowInternal_DYStar(corruptIds, l1, l2) {
         ctx.canFlowInternalTransitive_DYStar(corruptIds, l1, l2, l3)
     }
@@ -739,7 +803,7 @@ ghost
 decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l3) || ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Join(l1, l2), l3)
-func (ctx DefaultLabelingContext) canFlowInternalCreateJoinLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalCreateJoinLhs_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     // no body needed
 }
 
@@ -751,7 +815,7 @@ ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 //    (ctx.canFlowInternal_DYStar(corruptIds, l1, l3) ||
 //     ctx.canFlowInternal_DYStar(corruptIds, l2, l3))
 // the lhs is weaker because it permits that l1 flows to l31 and l2 to l32 (if l3 == Meet(l31, l32))
-func (ctx DefaultLabelingContext) canFlowInternalResolveJoinLhs_DYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveJoinLhs_DYStar(corruptIds set[Id], l1, l2 label.SecrecyLabel) {
     if (l2.IsMeet()) {
         if (ctx.canFlowInternal_DYStar(corruptIds, label.Join(l1, l1), label.GetFirstLabel(l2))) {
             ctx.canFlowInternalResolveJoinLhs_DYStar(corruptIds, l1, label.GetFirstLabel(l2))
@@ -770,7 +834,7 @@ ghost
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, label.Join(l2, l3))
-func (ctx DefaultLabelingContext) canFlowInternalCreateJoinRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalCreateJoinRhs_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     // no body needed
 }
 
@@ -788,7 +852,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, l1, label.Join(l2, l3))
 ensures  ctx.canFlowInternal(corruptIds, l1, l2)
 ensures  ctx.canFlowInternal(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveJoinRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveJoinRhs(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Join(l2, l3))
     ctx.canFlowInternalResolveJoinRhs_DYStar(corruptIds, l1, l2, l3)
     ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l1, l2)
@@ -800,7 +864,7 @@ decreases _ // TODO termination via SecurityLabel deconstructors
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, label.Join(l2, l3))
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveJoinRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveJoinRhs_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     if (l1.IsMeet() || l1.IsJoin()) {
         if (ctx.canFlowInternal_DYStar(corruptIds, label.GetFirstLabel(l1), label.Join(l2, l3))) {
             ctx.canFlowInternalResolveJoinRhs_DYStar(corruptIds, label.GetFirstLabel(l1), l2, l3)
@@ -829,7 +893,7 @@ requires  l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l2, label.Public()
 requires !l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l3, label.Public())
 ensures   l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l1, l3)
 ensures  !l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Meet(l2, l3))
     if l2FlowsToPublic {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l2, label.Public())
@@ -851,7 +915,7 @@ requires  l2FlowsToPublic ==> ctx.canFlowInternal_DYStar(corruptIds, l2, label.P
 requires !l2FlowsToPublic ==> ctx.canFlowInternal_DYStar(corruptIds, l3, label.Public())
 ensures   l2FlowsToPublic ==> ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 ensures  !l2FlowsToPublic ==> ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
+func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
     if (ctx.canFlowInternal_DYStar(corruptIds, l1, label.Public())) {
         ctx.flowsToPublicCanFlowInternal_DYStar(corruptIds, l1, l2)
         ctx.flowsToPublicCanFlowInternal_DYStar(corruptIds, l1, l3)
@@ -878,17 +942,21 @@ func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs_DYStar(cor
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) IsPublishable(t tr.TraceEntry, term tm.Term) bool {
     return ctx.IsMsg(t, term, label.Public())
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsPublishable(t1, term)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublishable(t2, term)
-func (ctx DefaultLabelingContext) IsPublishableMonotonic(t1, t2 tr.TraceEntry, term tm.Term) {
-    ctx.IsMsgMonotonic(t1, t2, term, label.Public())
+func (ctx DefaultLabelingContext) IsPublishableMonotonic(t1, t2 tr.TraceEntry, term tm.Term, p perm) {
+    ctx.IsMsgMonotonic(t1, t2, term, label.Public(), p)
 }
 
 ghost
@@ -898,7 +966,7 @@ pure func (ctx DefaultLabelingContext) CanFlow(t tr.TraceEntry, l1, l2 label.Sec
 
 ghost
 /** this is the canFlowInternal function that we use throughout */
-pure func (ctx DefaultLabelingContext) canFlowInternal(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) bool {
+pure func (ctx DefaultLabelingContext) canFlowInternal(corruptIds set[Id], l1, l2 label.SecrecyLabel) bool {
     // public can flow to anything
     return l1.IsPublic() ? true :
         ////////// begin special cases //////////
@@ -942,7 +1010,7 @@ ghost
   * this is the orginal `can_flow` function used by DY*.
   * we show below that `canFlowInternal` and `canFlowInternal_DYStar` are equivalent.
   */
-pure func (ctx DefaultLabelingContext) canFlowInternal_DYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) bool {
+pure func (ctx DefaultLabelingContext) canFlowInternal_DYStar(corruptIds set[Id], l1, l2 label.SecrecyLabel) bool {
     // public can flow to anything
     return (l1.IsPublic() ==> true) &&
         // label with a corrupted reader flows to public
@@ -968,7 +1036,7 @@ ghost
 decreases _ // TODO termination via label ADT
 requires ctx.canFlowInternal(corruptIds, l1, l2)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalImpliesDYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalImpliesDYStar(corruptIds set[Id], l1, l2 label.SecrecyLabel) {
     if (l1.IsMeet() || l1.IsJoin()) && label.GetFirstLabel(l1) == label.GetSecondLabel(l1) {
         // special case 1
         l11 := label.GetFirstLabel(l1)
@@ -1033,7 +1101,7 @@ ghost
 decreases _ // TODO termination via label ADT
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 ensures  ctx.canFlowInternal(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalIsImpliesByDYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalIsImpliesByDYStar(corruptIds set[Id], l1, l2 label.SecrecyLabel) {
     if (l1.IsMeet() || l1.IsJoin()) && label.GetFirstLabel(l1) == label.GetSecondLabel(l1) {
         // special case 1
         l11 := label.GetFirstLabel(l1)
@@ -1101,7 +1169,7 @@ func (ctx DefaultLabelingContext) CanFlowReflexive(t tr.TraceEntry, l label.Secr
 ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
 ensures  ctx.canFlowInternal(corruptIds, l, l)
-func (ctx DefaultLabelingContext) canFlowInternalReflexive(corruptIds set[p.Id], l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalReflexive(corruptIds set[Id], l label.SecrecyLabel) {
     ctx.canFlowInternalReflexive_DYStar(corruptIds, l)
     ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l, l)
 }
@@ -1109,7 +1177,7 @@ func (ctx DefaultLabelingContext) canFlowInternalReflexive(corruptIds set[p.Id],
 ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l, l)
-func (ctx DefaultLabelingContext) canFlowInternalReflexive_DYStar(corruptIds set[p.Id], l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalReflexive_DYStar(corruptIds set[Id], l label.SecrecyLabel) {
     if l.IsReaders() {
         ctx.includesIdsReflexive(label.GetReaders(l))
     } else if (l.IsJoin()) {
@@ -1144,7 +1212,7 @@ func (ctx DefaultLabelingContext) CanFlowTransitive(t tr.TraceEntry, l1, l2, l3 
 ghost
 decreases
 ensures (ctx.canFlowInternal(corruptIds, l1, l2) && ctx.canFlowInternal(corruptIds, l2, l3)) ==> ctx.canFlowInternal(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalTransitive(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalTransitive(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l1, l2) && ctx.canFlowInternal(corruptIds, l2, l3) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
         ctx.canFlowInternalImpliesDYStar(corruptIds, l2, l3)
@@ -1156,7 +1224,7 @@ func (ctx DefaultLabelingContext) canFlowInternalTransitive(corruptIds set[p.Id]
 ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
 ensures (ctx.canFlowInternal_DYStar(corruptIds, l1, l2) && ctx.canFlowInternal_DYStar(corruptIds, l2, l3)) ==> ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalTransitive_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowInternalTransitive_DYStar(corruptIds set[Id], l1, l2, l3 label.SecrecyLabel) {
     if (l1.IsPublic()) {
         // no body needed
         return
@@ -1214,7 +1282,7 @@ func (ctx DefaultLabelingContext) FlowsToPublicCanFlow(t tr.TraceEntry, l1, l2 l
 ghost
 decreases _ // TODO why can't we show termination here?
 ensures  ctx.canFlowInternal(corruptIds, l1, label.Public()) ==> ctx.canFlowInternal(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal(corruptIds set[Id], l1, l2 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l1, label.Public()) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Public())
         ctx.flowsToPublicCanFlowInternal_DYStar(corruptIds, l1, l2)
@@ -1225,7 +1293,7 @@ func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal(corruptIds set[p.
 ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, label.Public()) ==> ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal_DYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal_DYStar(corruptIds set[Id], l1, l2 label.SecrecyLabel) {
     if (l1.IsJoin() || l1.IsMeet()) {
         l11 := label.GetFirstLabel(l1)
         l12 := label.GetSecondLabel(l1)
@@ -1243,7 +1311,7 @@ func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal_DYStar(corruptIds
 ghost
 decreases
 ensures  (ctx.canFlowInternal(corruptIds, l2, label.Public()) && ctx.canFlowInternal(corruptIds, l1, l2)) ==> ctx.canFlowInternal(corruptIds, l1, label.Public())
-func (ctx DefaultLabelingContext) canFlowFlowsToPublic(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowFlowsToPublic(corruptIds set[Id], l1, l2 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l2, label.Public()) && ctx.canFlowInternal(corruptIds, l1, l2) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l2, label.Public())
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
@@ -1255,7 +1323,7 @@ func (ctx DefaultLabelingContext) canFlowFlowsToPublic(corruptIds set[p.Id], l1,
 ghost
 decreases _ // TODO termination via SecurityLabel deconstructors
 ensures  (ctx.canFlowInternal_DYStar(corruptIds, l2, label.Public()) && ctx.canFlowInternal_DYStar(corruptIds, l1, l2)) ==> ctx.canFlowInternal_DYStar(corruptIds, l1, label.Public())
-func (ctx DefaultLabelingContext) canFlowFlowsToPublic_DYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) canFlowFlowsToPublic_DYStar(corruptIds set[Id], l1, l2 label.SecrecyLabel) {
     if l1.IsReaders() && l2.IsReaders() &&
         ctx.canFlowInternal_DYStar(corruptIds, l2, label.Public()) &&
         ctx.canFlowInternal_DYStar(corruptIds, l1, l2) &&
@@ -1338,10 +1406,10 @@ func (ctx DefaultLabelingContext) CanFlowMonotonicInternal(t1, t2 tr.TraceEntry,
 
 ghost
 decreases
-requires ctx.CanFlow(t, label.Readers(set[p.Id]{ id }), label.Public())
+requires ctx.CanFlow(t, label.Readers(set[Id]{ id }), label.Public())
 ensures  corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
-func (ctx DefaultLabelingContext) CanFlowToPublicImpliesCorruption(t tr.TraceEntry, id p.Id) (corruptedId p.Id) {
-    assert exists corruptedId p.Id :: corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
+func (ctx DefaultLabelingContext) CanFlowToPublicImpliesCorruption(t tr.TraceEntry, id Id) (corruptedId Id) {
+    assert exists corruptedId Id :: corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
     // get witness
     corruptedId := arb.GetArbId()
     assume corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
@@ -1352,8 +1420,8 @@ decreases
 requires ids1 subset ids2 || includesIds(ids2, ids1)
 requires tr.containsCorruptId(corruptIds, ids1)
 ensures  tr.containsCorruptId(corruptIds, ids2)
-func (ctx DefaultLabelingContext) containsCorruptIdMonotonic(corruptIds, ids1, ids2 set[p.Id]) {
-    assert exists corruptedId p.Id :: { tr.containsId(ids1, corruptedId) } corruptedId in corruptIds && tr.containsId(ids1, corruptedId)
+func (ctx DefaultLabelingContext) containsCorruptIdMonotonic(corruptIds, ids1, ids2 set[Id]) {
+    assert exists corruptedId Id :: { tr.containsId(ids1, corruptedId) } corruptedId in corruptIds && tr.containsId(ids1, corruptedId)
     // get witness:
     corruptedId := arb.GetArbId()
     assume corruptedId in corruptIds && tr.containsId(ids1, corruptedId)
@@ -1369,8 +1437,8 @@ decreases
 requires corruptIds1 subset corruptIds2
 requires tr.containsCorruptId(corruptIds1, ids)
 ensures  tr.containsCorruptId(corruptIds2, ids)
-func (ctx DefaultLabelingContext) containsCorruptIdMonotonic2(corruptIds1, corruptIds2, ids set[p.Id]) {
-    assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds1 && tr.containsId(ids, corruptedId)
+func (ctx DefaultLabelingContext) containsCorruptIdMonotonic2(corruptIds1, corruptIds2, ids set[Id]) {
+    assert exists corruptedId Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds1 && tr.containsId(ids, corruptedId)
     // get witness:
     corruptedId := arb.GetArbId()
     assume corruptedId in corruptIds1 && tr.containsId(ids, corruptedId)
@@ -1381,9 +1449,9 @@ ghost
 decreases
 requires tr.containsCorruptId(corruptIds, ids1 union ids2)
 ensures  tr.containsCorruptId(corruptIds, ids1) || tr.containsCorruptId(corruptIds, ids2)
-func (ctx DefaultLabelingContext) containsCorruptIdSplit(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+func (ctx DefaultLabelingContext) containsCorruptIdSplit(corruptIds set[Id], ids1, ids2 set[Id]) {
     ids := ids1 union ids2
-    assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds && tr.containsId(ids, corruptedId)
+    assert exists corruptedId Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds && tr.containsId(ids, corruptedId)
     // get witness:
     corruptedId := arb.GetArbId()
     assume corruptedId in corruptIds && tr.containsId(ids, corruptedId)
@@ -1394,7 +1462,7 @@ ghost
 decreases
 requires tr.containsCorruptId(corruptIds, ids1) || tr.containsCorruptId(corruptIds, ids2)
 ensures  tr.containsCorruptId(corruptIds, ids1 union ids2)
-func (ctx DefaultLabelingContext) containsCorruptIdUnion(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+func (ctx DefaultLabelingContext) containsCorruptIdUnion(corruptIds set[Id], ids1, ids2 set[Id]) {
     ids := ids1 union ids2
     if tr.containsCorruptId(corruptIds, ids1) {
         ctx.containsCorruptIdMonotonic(corruptIds, ids1, ids)
@@ -1406,7 +1474,7 @@ func (ctx DefaultLabelingContext) containsCorruptIdUnion(corruptIds set[p.Id], i
 ghost
 decreases
 ensures  (!tr.containsCorruptId(corruptIds, ids1) && !tr.containsCorruptId(corruptIds, ids2)) == !tr.containsCorruptId(corruptIds, ids1 union ids2)
-func (ctx DefaultLabelingContext) containsCorruptIdNotUnion(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+func (ctx DefaultLabelingContext) containsCorruptIdNotUnion(corruptIds set[Id], ids1, ids2 set[Id]) {
     ids := ids1 union ids2
     if !tr.containsCorruptId(corruptIds, ids1) &&
         !tr.containsCorruptId(corruptIds, ids2) {
@@ -1428,32 +1496,32 @@ ghost
 decreases
 requires tr.containsId(ids1, corruptedId) && includesIds(ids2, ids1)
 ensures  tr.containsId(ids2, corruptedId)
-func (ctx DefaultLabelingContext) containsIdTransitive(ids1, ids2 set[p.Id], corruptedId p.Id) {
+func (ctx DefaultLabelingContext) containsIdTransitive(ids1, ids2 set[Id], corruptedId Id) {
     // apply `containsId(ids1, corruptedId)`:
-    assert exists id1 p.Id :: { id1.Covers(corruptedId) } id1 in ids1 && id1.Covers(corruptedId)
+    assert exists id1 Id :: { id1.Covers(corruptedId) } id1 in ids1 && id1.Covers(corruptedId)
     // get witness:
     id1 := arb.GetArbId()
     assume id1 in ids1 && id1.Covers(corruptedId)
     
     // apply `includesIds(ids2, ids1)`:
-    assert forall id p.Id :: id in ids1 ==> tr.containsId(ids2, id)
+    assert forall id Id :: id in ids1 ==> tr.containsId(ids2, id)
     assert tr.containsId(ids2, id1)
 
     // apply `containsId(ids2, id1)`:
-    assert exists id p.Id :: id in ids2 && id.Covers(id1)
+    assert exists id Id :: id in ids2 && id.Covers(id1)
     // get witness:
     idX := arb.GetArbId()
     assume idX in ids2 && idX.Covers(id1)
 
     idX.CoversTransitive(id1, corruptedId)
-    assert exists id p.Id :: { id.Covers(corruptedId) } id in ids2 && id.Covers(corruptedId)
+    assert exists id Id :: { id.Covers(corruptedId) } id in ids2 && id.Covers(corruptedId)
 }
 
 ghost
 decreases
 requires tr.containsId(ids1 union ids2, corruptedId)
 ensures  tr.containsId(ids1, corruptedId) || tr.containsId(ids2, corruptedId)
-func (ctx DefaultLabelingContext) containsIdSplit(ids1, ids2 set[p.Id], corruptedId p.Id) {
+func (ctx DefaultLabelingContext) containsIdSplit(ids1, ids2 set[Id], corruptedId Id) {
     // no body needed
 }
 
@@ -1464,28 +1532,28 @@ ghost
  * This is similar to `containsCorruptId` except that a forall instead of existential
  * quantifier is used for every ID contained in the first parameter.
  */
-pure func includesIds(haystack, ids set[p.Id]) bool {
-    return forall id p.Id :: { tr.containsId(haystack, id) } id in ids ==> tr.containsId(haystack, id)
+pure func includesIds(haystack, ids set[Id]) bool {
+    return forall id Id :: { tr.containsId(haystack, id) } id in ids ==> tr.containsId(haystack, id)
 }
 
 ghost
 ensures includesIds(ids, ids)
-func (ctx DefaultLabelingContext) includesIdsReflexive(ids set[p.Id]) {
+func (ctx DefaultLabelingContext) includesIdsReflexive(ids set[Id]) {
     arbId := arb.GetArbId()
     if arbId in ids {
         arbId.CoversReflexive()
     }
     // we have shown it for an arbitrary `arbId` and can thus perform forall introduction:
     assert arbId in ids ==> tr.containsId(ids, arbId)
-    assume forall id p.Id :: { tr.containsId(ids, id) } id in ids ==> tr.containsId(ids, id)
+    assume forall id Id :: { tr.containsId(ids, id) } id in ids ==> tr.containsId(ids, id)
 }
 
 ghost
 requires includesIds(ids1, ids2) && includesIds(ids2, ids3)
 ensures  includesIds(ids1, ids3)
-func (ctx DefaultLabelingContext) includesIdsTransitive(ids1, ids2, ids3 set[p.Id]) {
-    assert forall id p.Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
-    assert forall id p.Id :: { tr.containsId(ids2, id) } id in ids3 ==> tr.containsId(ids2, id)
+func (ctx DefaultLabelingContext) includesIdsTransitive(ids1, ids2, ids3 set[Id]) {
+    assert forall id Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
+    assert forall id Id :: { tr.containsId(ids2, id) } id in ids3 ==> tr.containsId(ids2, id)
     
     arbId := arb.GetArbId()
     if arbId in ids3 {
@@ -1496,13 +1564,13 @@ func (ctx DefaultLabelingContext) includesIdsTransitive(ids1, ids2, ids3 set[p.I
     }
     assert arbId in ids3 ==> tr.containsId(ids1, arbId)
     // we can do a forall introduction as `arbId` is unconstraint:
-    assume forall id p.Id :: { tr.containsId(ids1, id) } id in ids3 ==> tr.containsId(ids1, id)
+    assume forall id Id :: { tr.containsId(ids1, id) } id in ids3 ==> tr.containsId(ids1, id)
 }
 
 ghost
 requires ids2 subset ids1
 ensures  includesIds(ids1, ids2)
-func (ctx DefaultLabelingContext) includesIdsSubset(ids1, ids2 set[p.Id]) {
+func (ctx DefaultLabelingContext) includesIdsSubset(ids1, ids2 set[Id]) {
     arbId := arb.GetArbId()
     if arbId in ids2 {
         // apply `ids2 subset ids1`:
@@ -1513,7 +1581,7 @@ func (ctx DefaultLabelingContext) includesIdsSubset(ids1, ids2 set[p.Id]) {
     }
     assert arbId in ids2 ==> tr.containsId(ids1, arbId)
     // perform a forall introduction since `arbId` is unconstraint:
-    assume forall id p.Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
+    assume forall id Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
 }
 
 ghost
@@ -1524,7 +1592,8 @@ pure func (ctx DefaultLabelingContext) GetSkLabel(pk tm.Term) label.SecrecyLabel
 }
 
 ghost
-pure func (ctx DefaultLabelingContext) IsSecretKey(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
+requires acc(ctx.Pred(), _)
+pure func (ctx DefaultLabelingContext) IsSecretKey(t tr.TraceEntry, owner Id, sk tm.Term, keyType KeyType, usage string) bool {
     // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
     return (keyType == KeyTypePke() ==> ctx.IsPrivateDecKey(t, owner, sk, usage)) &&
         (keyType == KeyTypeDHPk() ==> ctx.IsPrivateDhKey(t, owner, sk, usage))
@@ -1532,27 +1601,34 @@ pure func (ctx DefaultLabelingContext) IsSecretKey(t tr.TraceEntry, owner p.Id, 
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsSecretKey(t1, owner, sk, keyType, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsSecretKey(t2, owner, sk, keyType, usage)
-func (ctx DefaultLabelingContext) IsSecretKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
+func (ctx DefaultLabelingContext) IsSecretKeyMonotonic(t1, t2 tr.TraceEntry, owner Id, sk tm.Term, keyType KeyType, usage string, p perm) bool {
     if keyType == KeyTypePke() {
-        ctx.IsPrivateDecKeyMonotonic(t1, t2, owner, sk, usage)
+        ctx.IsPrivateDecKeyMonotonic(t1, t2, owner, sk, usage, p)
     } else if keyType == KeyTypeDHPk() {
-        ctx.IsPrivateDhKeyMonotonic(t1, t2, owner, sk, usage)
+        ctx.IsPrivateDhKeyMonotonic(t1, t2, owner, sk, usage, p)
     }
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsSecretKey(t, owner, sk, keyType, usage)
-ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ owner }))
-func (ctx DefaultLabelingContext) IsSecretKeyLemma(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) {
+ensures  acc(ctx.Pred(), p)
+ensures  ctx.IsLabeled(t, sk, label.Readers(set[Id]{ owner }))
+func (ctx DefaultLabelingContext) IsSecretKeyLemma(t tr.TraceEntry, owner Id, sk tm.Term, keyType KeyType, usage string, p perm) {
     // the following assert stmt is needed for triggering reasons:
     assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1
 }
 
 ghost
-pure func (ctx DefaultLabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) bool {
+requires acc(ctx.Pred(), _)
+pure func (ctx DefaultLabelingContext) IsPublicKey(t tr.TraceEntry, skOwner Id, pk, sk tm.Term, keyType KeyType, usage string) bool {
     // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
     return (keyType == KeyTypePke() ==> ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
         (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPk(t, skOwner, pk, sk, usage))
@@ -1560,42 +1636,52 @@ pure func (ctx DefaultLabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsPublicKey(t1, skOwner, pk, sk, keyType, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublicKey(t2, skOwner, pk, sk, keyType, usage)
-func (ctx DefaultLabelingContext) IsPublicKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
+func (ctx DefaultLabelingContext) IsPublicKeyMonotonic(t1, t2 tr.TraceEntry, skOwner Id, pk, sk tm.Term, keyType KeyType, usage string, p perm) {
     if keyType == KeyTypePke() {
-        ctx.IsPublicEncKeyMonotonic(t1, t2, skOwner, pk, sk, usage)
+        ctx.IsPublicEncKeyMonotonic(t1, t2, skOwner, pk, sk, usage, p)
     } else if keyType == KeyTypeDHPk() {
-        ctx.IsPublicDhPkMonotonic(t1, t2, skOwner, pk, sk, usage)
+        ctx.IsPublicDhPkMonotonic(t1, t2, skOwner, pk, sk, usage, p)
     }
 }
 
 ghost
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsPublicKey(t, skOwner, pk, sk, keyType, usage)
-ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner }))
-func (ctx DefaultLabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
+ensures  acc(ctx.Pred(), p)
+ensures  ctx.IsLabeled(t, sk, label.Readers(set[Id]{ skOwner }))
+func (ctx DefaultLabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner Id, pk, sk tm.Term, keyType KeyType, usage string, p perm) {
     // the following assert stmt is needed for triggering reasons:
     assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1
     if keyType == KeyTypePke() {
-        assert ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), u.PkeKey(usage))
+        assert ctx.IsSecret(t, sk, label.Readers(set[Id]{ skOwner }), u.PkeKey(usage))
     } else if keyType == KeyTypeDHPk() {
-        assert ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), u.DhKey(usage))
+        assert ctx.IsSecret(t, sk, label.Readers(set[Id]{ skOwner }), u.DhKey(usage))
     }
 }
 
 ghost
-pure func (ctx DefaultLabelingContext) IsPublicKeyExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) bool {
+requires acc(ctx.Pred(), _)
+pure func (ctx DefaultLabelingContext) IsPublicKeyExistential(t tr.TraceEntry, skOwner Id, pk tm.Term, keyType KeyType, usage string) bool {
     return (keyType == KeyTypePke() ==> exists sk tm.Term :: { ctx.IsPublicEncKey(t, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
         (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPkExistential(t, skOwner, pk, usage))
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsPublicKeyExistential(t1, skOwner, pk, keyType, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublicKeyExistential(t2, skOwner, pk, keyType, usage)
-func (ctx DefaultLabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) {
+func (ctx DefaultLabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.TraceEntry, skOwner Id, pk tm.Term, keyType KeyType, usage string, p perm) {
     skWitness := arb.GetArbTerm()
 	if keyType == KeyTypePke() {
 		assert exists sk tm.Term :: { ctx.IsPublicEncKey(t1, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t1, skOwner, pk, sk, usage)
@@ -1606,27 +1692,32 @@ func (ctx DefaultLabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.Trac
 		// get witness
 		assume ctx.IsPublicDhPk(t1, skOwner, pk, skWitness, usage)
 	}
-	ctx.IsPublicKeyMonotonic(t1, t2, skOwner, pk, skWitness, keyType, usage)
+	ctx.IsPublicKeyMonotonic(t1, t2, skOwner, pk, skWitness, keyType, usage, p)
 }
 
 ghost
-pure func (ctx DefaultLabelingContext) IsPrivateDecKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
-    return sk == tm.random(tm.gamma(sk), label.Readers(set[p.Id]{ owner }), u.PkeKey(usage)) &&
-        ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
+requires acc(ctx.Pred(), _)
+pure func (ctx DefaultLabelingContext) IsPrivateDecKey(t tr.TraceEntry, owner Id, sk tm.Term, usage string) bool {
+    return sk == tm.random(tm.gamma(sk), label.Readers(set[Id]{ owner }), u.PkeKey(usage)) &&
+        ctx.IsSecret(t, sk, label.Readers(set[Id]{ owner }), u.PkeKey(usage))
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsPrivateDecKey(t1, owner, sk, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPrivateDecKey(t2, owner, sk, usage)
-func (ctx DefaultLabelingContext) IsPrivateDecKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
-    ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
+func (ctx DefaultLabelingContext) IsPrivateDecKeyMonotonic(t1, t2 tr.TraceEntry, owner Id, sk tm.Term, usage string, p perm) {
+    ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[Id]{ owner }), u.PkeKey(usage), p)
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 // sk is the witness
-pure func (ctx DefaultLabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
+pure func (ctx DefaultLabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner Id, pk, sk tm.Term, usage string) bool {
     return ctx.IsPublishable(t, pk) &&
         ctx.IsPrivateDecKey(t, skOwner, sk, usage) &&
         pk == tm.createPk(sk)
@@ -1634,15 +1725,19 @@ pure func (ctx DefaultLabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner p
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsPublicEncKey(t1, skOwner, pk ,sk, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublicEncKey(t2, skOwner, pk ,sk, usage)
-func (ctx DefaultLabelingContext) IsPublicEncKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
-    ctx.IsPublishableMonotonic(t1, t2, pk)
-    ctx.IsPrivateDecKeyMonotonic(t1, t2, skOwner, sk, usage)
+func (ctx DefaultLabelingContext) IsPublicEncKeyMonotonic(t1, t2 tr.TraceEntry, skOwner Id, pk, sk tm.Term, usage string, p perm) {
+    ctx.IsPublishableMonotonic(t1, t2, pk, p)
+    ctx.IsPrivateDecKeyMonotonic(t1, t2, skOwner, sk, usage, p)
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) IsPublicEncKeyExistential(t tr.TraceEntry, pk tm.Term, l label.SecrecyLabel, usage string) bool {
     return ctx.IsPublishable(t, pk) &&
         pk.IsPk() &&
@@ -1650,24 +1745,29 @@ pure func (ctx DefaultLabelingContext) IsPublicEncKeyExistential(t tr.TraceEntry
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 // sk is the witness
-pure func (ctx DefaultLabelingContext) IsPrivateDhKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
+pure func (ctx DefaultLabelingContext) IsPrivateDhKey(t tr.TraceEntry, owner Id, sk tm.Term, usage string) bool {
     return sk.IsRandom() &&
-        ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.DhKey(usage))
+        ctx.IsSecret(t, sk, label.Readers(set[Id]{ owner }), u.DhKey(usage))
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsPrivateDhKey(t1, owner, sk, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPrivateDhKey(t2, owner, sk, usage)
-func (ctx DefaultLabelingContext) IsPrivateDhKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
-    ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[p.Id]{ owner }), u.DhKey(usage))
+func (ctx DefaultLabelingContext) IsPrivateDhKeyMonotonic(t1, t2 tr.TraceEntry, owner Id, sk tm.Term, usage string, p perm) {
+    ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[Id]{ owner }), u.DhKey(usage), p)
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 // sk is the witness
-pure func (ctx DefaultLabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
+pure func (ctx DefaultLabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner Id, pk, sk tm.Term, usage string) bool {
     return ctx.IsPublishable(t, pk) &&
         pk == tm.exp(tm.generator(), sk) &&
         ctx.IsPrivateDhKey(t, skOwner, sk, usage)
@@ -1675,25 +1775,32 @@ pure func (ctx DefaultLabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner p.I
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires t1.isSuffix(t2)
 requires ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublicDhPk(t2, skOwner, pk, sk, usage)
-func (ctx DefaultLabelingContext) IsPublicDhPkMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
-    ctx.IsPublishableMonotonic(t1, t2, pk)
-    ctx.IsPrivateDhKeyMonotonic(t1, t2, skOwner, sk, usage)
+func (ctx DefaultLabelingContext) IsPublicDhPkMonotonic(t1, t2 tr.TraceEntry, skOwner Id, pk, sk tm.Term, usage string, p perm) {
+    ctx.IsPublishableMonotonic(t1, t2, pk, p / 2)
+    ctx.IsPrivateDhKeyMonotonic(t1, t2, skOwner, sk, usage, p / 2)
 }
 
 ghost
-pure func (ctx DefaultLabelingContext) IsPublicDhPkExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, usage string) bool {
+requires acc(ctx.Pred(), _)
+pure func (ctx DefaultLabelingContext) IsPublicDhPkExistential(t tr.TraceEntry, skOwner Id, pk tm.Term, usage string) bool {
     return exists sk tm.Term :: { ctx.IsPublicDhPk(t, skOwner, pk, sk, usage) } ctx.IsPublicDhPk(t, skOwner, pk, sk, usage)
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, term, l1)
 requires ctx.CanFlow(t, l1, l2)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsMsg(t, term, l2)
-func (ctx DefaultLabelingContext) Restrict(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) Restrict(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel, p perm) {
     ctx.CanFlowTransitive(t, ctx.GetLabel(term), l1, l2)
 }
 
@@ -1719,6 +1826,7 @@ pure func (ctx DefaultLabelingContext) getNonceForEventIsUniquePointer(nonce tm.
 
 ghost
 decreases
+requires acc(ctx.Pred(), _)
 requires acc(ctx.NonceForEventIsUnique(nonce, eventType), 2/1)
 ensures  false
 func (ctx DefaultLabelingContext) NonceForEventContradiction(nonce tm.Term, eventType ev.EventType) {
@@ -1726,19 +1834,24 @@ func (ctx DefaultLabelingContext) NonceForEventContradiction(nonce tm.Term, even
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) CanEncrypt(t tr.TraceEntry, msg, pk tm.Term) bool {
     return ctx.IsPublishable(t, pk) &&
         ctx.IsPkeKey(tm.getSk(pk)) &&
         ctx.IsMsg(t, msg, ctx.GetSkLabel(pk)) &&
         (forall usageString string :: { ctx.usage.PkePred(t, usageString, msg, pk) } ctx.IsPublicEncKeyExistential(t, pk, ctx.GetSkLabel(pk), usageString) ==>
-            ctx.usage.PkePred(t, usageString, msg, pk))
+            unfolding acc(ctx.Pred(), _) in
+                ctx.usage.PkePred(t, usageString, msg, pk))
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.CanEncrypt(t, msg, pk) || (ctx.IsPublishable(t, msg) && ctx.IsPublishable(t, pk))
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublishable(t, tm.encrypt(msg, pk))
-func (ctx DefaultLabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, pk tm.Term) {
+func (ctx DefaultLabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, pk tm.Term, p perm) {
     msgLabel := ctx.GetLabel(msg)
     if ctx.IsPublishable(t, msg) {
         ctx.FlowsToPublicCanFlow(t, msgLabel, ctx.GetSkLabel(pk))
@@ -1748,32 +1861,40 @@ func (ctx DefaultLabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, 
 }
 
 ghost
-pure func (ctx DefaultLabelingContext) CanDecrypt(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) bool {
+requires acc(ctx.Pred(), _)
+pure func (ctx DefaultLabelingContext) CanDecrypt(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner Id) bool {
     return ctx.IsPublishable(t, ciphertext) &&
         (ctx.IsPublishable(t, sk) || exists usageString string :: { ctx.IsPrivateDecKey(t, skOwner, sk, usageString) } ctx.IsPrivateDecKey(t, skOwner, sk, usageString))
 }
 
 ghost
-pure func (ctx DefaultLabelingContext) WasDecrypted(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) bool {
-    return ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner })) ==>
-        (ctx.IsMsg(t, msg, label.Readers(set[p.Id]{ skOwner })) &&
+requires acc(ctx.Pred(), _)
+pure func (ctx DefaultLabelingContext) WasDecrypted(t tr.TraceEntry, msg, sk tm.Term, skOwner Id) bool {
+    return ctx.IsLabeled(t, sk, label.Readers(set[Id]{ skOwner })) ==>
+        (ctx.IsMsg(t, msg, label.Readers(set[Id]{ skOwner })) &&
         (forall usageString string :: { ctx.IsPrivateDecKey(t, skOwner, sk, usageString) } ctx.IsPrivateDecKey(t, skOwner, sk, usageString) ==>
-            ctx.IsPublishable(t, msg) || ctx.usage.PkePred(t, usageString, msg, tm.createPk(sk))))
+            ctx.IsPublishable(t, msg) || unfolding acc(ctx.Pred(), _) in ctx.usage.PkePred(t, usageString, msg, tm.createPk(sk))))
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsPublishable(t, ciphertext) && ctx.IsPublishable(t, sk)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.CanDecrypt(t, ciphertext, sk, skOwner)
-func (ctx DefaultLabelingContext) CanDecryptWithPublicSk(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) {
+func (ctx DefaultLabelingContext) CanDecryptWithPublicSk(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner Id, p perm) {
     // no body needed
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.CanDecrypt(t, tm.encrypt(msg, tm.createPk(sk)), sk, skOwner)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.WasDecrypted(t, msg, sk, skOwner)
-func (ctx DefaultLabelingContext) DecryptSatisfiesInvariant(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
+func (ctx DefaultLabelingContext) DecryptSatisfiesInvariant(t tr.TraceEntry, msg, sk tm.Term, skOwner Id, p perm) {
     pk := tm.createPk(sk)
 	plaintextLabel := ctx.GetLabel(msg)
 	skLabel := ctx.GetLabel(sk)
@@ -1786,9 +1907,12 @@ func (ctx DefaultLabelingContext) DecryptSatisfiesInvariant(t tr.TraceEntry, msg
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsPublishable(t, tm.encrypt(msg, tm.createPk(sk))) && ctx.IsPublishable(t, sk)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublishable(t, msg)
-func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublicSk(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
+func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublicSk(t tr.TraceEntry, msg, sk tm.Term, skOwner Id, p perm) {
     pk := tm.createPk(sk)
 	plaintextLabel := ctx.GetLabel(msg)
 	skLabel := ctx.GetLabel(sk)
@@ -1798,20 +1922,24 @@ func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublicSk(t tr.TraceEn
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) CanAeadEncrypt(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool {
     return ctx.IsLabeledRelaxed(t, key, keyL) &&
         (ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
         ctx.IsMsg(t, msg, keyL) &&
         ctx.IsPublishable(t, ad) &&
-        (forall usageString string :: ctx.IsAeadKey(t, key, keyL, usageString) ==> ctx.usage.AeadPred(t, usageString, key, nonce, msg, ad))
+        (forall usageString string :: ctx.IsAeadKey(t, key, keyL, usageString) ==> unfolding acc(ctx.Pred(), _) in ctx.usage.AeadPred(t, usageString, key, nonce, msg, ad))
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.CanAeadEncrypt(t, key, nonce, msg, ad, keyL) || (ctx.IsPublishable(t, key) && ctx.IsPublishable(t, nonce) && ctx.IsPublishable(t, msg) && ctx.IsPublishable(t, ad))
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad))
-func (ctx DefaultLabelingContext) AeadCiphertextIsPublishable(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) AeadCiphertextIsPublishable(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel, p perm) {
     msgL := ctx.GetLabel(msg)
     if ctx.IsPublishable(t, key) {
         if !ctx.IsPublishable(t, msg) {
@@ -1820,7 +1948,10 @@ func (ctx DefaultLabelingContext) AeadCiphertextIsPublishable(t tr.TraceEntry, k
         }
     } else {
         // the following assert stmt would not be necessary:
-        assert ctx.usage.AeadPred(t, u.GetUsageString(get(ctx.GetUsage(key))), key, nonce, msg, ad)
+        usageCtx := ctx.GetUsage(key)
+        unfold acc(ctx.Pred(), p)
+        assert ctx.usage.AeadPred(t, u.GetUsageString(get(usageCtx)), key, nonce, msg, ad)
+        fold acc(ctx.Pred(), p)
         ctx.CanFlowTransitive(t, msgL, keyL, ctx.GetLabel(key))
     }
     // the following assert stmt is necessary:
@@ -1828,11 +1959,13 @@ func (ctx DefaultLabelingContext) AeadCiphertextIsPublishable(t tr.TraceEntry, k
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) CanAeadDecrypt(t tr.TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) bool {
     return true
 }
 
 ghost
+requires acc(ctx.Pred(), _)
 pure func (ctx DefaultLabelingContext) WasAeadDecrypted(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool {
     return ((ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
@@ -1842,22 +1975,28 @@ pure func (ctx DefaultLabelingContext) WasAeadDecrypted(t tr.TraceEntry, key, no
             (forall usageString string :: { ctx.IsAeadKey(t, key, keyL, usageString) } ctx.IsAeadKey(t, key, keyL, usageString) ==>
                 // either the attacker has applied AEAD encryption or AeadPred holds
                 // in the first case, this requires that all components are known by the attacker (i.e. key, nonce, msg, and ad)
-                (ctx.IsPublishable(t, key) && ctx.IsPublishable(t, msg)) || ctx.usage.AeadPred(t, usageString, key, nonce, msg, ad)))
+                (ctx.IsPublishable(t, key) && ctx.IsPublishable(t, msg)) || unfolding acc(ctx.Pred(), _) in ctx.usage.AeadPred(t, usageString, key, nonce, msg, ad)))
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsPublishable(t, key) && ctx.IsPublishable(t, nonce) && ctx.IsPublishable(t, ciphertext) && ctx.IsPublishable(t, ad)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.CanAeadDecrypt(t, key, nonce, ciphertext, ad, keyL)
-func (ctx DefaultLabelingContext) CanAeadDecryptWithPublishableKey(t tr.TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) CanAeadDecryptWithPublishableKey(t tr.TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.CanAeadDecrypt(t, key, nonce, tm.aead(key, nonce, msg, ad), ad, keyL)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.WasAeadDecrypted(t, key, nonce, msg, ad, keyL)
-func (ctx DefaultLabelingContext) AeadDecryptSatisfiesInvariant(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) AeadDecryptSatisfiesInvariant(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel, p perm) {
     if ((ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
         ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) &&
@@ -1873,9 +2012,12 @@ func (ctx DefaultLabelingContext) AeadDecryptSatisfiesInvariant(t tr.TraceEntry,
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) && ctx.IsPublishable(t, key) && ctx.IsPublishable(t, nonce) && ctx.IsPublishable(t, ad)
+ensures  acc(ctx.Pred(), p)
 ensures  ctx.IsPublishable(t, msg)
-func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublishableKey(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublishableKey(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel, p perm) {
     if ((ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
         ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) &&
@@ -1891,25 +2033,31 @@ func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublishableKey(t tr.T
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsLabeled(t, term, l)
 requires l.IsReaders()
 requires !tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
+ensures  acc(ctx.Pred(), p)
 ensures  !ctx.IsPublishable(t, term)
-func (ctx DefaultLabelingContext) PublishableRequiresCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) PublishableRequiresCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
     // no body needed
 }
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsLabeledRelaxed(t, term, l)
 requires l.IsReaders()
 requires !tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
+ensures  acc(ctx.Pred(), p)
 ensures  !ctx.IsPublishable(t, term)
 /**
   * weakened version of `PublishableRequiresCorruption`: instead of requiring `term` being
   * labeled with a `Readers` label, we can permit any label to which `Readers` (i.e. `l`) flows to
   */
-func (ctx DefaultLabelingContext) PublishableRequiresCorruptionWeakened(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) PublishableRequiresCorruptionWeakened(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
     // proof by contradiction:
     // we assume that `l` flows to public and show then that term's actual label would flow
     // to public as well, which contradicts the precondition that `l` does not
@@ -1923,24 +2071,27 @@ func (ctx DefaultLabelingContext) PublishableRequiresCorruptionWeakened(t tr.Tra
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsLabeledRelaxed(t, term, l)
 requires l.IsReaders()
 requires ctx.IsPublishable(t, term)
+ensures  acc(ctx.Pred(), p)
 ensures  tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
 ensures  corruptedId in t.getCorruptIds()
 ensures  id in label.GetReaders(l) && id.Covers(corruptedId)
-func (ctx DefaultLabelingContext) PublishableImpliesCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) (corruptedId, id p.Id) {
+func (ctx DefaultLabelingContext) PublishableImpliesCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) (corruptedId, id Id) {
     termL := ctx.GetLabel(term)
     readers := label.GetReaders(l)
     corruptIds := t.getCorruptIds()
     ctx.CanFlowTransitive(t, l, termL, label.Public())
     // apply `containsCorruptId(corruptIds, readers)`:
-    assert exists corruptedId p.Id :: { tr.containsId(readers, corruptedId) } corruptedId in corruptIds && tr.containsId(readers, corruptedId)
+    assert exists corruptedId Id :: { tr.containsId(readers, corruptedId) } corruptedId in corruptIds && tr.containsId(readers, corruptedId)
     // get witness
     corruptedId = arb.GetArbId()
     assume corruptedId in corruptIds && tr.containsId(readers, corruptedId)
     // apply `containsId(readers, corruptedId)`:
-    assert exists id p.Id :: { id.Covers(corruptedId) } id in readers && id.Covers(corruptedId)
+    assert exists id Id :: { id.Covers(corruptedId) } id in readers && id.Covers(corruptedId)
     // get witness
     id = arb.GetArbId()
     assume id in readers && id.Covers(corruptedId)
@@ -1948,11 +2099,14 @@ func (ctx DefaultLabelingContext) PublishableImpliesCorruption(t tr.TraceEntry, 
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires ctx.IsMsg(t, term, l)
 requires l.IsReaders()
 requires !ctx.IsPublishable(t, term)
+ensures  acc(ctx.Pred(), p)
 ensures  !tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
-func (ctx DefaultLabelingContext) NotPublishableImpliesNoCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx DefaultLabelingContext) NotPublishableImpliesNoCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, p perm) {
     if ctx.CanFlow(t, l, label.Public()) {
         // derive a contradiction:
         ctx.CanFlowTransitive(t, ctx.GetLabel(term), l, label.Public())
@@ -1961,14 +2115,17 @@ func (ctx DefaultLabelingContext) NotPublishableImpliesNoCorruption(t tr.TraceEn
 
 ghost
 decreases
+requires noPerm < p && p <= writePerm
+requires acc(ctx.Pred(), p)
 requires l1.IsReaders() && l2.IsReaders()
 requires ctx.IsLabeledRelaxed(t, term, label.Join(l1, l2))
-ensures  optCorruptedId == none[p.Id] ?
+ensures  acc(ctx.Pred(), p)
+ensures  optCorruptedId == none[Id] ?
     !ctx.IsPublishable(t, term) :
     ((tr.containsId(label.GetReaders(l1), get(optCorruptedId)) || tr.containsId(label.GetReaders(l2), get(optCorruptedId))) &&
         get(optCorruptedId) in t.getCorruptIds() &&
         tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l1) union label.GetReaders(l2)))
-func (ctx DefaultLabelingContext) RelaxedLabelingImpliesNotPublishableOrCorruption(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) (optCorruptedId option[p.Id]) {
+func (ctx DefaultLabelingContext) RelaxedLabelingImpliesNotPublishableOrCorruption(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel, p perm) (optCorruptedId option[Id]) {
     termL := ctx.GetLabel(term)
     if ctx.IsPublishable(t, term) {
         joinL := label.Join(l1, l2)
@@ -1976,18 +2133,18 @@ func (ctx DefaultLabelingContext) RelaxedLabelingImpliesNotPublishableOrCorrupti
         // the following assert stmt is necessary:
         assert ctx.CanFlow(t, l1, label.Public()) || ctx.CanFlow(t, l2, label.Public())
         if ctx.CanFlow(t, l1, label.Public()) {
-            assert exists corruptedId p.Id :: { tr.containsId(label.GetReaders(l1), corruptedId) } corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
+            assert exists corruptedId Id :: { tr.containsId(label.GetReaders(l1), corruptedId) } corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
             corruptedId := arb.GetArbId()
             assume corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
             optCorruptedId = some(corruptedId)
         } else {
-            assert exists corruptedId p.Id :: { tr.containsId(label.GetReaders(l2), corruptedId) } corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
+            assert exists corruptedId Id :: { tr.containsId(label.GetReaders(l2), corruptedId) } corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
             corruptedId := arb.GetArbId()
             assume corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
             optCorruptedId = some(corruptedId)
         }
         ctx.containsCorruptIdNotUnion(t.getCorruptIds(), label.GetReaders(l1), label.GetReaders(l2))
     } else {
-        optCorruptedId = none[p.Id]
+        optCorruptedId = none[Id]
     }
 }
