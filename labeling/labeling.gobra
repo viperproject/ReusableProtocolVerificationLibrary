@@ -434,14 +434,6 @@ ensures term.IsRandom() ==> res == tm.getRandomLabel(term)
 ensures term.IsHash() ==> res == label.Public()
 ensures (term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabel(tm.getInput(term))
 ensures term.IsTuple() ==> res == ctx.nestedMeetInternal(term, getTupleSeq(term), 0, true) // intersection of audience is allowed to read
-/*
-ensures term.IsTuple2() ==> res == label.Meet(ctx.GetLabel(tm.getTupleElem(term, 0)), ctx.GetLabel(tm.getTupleElem(term, 1)))
-ensures term.IsTuple3() ==> res == label.Meet(ctx.GetLabel(tm.getTupleElem(term, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 1)), ctx.GetLabel(tm.getTupleElem(term, 2))))
-ensures term.IsTuple4() ==> res == label.Meet(ctx.GetLabel(tm.getTupleElem(term, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 2)), ctx.GetLabel(tm.getTupleElem(term, 3)))))
-ensures term.IsTuple5() ==> res == label.Meet(ctx.GetLabel(tm.getTupleElem(term, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 3)), ctx.GetLabel(tm.getTupleElem(term, 4))))))
-// ensures term.IsTuple6() ==> res == label.Meet(ctx.GetLabel(tm.getTupleElem(term, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 3)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 4)), ctx.GetLabel(tm.getTupleElem(term, 5)))))))
-ensures term.IsTuple7() ==> res == label.Meet(ctx.GetLabel(tm.getTupleElem(term, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 3)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 4)), label.Meet(ctx.GetLabel(tm.getTupleElem(term, 5)), ctx.GetLabel(tm.getTupleElem(term, 6))))))))
-*/
 // DH exponentiation is special cased:
 // if a term is `(g^x)^y` or equivalently `g^(x*y)` it results in the join label of x and y
 // i.e. the DH key can be read by all readers of x and y (set union) since it's sufficient
@@ -491,29 +483,7 @@ pure func (ctx DefaultLabelingContext) nestedMeetInternal(t tm.Term, terms seq[t
     return startIdx + 2 == len(terms) ? label.Meet(ctx.GetLabel(terms[startIdx]), ctx.GetLabel(terms[startIdx + 1])) :
             label.Meet(ctx.GetLabel(terms[startIdx]), ctx.nestedMeetInternal(t, terms, startIdx + 1, mutualRecursionTrick))
 }
-/*
-ghost
-decreases tm.getTermHeight(t)
-requires ctx.Props() && t.IsTuple()
-requires 0 <= startIdx && startIdx + 1 <= t.GetTupleArity()
-pure func (ctx DefaultLabelingContext) getTupleLabel(t tm.Term, startIdx int) label.SecrecyLabel {
-    return (t.GetTupleArity() - startIdx == 1) ? ctx.GetLabel(tm.getTupleElem(t, startIdx)) :
-            (t.GetTupleArity() - startIdx == 2) ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 0)), ctx.GetLabel(tm.getTupleElem(t, startIdx + 1))) :
-            (t.GetTupleArity() - startIdx == 3) ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 1)), ctx.GetLabel(tm.getTupleElem(t, startIdx + 2)))) :
-            (t.GetTupleArity() - startIdx == 4) ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 2)), ctx.GetLabel(tm.getTupleElem(t, startIdx + 3))))) :
-            (t.GetTupleArity() - startIdx == 5) ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 3)), ctx.GetLabel(tm.getTupleElem(t, startIdx + 4)))))) :
-            (t.GetTupleArity() - startIdx == 6) ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 3)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 4)), ctx.GetLabel(tm.getTupleElem(t, startIdx + 5))))))) :
-                label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 3)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 4)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, startIdx + 5)), ctx.GetLabel(tm.getTupleElem(t, startIdx + 6)))))))) 
-    *//*
-    return t.IsTuple2() ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, 0)), ctx.GetLabel(tm.getTupleElem(t, 1))) :
-            t.IsTuple3() ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 1)), ctx.GetLabel(tm.getTupleElem(t, 2)))) :
-            t.IsTuple4() ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 2)), ctx.GetLabel(tm.getTupleElem(t, 3))))) :
-            t.IsTuple5() ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 3)), ctx.GetLabel(tm.getTupleElem(t, 4)))))) :
-            // t.IsTuple6() ? label.Meet(ctx.GetLabel(tm.getTupleElem(t, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 3)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 4)), ctx.GetLabel(tm.getTupleElem(t, 5))))))) :
-                label.Meet(ctx.GetLabel(tm.getTupleElem(t, 0)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 1)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 2)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 3)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 4)), label.Meet(ctx.GetLabel(tm.getTupleElem(t, 5)), ctx.GetLabel(tm.getTupleElem(t, 6))))))))
-    *//*
-}
-*/
+
 ghost
 decreases
 requires ctx.Props()
@@ -574,43 +544,6 @@ requires forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupl
 ensures  ctx.IsMsg(t, term, l)
 /** lemma for tuples having same label */
 func (ctx DefaultLabelingContext) IsMsgTupleCreate(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
-    /*
-    n := term.GetTupleArity()
-    lastT := tm.getTupleElem(term, n - 1)
-    lastL := ctx.GetLabel(lastT)
-    prevLabel := lastL
-
-    // we basically perform a loop unrolling here:
-    if n >= 7 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 5))
-        ctx.CanFlowCreateMeetLhs(t, curL, prevLabel, l)
-        prevLabel = label.Meet(curL, prevLabel)
-    }
-    if n >= 6 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 4))
-        ctx.CanFlowCreateMeetLhs(t, curL, prevLabel, l)
-        prevLabel = label.Meet(curL, prevLabel)
-    }
-    if n >= 5 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 3))
-        ctx.CanFlowCreateMeetLhs(t, curL, prevLabel, l)
-        prevLabel = label.Meet(curL, prevLabel)
-    }
-    if n >= 4 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 2))
-        ctx.CanFlowCreateMeetLhs(t, curL, prevLabel, l)
-        prevLabel = label.Meet(curL, prevLabel)
-    }
-    if n >= 3 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 1))
-        ctx.CanFlowCreateMeetLhs(t, curL, prevLabel, l)
-        prevLabel = label.Meet(curL, prevLabel)
-    }
-    firstT := tm.getTupleElem(term, 0)
-    firstL := ctx.GetLabel(firstT)
-    ctx.CanFlowCreateMeetLhs(t, firstL, prevLabel, l)
-    */
-
     n := term.GetTupleArity()
     subterms := getTupleSeq(term)
     secondToLastT := subterms[n-2]
@@ -635,7 +568,6 @@ func (ctx DefaultLabelingContext) IsMsgTupleCreate(t tr.TraceEntry, term tm.Term
     firstL := ctx.GetLabel(tm.getTupleElem(term, 0))
     ctx.CanFlowReflexive(t, l)
     ctx.CanFlowCreateMeetLhs(t, firstL, l, l)
-
 }
 
 ghost
@@ -646,41 +578,6 @@ requires ctx.IsMsg(t, term, l)
 ensures  forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsMsg(t, tm.getTupleElem(term, i), l)
 /** lemma for tuples flowing to some label */
 func (ctx DefaultLabelingContext) IsMsgTupleResolve(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
-    /*
-    n := term.GetTupleArity()
-    firstT := tm.getTupleElem(term, 0)
-    firstL := ctx.GetLabel(firstT)
-    remL := ctx.getTupleLabel(term, 1)
-
-    // unroll loop
-    ctx.CanFlowResolveMeetLhs(t, firstL, remL, l)
-    if n >= 3 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 1))
-        remL := ctx.getTupleLabel(term, 2)
-        ctx.CanFlowResolveMeetLhs(t, curL, remL, l)
-    }
-    if n >= 4 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 2))
-        remL := ctx.getTupleLabel(term, 3)
-        ctx.CanFlowResolveMeetLhs(t, curL, remL, l)
-    }
-    if n >= 5 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 3))
-        remL := ctx.getTupleLabel(term, 4)
-        ctx.CanFlowResolveMeetLhs(t, curL, remL, l)
-    }
-    if n >= 6 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 4))
-        remL := ctx.getTupleLabel(term, 5)
-        ctx.CanFlowResolveMeetLhs(t, curL, remL, l)
-    }
-    if n >= 7 {
-        curL := ctx.GetLabel(tm.getTupleElem(term, 5))
-        remL := ctx.getTupleLabel(term, 6)
-        ctx.CanFlowResolveMeetLhs(t, curL, remL, l)
-    }
-    */
-
     n := term.GetTupleArity()
     subterms := getTupleSeq(term)
 
@@ -700,7 +597,6 @@ func (ctx DefaultLabelingContext) IsMsgTupleResolve(t tr.TraceEntry, term tm.Ter
     lastT := tm.getTupleElem(term, n - 1)
     lastL := ctx.GetLabel(lastT)
     ctx.CanFlowResolveMeetLhs(t, secondToLastL, lastL, l)
-
 }
 
 ghost
