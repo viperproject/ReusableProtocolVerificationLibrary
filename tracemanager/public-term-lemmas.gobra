@@ -11,6 +11,7 @@ type PublicTermSearcher struct {
 PublicTermSearcher implements TraceSearcher
 
 ghost
+decreases
 pure func (ps PublicTermSearcher) Ctx() tr.TraceContext {
     return ps.ctx
 }
@@ -36,7 +37,7 @@ pure func (ps PublicTermSearcher) Occurs(entry tr.TraceEntry) bool {
 }
 
 ghost
-// decreases
+decreases
 requires ps.Ctx() != nil
 pure func (ps PublicTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return entry.isRoot() && tr.publicInv(ps.Ctx(), entry.getPublicTerms(), entry)

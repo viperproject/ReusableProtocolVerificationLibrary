@@ -13,6 +13,7 @@ type EventSearcher struct {
 EventSearcher implements TraceSearcher
 
 ghost
+decreases
 pure func (es EventSearcher) Ctx() tr.TraceContext {
     return es.ctx
 }
@@ -39,7 +40,7 @@ pure func (es EventSearcher) Occurs(entry tr.TraceEntry) bool {
 }
 
 ghost
-// decreases
+decreases
 requires es.Ctx() != nil
 pure func (es EventSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return es.Ctx().pureEventInv(es.principal, es.event, tr.getPrev(entry))

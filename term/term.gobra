@@ -95,6 +95,12 @@ type Term domain {
     // WARNING: adapt first axiom if another Term is added!
 
     func getTermType(Term) int
+    func getTermHeight(Term) int
+    func max2(int, int) int
+    func max3(int, int, int) int
+    func max4(int, int, int, int) int
+    func max5(int, int, int, int, int) int
+    func max7(int, int, int, int, int, int, int) int
 
     axiom { // every term belongs to a known type
         forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 22
@@ -103,6 +109,7 @@ type Term domain {
 
     axiom { // random is injective
         forall b Bytes, l label.SecrecyLabel, usage u.Usage :: { random(b, l, usage) } getTermType(random(b, l, usage)) == 0 &&
+            getTermHeight(random(b, l, usage)) == 0 &&
             getRandomBytes(random(b, l, usage)) == b &&
             getRandomLabel(random(b, l, usage)) == l &&
             getRandomUsage(random(b, l, usage)) == usage
@@ -110,39 +117,43 @@ type Term domain {
 
     axiom { // tuple2 is injective
         forall t1, t2 Term :: { tuple2(t1, t2) } getTermType(tuple2(t1, t2)) == 1 &&
+            getTermHeight(tuple2(t1, t2)) == 1 + max2(getTermHeight(t1), getTermHeight(t2)) &&
             getTupleElem(tuple2(t1, t2), 0) == t1 &&
             getTupleElem(tuple2(t1, t2), 1) == t2
     }
     axiom { // tuple2 implies its constructions
-        forall t Term :: { getTermType(t) == 1 } getTermType(t) == 1 ==>
+        forall t Term :: { getTermType(t) } getTermType(t) == 1 ==>
             t == tuple2(getTupleElem(t, 0), getTupleElem(t, 1))
     }
 
     axiom { // tuple3 is injective
         forall t1, t2, t3 Term :: { tuple3(t1, t2, t3) } getTermType(tuple3(t1, t2, t3)) == 2 &&
+            getTermHeight(tuple3(t1, t2, t3)) == 1 + max3(getTermHeight(t1), getTermHeight(t2), getTermHeight(t3)) &&
             getTupleElem(tuple3(t1, t2, t3), 0) == t1 &&
             getTupleElem(tuple3(t1, t2, t3), 1) == t2 &&
             getTupleElem(tuple3(t1, t2, t3), 2) == t3
     }
     axiom { // tuple3 implies its constructions
-        forall t Term :: { getTermType(t) == 2 } getTermType(t) == 2 ==>
+        forall t Term :: { getTermType(t) } getTermType(t) == 2 ==>
             t == tuple3(getTupleElem(t, 0), getTupleElem(t, 1), getTupleElem(t, 2))
     }
 
     axiom { // tuple4 is injective
         forall t1, t2, t3, t4 Term :: { tuple4(t1, t2, t3, t4) } getTermType(tuple4(t1, t2, t3, t4)) == 3 &&
+            getTermHeight(tuple4(t1, t2, t3, t4)) == 1 + max4(getTermHeight(t1), getTermHeight(t2), getTermHeight(t3), getTermHeight(t4)) &&
             getTupleElem(tuple4(t1, t2, t3, t4), 0) == t1 &&
             getTupleElem(tuple4(t1, t2, t3, t4), 1) == t2 &&
             getTupleElem(tuple4(t1, t2, t3, t4), 2) == t3 &&
             getTupleElem(tuple4(t1, t2, t3, t4), 3) == t4
     }
     axiom { // tuple4 implies its constructions
-        forall t Term :: { getTermType(t) == 3 } getTermType(t) == 3 ==>
+        forall t Term :: { getTermType(t) } getTermType(t) == 3 ==>
             t == tuple4(getTupleElem(t, 0), getTupleElem(t, 1), getTupleElem(t, 2), getTupleElem(t, 3))
     }
 
     axiom { // tuple5 is injective
         forall t1, t2, t3, t4, t5 Term :: { tuple5(t1, t2, t3, t4, t5) } getTermType(tuple5(t1, t2, t3, t4, t5)) == 4 &&
+            getTermHeight(tuple5(t1, t2, t3, t4, t5)) == 1 + max5(getTermHeight(t1), getTermHeight(t2), getTermHeight(t3), getTermHeight(t4), getTermHeight(t5)) &&
             getTupleElem(tuple5(t1, t2, t3, t4, t5), 0) == t1 &&
             getTupleElem(tuple5(t1, t2, t3, t4, t5), 1) == t2 &&
             getTupleElem(tuple5(t1, t2, t3, t4, t5), 2) == t3 &&
@@ -150,12 +161,13 @@ type Term domain {
             getTupleElem(tuple5(t1, t2, t3, t4, t5), 4) == t5
     }
     axiom { // tuple5 implies its constructions
-        forall t Term :: { getTermType(t) == 4 } getTermType(t) == 4 ==>
+        forall t Term :: { getTermType(t) } getTermType(t) == 4 ==>
             t == tuple5(getTupleElem(t, 0), getTupleElem(t, 1), getTupleElem(t, 2), getTupleElem(t, 3), getTupleElem(t, 4))
     }
 
     axiom { // tuple7 is injective
         forall t1, t2, t3, t4, t5, t6, t7 Term :: { tuple7(t1, t2, t3, t4, t5, t6, t7) } getTermType(tuple7(t1, t2, t3, t4, t5, t6, t7)) == 5 &&
+            getTermHeight(tuple7(t1, t2, t3, t4, t5, t6, t7)) == 1 + max7(getTermHeight(t1), getTermHeight(t2), getTermHeight(t3), getTermHeight(t4), getTermHeight(t5), getTermHeight(t6), getTermHeight(t7)) &&
             getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 0) == t1 &&
             getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 1) == t2 &&
             getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 2) == t3 &&
@@ -165,67 +177,92 @@ type Term domain {
             getTupleElem(tuple7(t1, t2, t3, t4, t5, t6, t7), 6) == t7
     }
     axiom { // tuple7 implies its constructions
-        forall t Term :: { getTermType(t) == 5 } getTermType(t) == 5 ==>
+        forall t Term :: { getTermType(t) } getTermType(t) == 5 ==>
             t == tuple7(getTupleElem(t, 0), getTupleElem(t, 1), getTupleElem(t, 2), getTupleElem(t, 3), getTupleElem(t, 4), getTupleElem(t, 5), getTupleElem(t, 6))
     }
 
     axiom { // hash is injective
         forall t Term :: { hash(t) } getTermType(hash(t)) == 6 &&
+            getTermHeight(hash(t)) == 1 + getTermHeight(t) &&
             getInput(hash(t)) == t
+    }
+    axiom { // hash implies its constructions
+        forall t Term :: { getTermType(t) } getTermType(t) == 6 ==>
+            t == hash(getInput(t))
     }
 
     axiom { // kdf1 is injective
         forall t Term :: { kdf1(t) } getTermType(kdf1(t)) == 7 &&
+            getTermHeight(kdf1(t)) == 1 + getTermHeight(t) &&
             getInput(kdf1(t)) == t
+    }
+    axiom { // kdf1 implies its constructions
+        forall t Term :: { getTermType(t) } getTermType(t) == 7 ==>
+            t == kdf1(getInput(t))
     }
 
     axiom { // kdf2 is injective
         forall t Term :: { kdf2(t) } getTermType(kdf2(t)) == 8 &&
+            getTermHeight(kdf2(t)) == 1 + getTermHeight(t) &&
             getInput(kdf2(t)) == t
+    }
+    axiom { // kdf2 implies its constructions
+        forall t Term :: { getTermType(t) } getTermType(t) == 8 ==>
+            t == kdf2(getInput(t))
     }
 
     axiom { // kdf3 is injective
         forall t Term :: { kdf3(t) } getTermType(kdf3(t)) == 9 &&
+            getTermHeight(kdf3(t)) == 1 + getTermHeight(t) &&
             getInput(kdf3(t)) == t
+    }
+    axiom { // kdf3 implies its constructions
+        forall t Term :: { getTermType(t) } getTermType(t) == 9 ==>
+            t == kdf3(getInput(t))
     }
 
     // TODO `getPk` is currently total, should any argument be acceptable?
     axiom { // createPk is injective
         forall sk Term :: { createPk(sk) } getTermType(createPk(sk)) == 10 &&
+            getTermHeight(createPk(sk)) == 1 + getTermHeight(sk) &&
             getSk(createPk(sk)) == sk
     }
     axiom { // pk implies its construction
-        forall t Term :: { getTermType(t) == 10 } (getTermType(t) == 10) ==> t == createPk(getSk(t))
+        forall t Term :: { getTermType(t) } (getTermType(t) == 10) ==> t == createPk(getSk(t))
     }
 
     axiom { // encrypt is injective
         forall plaintext Term, pk Term :: { encrypt(plaintext, pk) } getTermType(encrypt(plaintext, pk)) == 11 &&
+            getTermHeight(encrypt(plaintext, pk)) == 1 + max2(getTermHeight(plaintext), getTermHeight(pk)) &&
             getPlaintext(encrypt(plaintext, pk)) == plaintext &&
             getPk(encrypt(plaintext, pk)) == pk
     }
     axiom { // encrypt implies its constructions
-        forall t Term :: { getTermType(t) == 11 } getTermType(t) == 11 ==>
+        forall t Term :: { getTermType(t) } getTermType(t) == 11 ==>
             t == encrypt(getPlaintext(t), getPk(t))
     }
 
     axiom { // aead is injective
         forall key, nonce, plaintext, authtext Term :: { aead(key, nonce, plaintext, authtext) } getTermType(aead(key, nonce, plaintext, authtext)) == 12 &&
+            getTermHeight(aead(key, nonce, plaintext, authtext)) == 1 + max4(getTermHeight(key), getTermHeight(nonce), getTermHeight(plaintext), getTermHeight(authtext)) &&
             getAeadKey(aead(key, nonce, plaintext, authtext)) == key &&
             getAeadNonce(aead(key, nonce, plaintext, authtext)) == nonce &&
             getPlaintext(aead(key, nonce, plaintext, authtext)) == plaintext &&
             getAuthtext(aead(key, nonce, plaintext, authtext)) == authtext
     }
     axiom { // aead implies its constructions
-        forall t Term :: { getTermType(t) == 12 } getTermType(t) == 12 ==>
+        forall t Term :: { getTermType(t) } getTermType(t) == 12 ==>
             t == aead(getAeadKey(t), getAeadNonce(t), getPlaintext(t), getAuthtext(t))
     }
 
     axiom {
-        getTermType(const1()) == 13
+        getTermType(const1()) == 13 &&
+        getTermHeight(const1()) == 0
     }
 
     axiom { // exp has type
-        forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 14
+        forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 14 &&
+            getTermHeight(exp(t1, t2)) > max2(getTermHeight(t1), getTermHeight(t2)) // note that we an inequality to prevent inconsistencies due to the DH equational theory
     }
     axiom { // exp is injective for a given base
         forall t1, t2, t3 Term :: { exp(t1, t2), exp(t1, t3) } exp(t1, t2) == exp(t1, t3) ==> t2 == t3
@@ -233,7 +270,8 @@ type Term domain {
     // exp is neither injective nor does it imply its construction as we can construct the same term by using exp and mult!
 
     axiom { // mult has type
-        forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 15
+        forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 15 &&
+            getTermHeight(mult(t1, t2)) > max2(getTermHeight(t1), getTermHeight(t2)) // note that we an inequality to prevent inconsistencies due to the DH equational theory
     }
 
     // mult is commutative
@@ -268,42 +306,69 @@ type Term domain {
 
     axiom { // stringTerm is injective
         forall s string :: { stringTerm(s) } getTermType(stringTerm(s)) == 16 &&
+            getTermHeight(stringTerm(s)) == 0 &&
             getString(stringTerm(s)) == s
     }
 
     axiom { // zero string has type
-        forall l int :: { zeroString(l) } getTermType(zeroString(l)) == 17
+        forall l int :: { zeroString(l) } getTermType(zeroString(l)) == 17 &&
+            getTermHeight(zeroString(l)) == 0
     }
 
     axiom { // integer64 is injective
         forall value uint64 :: { integer64(value) } getTermType(integer64(value)) == 18 &&
+            getTermHeight(integer64(value)) == 0 &&
             getInt64(integer64(value)) == value
     }
     axiom { // integer64 implies its construction
-        forall t Term :: { getTermType(t) == 18 } (getTermType(t) == 18) ==> t == integer64(getInt64(t))
+        forall t Term :: { getTermType(t) } (getTermType(t) == 18) ==> t == integer64(getInt64(t))
     }
 
     axiom { // integer32 is injective
         forall value uint32 :: { integer32(value) } getTermType(integer32(value)) == 19 &&
+            getTermHeight(integer32(value)) == 0 &&
             getInt32(integer32(value)) == value
     }
     axiom { // integer32 implies its construction
-        forall t Term :: { getTermType(t) == 19 } (getTermType(t) == 19) ==> t == integer32(getInt32(t))
+        forall t Term :: { getTermType(t) } (getTermType(t) == 19) ==> t == integer32(getInt32(t))
     }
 
     axiom {
-        getTermType(infoTerm()) == 20
+        getTermType(infoTerm()) == 20 &&
+            getTermHeight(infoTerm()) == 0
     }
 
     axiom {
-        getTermType(prologueTerm()) == 21
+        getTermType(prologueTerm()) == 21 &&
+            getTermHeight(prologueTerm()) == 0
     }
 
     axiom {
-        getTermType(generator()) == 22
+        getTermType(generator()) == 22 &&
+            getTermHeight(generator()) == 0
     }
     axiom { // generator implies its construction
-        forall t Term :: { getTermType(t) == 22 } (getTermType(t) == 22) ==> t == generator()
+        forall t Term :: { getTermType(t) } (getTermType(t) == 22) ==> t == generator()
+    }
+
+    // axioms for getTermHeight and the max functions:
+    axiom {
+        forall t Term :: { getTermHeight(t) } 0 <= getTermHeight(t)
+    }
+    axiom {
+        forall t1, t2 int :: { max2(t1, t2) } max2(t1, t2) == (t1 >= t2 ? t1 : t2)
+    }
+    axiom {
+        forall t1, t2, t3 int :: { max3(t1, t2, t3) } max3(t1, t2, t3) == max2(t1, max2(t2, t3))
+    }
+    axiom {
+        forall t1, t2, t3, t4 int :: { max4(t1, t2, t3, t4) } max4(t1, t2, t3, t4) == max2(max2(t1, t2), max2(t3, t4))
+    }
+    axiom {
+        forall t1, t2, t3, t4, t5 int :: { max5(t1, t2, t3, t4, t5) } max5(t1, t2, t3, t4, t5) == max2(max2(t1, t2), max3(t3, t4, t5))
+    }
+    axiom {
+        forall t1, t2, t3, t4, t5, t6, t7 int :: { max7(t1, t2, t3, t4, t5, t6, t7) } max7(t1, t2, t3, t4, t5, t6, t7) == max2(max3(t1, t2, t3), max4(t4, t5, t6, t7))
     }
 }
 
@@ -521,3 +586,30 @@ requires ciphertext.IsAead()
 pure func AeadExtract(ciphertext Term) Term {
     return getAuthtext(ciphertext)
 }
+
+/*
+ghost
+decreases
+func termHeightSanityCheck(x, y, z Term) {
+    xHeight := getTermHeight(x)
+    yHeight := getTermHeight(y)
+    zHeight := getTermHeight(z)
+    xy := exp(x, y)
+    xyHeight := getTermHeight(xy)
+    assert xyHeight > xHeight
+    assert xyHeight > yHeight
+    xyz := exp(xy, z)
+    xyzHeight := getTermHeight(xyz)
+    assert xyzHeight > xyHeight
+    yMultz := mult(y, z)
+    yMultzHeight := getTermHeight(yMultz)
+    assert yMultzHeight > yHeight
+    assert yMultzHeight > zHeight
+    xyz2 := exp(x, yMultz)
+    xyz2Height := getTermHeight(xyz2)
+    assert xyz2Height > yMultzHeight
+    assert xyzHeight == xyz2Height
+    assert xyz == xyz2
+    assert false // smoke check
+}
+*/

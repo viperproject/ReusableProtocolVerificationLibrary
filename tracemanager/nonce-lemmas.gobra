@@ -11,6 +11,7 @@ type NonceSearcher struct {
 NonceSearcher implements TraceSearcher
 
 ghost
+decreases
 pure func (ns NonceSearcher) Ctx() tr.TraceContext {
     return ns.ctx
 }
@@ -36,7 +37,7 @@ pure func (ns NonceSearcher) Occurs(entry tr.TraceEntry) bool {
 }
 
 ghost
-// decreases
+decreases
 requires ns.Ctx() != nil
 pure func (ns NonceSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))

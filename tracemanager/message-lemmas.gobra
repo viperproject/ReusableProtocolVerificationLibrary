@@ -14,6 +14,7 @@ type MessageSearcher struct {
 MessageSearcher implements TraceSearcher
 
 ghost
+decreases
 pure func (ms MessageSearcher) Ctx() tr.TraceContext {
     return ms.ctx
 }
@@ -39,7 +40,7 @@ pure func (ms MessageSearcher) Occurs(entry tr.TraceEntry) bool {
 }
 
 ghost
-// decreases
+decreases
 requires ms.Ctx() != nil
 pure func (ms MessageSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.messageInv(ms.ctx, ms.sender, ms.receiver, ms.payload, tr.getPrev(entry))
@@ -95,7 +96,7 @@ ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isMessage()
 ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  prev.isMessageAt(sender, receiver, payload)
-ensures  tr.messageInv(ctx, sender, receiver, payload, tr.getPrev(prev))
+ensures  tr.messageInv(m.Ctx(ctx, owner), sender, receiver, payload, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {

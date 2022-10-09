@@ -10,7 +10,7 @@ type TraceContext interface {
     pred eventInv(principal p.Principal, ev Event, prev TraceEntry)
 
     ghost
-    // decreases
+    decreases
     /**
      * Specifies consistency conditions for an event. These conditions
      * have to be implied by `pureEventInv`
@@ -18,7 +18,7 @@ type TraceContext interface {
     pure EventConsistency(ev Event) bool
 
     ghost
-    // decreases
+    decreases
     pure pureEventInv(principal p.Principal, ev Event, prev TraceEntry) bool
 
     ghost
@@ -28,7 +28,7 @@ type TraceContext interface {
     eventInvImpliesConsistency(principal p.Principal, ev Event, prev TraceEntry)
     
     ghost
-    // decreases
+    decreases
     /**
      * expresses whether an event type does only occur once with 
      * certain parameters
@@ -36,7 +36,7 @@ type TraceContext interface {
     pure IsUnique(typ EventType) bool
 
     ghost
-    // decreases
+    decreases
     requires EventConsistency(ev)
     requires IsUnique(ev.typ)
     /** 
@@ -88,8 +88,8 @@ type TraceContext interface {
     corruptInvMonotonic(id p.Id, t1 TraceEntry, t2 TraceEntry)
 
     ghost
-    // decreases
-    ensures res != nil
+    decreases
+    ensures res != nil && res.Props()
     pure GetLabeling() (res LabelingContext)
 }
 
@@ -112,18 +112,22 @@ type LabelingContext interface {
     NonceForEventContradiction(nonce tm.Term, eventType EventType)
 
     ghost
+    decreases
     requires Props()
     pure IsSecret(t TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool
 
     ghost
+    decreases
     requires Props()
     pure IsLabeled(t TraceEntry, term tm.Term, l label.SecrecyLabel) bool
 
     ghost
+    decreases
     requires Props()
     pure IsPublishable(t TraceEntry, term tm.Term) bool
 
     ghost
+    decreases
     pure CanFlow(t TraceEntry, l1, l2 label.SecrecyLabel) bool
 
     ghost
@@ -156,6 +160,7 @@ type LabelingContext interface {
     CanFlowReflexive(t TraceEntry, l label.SecrecyLabel)
 
     ghost
+    decreases
     requires Props()
     pure CanEncrypt(t TraceEntry, msg, pk tm.Term) bool
 
@@ -167,10 +172,12 @@ type LabelingContext interface {
     CiphertextIsPublishable(t TraceEntry, msg, pk tm.Term)
 
     ghost
+    decreases
     requires Props()
     pure CanDecrypt(t TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) bool
 
     ghost
+    decreases
     requires Props()
     pure WasDecrypted(t TraceEntry, msg, sk tm.Term, skOwner p.Id) bool
 
@@ -196,6 +203,7 @@ type LabelingContext interface {
     PlaintextIsPublishableForPublicSk(t TraceEntry, msg, sk tm.Term, skOwner p.Id)
 
     ghost
+    decreases
     requires Props()
     pure CanAeadEncrypt(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool
 
@@ -207,10 +215,12 @@ type LabelingContext interface {
     AeadCiphertextIsPublishable(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel)
 
     ghost
+    decreases
     requires Props()
     pure CanAeadDecrypt(t TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) bool
 
     ghost
+    decreases
     requires Props()
     pure WasAeadDecrypted(t TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool
 
@@ -264,6 +274,7 @@ pred validTrace(ctx TraceContext, t TraceEntry) {
 }
 
 ghost
+decreases
 requires ctx != nil && ctx.GetLabeling().Props()
 requires t.isRoot()
 pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
@@ -271,6 +282,7 @@ pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bo
 }
 
 ghost
+decreases
 requires ctx != nil && ctx.GetLabeling().Props()
 pure func messageInv(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, prev TraceEntry) bool {
     return ctx.GetLabeling().IsPublishable(prev, payload)
@@ -293,17 +305,20 @@ pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {
 }
 
 ghost
+decreases
 pure func pureRandInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) bool {
     return nonce.IsRandom()
 }
 
 ghost
+decreases
 requires ctx != nil && ctx.GetLabeling().Props()
 pure func madePublicInv(ctx TraceContext, term tm.Term, prev TraceEntry) bool {
     return ctx.GetLabeling().IsPublishable(prev, term)
 }
 
 ghost
+decreases
 requires ctx != nil && ctx.GetLabeling().Props()
 requires t1.isSuffix(t2)
 requires madePublicInv(ctx, term, t1)

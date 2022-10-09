@@ -67,26 +67,31 @@ type Usage domain {
 }
 
 ghost
+decreases
 pure func (u Usage) IsPkeKey() bool {
     return GetUsageType(u) == 0
 }
 
 ghost
+decreases
 pure func (u Usage) IsDhKey() bool {
     return GetUsageType(u) == 1
 }
 
 ghost
+decreases
 pure func (u Usage) IsNonce() bool {
     return GetUsageType(u) == 2
 }
 
 ghost
+decreases
 pure func (u Usage) IsAeadKey() bool {
     return GetUsageType(u) == 3
 }
 
 ghost
+decreases
 pure func (u Usage) IsKdfKey() bool {
     return GetUsageType(u) == 4
 }

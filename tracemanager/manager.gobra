@@ -179,7 +179,7 @@ func (m *TraceManager) LogEvent(ctx tr.TraceContext, owner Client, event ev.Even
 
 ghost
 requires m.Mem(ctx, owner)
-requires tr.messageInv(ctx, sender, receiver, message, m.Snapshot(ctx, owner))
+requires tr.messageInv(m.Ctx(ctx, owner), sender, receiver, message, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
 ensures  (m.Snapshot(ctx, owner)).isMessageAt(sender, receiver, message)
 ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
@@ -201,7 +201,7 @@ func (m *TraceManager) LogSend(ctx tr.TraceContext, owner Client, sender, receiv
 
 ghost
 requires m.Mem(ctx, owner)
-requires tr.madePublicInv(ctx, term, m.Snapshot(ctx, owner))
+requires tr.madePublicInv(m.Ctx(ctx, owner), term, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
 ensures  (m.Snapshot(ctx, owner)).isPublic() && tr.getPayload(m.Snapshot(ctx, owner)) == term
 ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))

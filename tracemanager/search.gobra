@@ -50,15 +50,15 @@ func (m *TraceManager) releaseValidTrace(ctx tr.TraceContext, owner Client, last
 
 type TraceSearcher interface {
     ghost
+    decreases
     pure Ctx() tr.TraceContext
     
-    // TODO: adding termination to Matches and Occurs results in a failing internal postcondition (i.e. without positional information)
     ghost
-    // decreases
+    decreases
     pure Matches(entry tr.TraceEntry) bool
 
     ghost
-    // decreases
+    decreases
     requires entry.isSuffix(snapshot)
     requires Matches(entry)
     /**
@@ -67,11 +67,11 @@ type TraceSearcher interface {
     pure MatchProperties(snapshot, entry tr.TraceEntry) bool
 
     ghost
-    // decreases
+    decreases
     pure Occurs(entry tr.TraceEntry) bool
 
     ghost
-    // decreases TODO: Gobra seems to ignore the decreases annotation of called interface functions
+    decreases
     requires Ctx() != nil
     pure PureEntryInv(entry tr.TraceEntry) bool
 

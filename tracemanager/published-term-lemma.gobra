@@ -11,6 +11,7 @@ type PublishedTermSearcher struct {
 PublishedTermSearcher implements TraceSearcher
 
 ghost
+decreases
 pure func (ps PublishedTermSearcher) Ctx() tr.TraceContext {
     return ps.ctx
 }
@@ -36,7 +37,7 @@ pure func (ps PublishedTermSearcher) Occurs(entry tr.TraceEntry) bool {
 }
 
 ghost
-// decreases
+decreases
 requires ps.Ctx() != nil
 pure func (ps PublishedTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.madePublicInv(ps.ctx, ps.term, tr.getPrev(entry))
@@ -92,7 +93,7 @@ ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap)
 ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  prev.isPublic()
-ensures  tr.madePublicInv(ctx, term, tr.getPrev(prev))
+ensures  tr.madePublicInv(m.Ctx(ctx, owner), term, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) PublishedTermImpliesMadePublicInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {

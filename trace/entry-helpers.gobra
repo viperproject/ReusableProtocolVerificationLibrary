@@ -291,6 +291,7 @@ pure func (entry TraceEntry) getMessagePayloadsForCommChannel(sender, receiver p
 
 
 ghost
+decreases
 /** returns true iff at least one id in `ids` has been corrupted, i.e. is in `corruptIds` */
 pure func containsCorruptId(corruptIds set[p.Id], ids set[p.Id]) bool {
     // return len(corruptIds intersection ids) > 0
@@ -298,6 +299,7 @@ pure func containsCorruptId(corruptIds set[p.Id], ids set[p.Id]) bool {
 }
 
 ghost
+decreases
 /** 
 * returns true if there is an id in `ids` that covers `corruptedId`.
 * the intuition is that e.g. a long-term private key (with label `readers(set{owner})`) 

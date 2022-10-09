@@ -18,6 +18,7 @@ type SecrecyLabel domain {
     // deconstructors
     // TODO: get rid of `GetFirstLabel` and `GetSecondLabel` and express commutativity in the usual way
     func GetType(SecrecyLabel) int
+    func GetHeight(SecrecyLabel) int
     func GetReaders(SecrecyLabel) set[p.Id]
     func GetFirstLabel(SecrecyLabel) SecrecyLabel
     func GetSecondLabel(SecrecyLabel) SecrecyLabel
@@ -27,22 +28,25 @@ type SecrecyLabel domain {
     }
     
     axiom { // public has type 0
-        GetType(Public()) == 0 
+        GetType(Public()) == 0 &&
+        GetHeight(Public()) == 0
     }
     axiom { // public type implies its construction
-        forall l SecrecyLabel :: { GetType(l) == 0 } GetType(l) == 0 ==> l == Public()
+        forall l SecrecyLabel :: { GetType(l) } GetType(l) == 0 ==> l == Public()
     }
 
     axiom { // readers is injective
         forall scopes set[p.Id] :: { Readers(scopes) } GetType(Readers(scopes)) == 1 &&
+            GetHeight(Readers(scopes)) == 0 &&
             GetReaders(Readers(scopes)) == scopes
     }
     axiom { // readers type implies its construction
-        forall l SecrecyLabel :: { GetType(l) == 1 } GetType(l) == 1 ==> l == Readers(GetReaders(l))
+        forall l SecrecyLabel :: { GetType(l) } GetType(l) == 1 ==> l == Readers(GetReaders(l))
     }
 
     axiom { // meet is pseudo-injective, i.e. injective modulo commutativity
         forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } GetType(Meet(l1, l2)) == 2 &&
+            GetHeight(Meet(l1, l2)) == 1 + (GetHeight(l1) >= GetHeight(l2) ? GetHeight(l1) : GetHeight(l2)) &&
             ((
                 GetFirstLabel(Meet(l1, l2)) == l1 &&
                 GetSecondLabel(Meet(l1, l2)) == l2) ||
@@ -54,11 +58,12 @@ type SecrecyLabel domain {
         forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } Meet(l1, l2) == Meet(l2, l1)
     }
     axiom { // meet type implies its construction
-        forall l SecrecyLabel :: { GetType(l) == 2 } GetType(l) == 2 ==> l == Meet(GetFirstLabel(l), GetSecondLabel(l))
+        forall l SecrecyLabel :: { GetType(l) } GetType(l) == 2 ==> l == Meet(GetFirstLabel(l), GetSecondLabel(l))
     }
 
     axiom { // join is pseudo-injective, i.e. injective modulo commutativity
         forall l1, l2 SecrecyLabel :: { Join(l1, l2) } GetType(Join(l1, l2)) == 3 &&
+            GetHeight(Join(l1, l2)) == 1 + (GetHeight(l1) >= GetHeight(l2) ? GetHeight(l1) : GetHeight(l2)) &&
             ((
                 GetFirstLabel(Join(l1, l2)) == l1 &&
                 GetSecondLabel(Join(l1, l2)) == l2) ||
@@ -70,7 +75,12 @@ type SecrecyLabel domain {
         forall l1, l2 SecrecyLabel :: { Join(l1, l2) } Join(l1, l2) == Join(l2, l1)
     }
     axiom { // join type implies its construction
-        forall l SecrecyLabel :: { GetType(l) == 3 } GetType(l) == 3 ==> l == Join(GetFirstLabel(l), GetSecondLabel(l))
+        forall l SecrecyLabel :: { GetType(l) } GetType(l) == 3 ==> l == Join(GetFirstLabel(l), GetSecondLabel(l))
+    }
+
+    // axioms for GetHeight:
+    axiom {
+        forall l SecrecyLabel :: { GetHeight(l) } 0 <= GetHeight(l)
     }
 }
 
