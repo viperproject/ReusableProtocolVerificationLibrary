@@ -14,7 +14,15 @@ EventSearcher implements TraceSearcher
 
 ghost
 decreases
-pure func (es EventSearcher) Ctx() tr.TraceContext {
+pure func (es EventSearcher) Props() bool {
+    return es.ctx != nil && es.ctx.Props()
+}
+
+ghost
+decreases
+requires es.Props()
+ensures  res != nil && res.Props()
+pure func (es EventSearcher) Ctx() (res tr.TraceContext) {
     return es.ctx
 }
 
@@ -41,7 +49,7 @@ pure func (es EventSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 decreases
-requires es.Ctx() != nil
+requires es.Props()
 pure func (es EventSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return es.Ctx().pureEventInv(es.principal, es.event, tr.getPrev(entry))
 }
@@ -76,7 +84,7 @@ func (es EventSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
-requires es.Ctx() != nil
+requires es.Props()
 requires es.Matches(entry)
 requires acc(tr.validTrace(es.Ctx(), entry), p)
 ensures  es.PureEntryInv(entry)
@@ -197,7 +205,7 @@ func (m *TraceManager) UniqueEventsOccurOnlyOnce(ctx tr.TraceContext, owner Clie
 
 ghost
 decreases
-requires isComparable(ctx)
+requires ctx != nil && isComparable(ctx) && ctx.Props()
 requires tr.validTrace(ctx, validTraceEntry)
 requires validTraceEntry.eventOccurs(principal1, event1)
 requires validTraceEntry.eventOccurs(principal2, event2)

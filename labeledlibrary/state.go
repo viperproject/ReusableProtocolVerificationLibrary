@@ -30,7 +30,7 @@ pred (l *LabeledLibrary) Mem() {
 	acc(l.s.Mem(), 1/8) &&
 	acc(l.com.LibMem(), 1/8) &&
 	l.com != nil && isComparable(l.com) &&
-	l.ctx != nil && isComparable(l.ctx) &&
+	l.ctx != nil && isComparable(l.ctx) && l.ctx.Props() &&
 	typeOf(l.ctx.GetLabeling()) == labeling.DefaultLabelingContext &&
 	l.manager.Mem(l.ctx, l.owner)
 }
@@ -50,7 +50,7 @@ pure func (l *LabeledLibrary) ImmutableState() ImmutableState {
 
 ghost
 requires acc(l.Mem(), _)
-ensures  res != nil && isComparable(res)
+ensures  res != nil && isComparable(res) && res.Props()
 pure func (l *LabeledLibrary) Ctx() (res tr.TraceContext) {
 	return unfolding acc(l.Mem(), _) in l.ctx
 }
@@ -84,7 +84,7 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ requires acc(com.LibMem(), 1/8)
 //@ requires com != nil && isComparable(com)
 //@ requires manager.Mem(ctx, owner)
-//@ requires ctx != nil && isComparable(ctx)
+//@ requires ctx != nil && isComparable(ctx) && ctx.Props()
 //@ requires typeOf(ctx.GetLabeling()) == labeling.DefaultLabelingContext
 //@ ensures  res.Mem()
 //@ ensures  res.Ctx() == ctx

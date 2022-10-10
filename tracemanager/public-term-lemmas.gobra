@@ -12,7 +12,15 @@ PublicTermSearcher implements TraceSearcher
 
 ghost
 decreases
-pure func (ps PublicTermSearcher) Ctx() tr.TraceContext {
+pure func (ps PublicTermSearcher) Props() bool {
+    return ps.ctx != nil && ps.ctx.Props()
+}
+
+ghost
+decreases
+requires ps.Props()
+ensures  res != nil && res.Props()
+pure func (ps PublicTermSearcher) Ctx() (res tr.TraceContext) {
     return ps.ctx
 }
 
@@ -38,7 +46,7 @@ pure func (ps PublicTermSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 decreases
-requires ps.Ctx() != nil
+requires ps.Props()
 pure func (ps PublicTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return entry.isRoot() && tr.publicInv(ps.Ctx(), entry.getPublicTerms(), entry)
 }
@@ -73,7 +81,7 @@ func (ps PublicTermSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
-requires ps.Ctx() != nil
+requires ps.Props()
 requires ps.Matches(entry)
 requires acc(tr.validTrace(ps.Ctx(), entry), p)
 ensures  ps.PureEntryInv(entry)

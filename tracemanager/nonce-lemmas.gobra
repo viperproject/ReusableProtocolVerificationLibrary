@@ -12,7 +12,15 @@ NonceSearcher implements TraceSearcher
 
 ghost
 decreases
-pure func (ns NonceSearcher) Ctx() tr.TraceContext {
+pure func (ns NonceSearcher) Props() bool {
+    return ns.ctx != nil && ns.ctx.Props()
+}
+
+ghost
+decreases
+requires ns.Props()
+ensures  res != nil && res.Props()
+pure func (ns NonceSearcher) Ctx() (res tr.TraceContext) {
     return ns.ctx
 }
 
@@ -38,7 +46,7 @@ pure func (ns NonceSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 decreases
-requires ns.Ctx() != nil
+requires ns.Props()
 pure func (ns NonceSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))
 }
@@ -73,7 +81,7 @@ func (ns NonceSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
-requires ns.Ctx() != nil
+requires ns.Props()
 requires ns.Matches(entry)
 requires acc(tr.validTrace(ns.Ctx(), entry), p)
 ensures  ns.PureEntryInv(entry)

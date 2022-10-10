@@ -19,7 +19,7 @@ type Client = p.Id
 // currently necessary because Gobra does apparently not support a dot expression as map key type
 type MapKey = p.Id
 
-requires ctx != nil && isComparable(ctx)
+requires ctx != nil && isComparable(ctx) && ctx.Props()
 requires len(clients) > 0
 requires tr.validTrace(ctx, root)
 requires noPerm < p && p <= writePerm
@@ -68,13 +68,13 @@ func NewTraceManager(ctx tr.TraceContext, clients []Client, root tr.TraceEntry, 
 
 pred (m *TraceManager) Mem(ctx tr.TraceContext, owner Client) {
     acc(m) && 0 < m.nClients &&
-    ctx != nil && isComparable(ctx) &&
+    ctx != nil && isComparable(ctx) && ctx.Props() &&
     m.mutex.ClientHistoryMutexState(ManagerInv{ ctx }, owner)
 }
 
 ghost
 requires acc(m.Mem(ctx, owner), _)
-ensures  ctx != nil
+ensures  ctx != nil && ctx.Props()
 // indirection to learn that `ctx != nil`
 pure func (m *TraceManager) Ctx(ctx tr.TraceContext, owner Client) tr.TraceContext {
     return unfolding acc(m.Mem(ctx, owner), _) in ctx

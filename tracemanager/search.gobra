@@ -6,7 +6,7 @@ import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 /** represents the state after acquiring the mutex to then use it prove a lemma */
 pred (m *TraceManager) memLocked(ctx tr.TraceContext, owner Client, lastSeenSnapshot, snapshot tr.TraceEntry) {
     acc(m) && 0 < m.nClients &&
-    ctx != nil && isComparable(ctx) &&
+    ctx != nil && isComparable(ctx) && ctx.Props() &&
     m.mutex.ClientHistoryMutexStateLocked(ManagerInv{ ctx }, owner, snapshot) &&
     m.mutex.LastSeenValueLocked(ManagerInv{ ctx }, owner, snapshot) == lastSeenSnapshot &&
     (ManagerInv{ ctx }).TwoStepValueInv(lastSeenSnapshot, snapshot) // &&
@@ -51,7 +51,13 @@ func (m *TraceManager) releaseValidTrace(ctx tr.TraceContext, owner Client, last
 type TraceSearcher interface {
     ghost
     decreases
-    pure Ctx() tr.TraceContext
+    pure Props() bool
+
+    ghost
+    decreases
+    requires Props()
+    ensures res != nil && res.Props()
+    pure Ctx() (res tr.TraceContext)
     
     ghost
     decreases
@@ -72,7 +78,7 @@ type TraceSearcher interface {
 
     ghost
     decreases
-    requires Ctx() != nil
+    requires Props()
     pure PureEntryInv(entry tr.TraceEntry) bool
 
     ghost
@@ -104,7 +110,7 @@ type TraceSearcher interface {
     ghost
     decreases
     requires noPerm < p && p <= writePerm
-    requires Ctx() != nil
+    requires Props()
     requires Matches(entry)
     requires acc(tr.validTrace(Ctx(), entry), p)
     ensures  PureEntryInv(entry)
@@ -119,7 +125,7 @@ type TraceSearcher interface {
 ghost
 decreases validTraceEntry.traceLen()
 requires noPerm < p && p <= writePerm
-requires searcher != nil && searcher.Ctx() != nil // && searcher.Mem()
+requires searcher != nil && searcher.Props()
 requires acc(tr.validTrace(searcher.Ctx(), validTraceEntry), p)
 requires entry.isSuffix(validTraceEntry)
 requires searcher.Occurs(entry)
@@ -169,7 +175,7 @@ func (m *TraceManager) findEntryWithInv(searcher TraceSearcher, validTraceEntry,
 
 ghost
 decreases
-requires searcher != nil && searcher.Ctx() != nil
+requires searcher != nil && searcher.Props()
 requires m.Mem(searcher.Ctx(), owner)
 requires searcher.Occurs(m.Snapshot(searcher.Ctx(), owner))
 ensures  m.Mem(searcher.Ctx(), owner)
@@ -190,7 +196,7 @@ func (m *TraceManager) findEntryWithPureInv(searcher TraceSearcher, owner Client
 
 ghost
 decreases
-requires searcher != nil && searcher.Ctx() != nil
+requires searcher != nil && searcher.Props()
 requires m.Mem(searcher.Ctx(), owner)
 requires snap.isSuffix(m.Snapshot(searcher.Ctx(), owner))
 requires searcher.Occurs(snap)
@@ -215,7 +221,7 @@ func (m *TraceManager) findEntryWithPureInvWithSnap(searcher TraceSearcher, owne
 
 /** this is the same as the `validTrace` predicate but without the recursive component */
 pred localValidTrace(ctx tr.TraceContext, t tr.TraceEntry) {
-    ctx != nil &&
+    ctx != nil && ctx.Props() &&
     (t.isRoot() ==> tr.publicInv(ctx, tr.getPublicTerms(t), t)) &&
     (t.isEvent() ==> ctx.eventInv(tr.getPrincipal(t), tr.getEvent(t), tr.getPrev(t))) &&
     (t.isMessage() ==> tr.messageInv(ctx, tr.getSender(t), tr.getReceiver(t), tr.getPayload(t), tr.getPrev(t))) &&
@@ -227,7 +233,8 @@ pred localValidTrace(ctx tr.TraceContext, t tr.TraceEntry) {
 
 ghost
 decreases validTraceEntry.traceLen()
-requires searcher1 != nil && searcher2 != nil
+requires searcher1 != nil && searcher1.Props()
+requires searcher2 != nil && searcher2.Props()
 requires isComparable(searcher1.Ctx()) && searcher1.Ctx() == searcher2.Ctx()
 requires tr.validTrace(searcher1.Ctx(), validTraceEntry)
 requires searcher1.Occurs(validTraceEntry)

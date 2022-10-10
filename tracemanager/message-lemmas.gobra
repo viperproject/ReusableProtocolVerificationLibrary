@@ -15,7 +15,15 @@ MessageSearcher implements TraceSearcher
 
 ghost
 decreases
-pure func (ms MessageSearcher) Ctx() tr.TraceContext {
+pure func (ms MessageSearcher) Props() bool {
+    return ms.ctx != nil && ms.ctx.Props()
+}
+
+ghost
+decreases
+requires ms.Props()
+ensures  res != nil && res.Props()
+pure func (ms MessageSearcher) Ctx() (res tr.TraceContext) {
     return ms.ctx
 }
 
@@ -41,7 +49,7 @@ pure func (ms MessageSearcher) Occurs(entry tr.TraceEntry) bool {
 
 ghost
 decreases
-requires ms.Ctx() != nil
+requires ms.Props()
 pure func (ms MessageSearcher) PureEntryInv(entry tr.TraceEntry) bool {
     return tr.messageInv(ms.ctx, ms.sender, ms.receiver, ms.payload, tr.getPrev(entry))
 }
@@ -76,7 +84,7 @@ func (ms MessageSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
 ghost
 decreases
 requires noPerm < p && p <= writePerm
-requires ms.Ctx() != nil
+requires ms.Props()
 requires ms.Matches(entry)
 requires acc(tr.validTrace(ms.Ctx(), entry), p)
 ensures  ms.PureEntryInv(entry)
