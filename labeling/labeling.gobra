@@ -119,6 +119,7 @@ pure func (ctx DefaultLabelingContext) Props() bool {
 }
 
 // TODO make ghost
+decreases
 pure func GetDefaultLabelingContext(usage UsageContext) (res DefaultLabelingContext) {
     return DefaultLabelingContext{ usage }
 }

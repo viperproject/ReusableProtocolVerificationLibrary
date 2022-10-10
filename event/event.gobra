@@ -13,6 +13,7 @@ type Event struct {
 }
 
 ghost
+decreases
 requires isComparable(params)
 ensures  res.typ == typ && res.params == params
 pure func NewEvent(typ EventType, params EventParams) (res Event) {

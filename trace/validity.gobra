@@ -7,6 +7,11 @@ import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 
 type TraceContext interface {
+    ghost
+    decreases
+    /** used to express (pure) properties about fields of TraceContext implementations */
+    pure Props() bool
+
     pred eventInv(principal p.Principal, ev Event, prev TraceEntry)
 
     ghost
@@ -47,12 +52,13 @@ type TraceContext interface {
 
     ghost
     decreases
+    requires Props()
     requires IsUnique(ev.typ)
     requires eventInv(principal, ev, prev)
     ensures  EventConsistency(ev)
     ensures  nonce == UniquenessWitness(ev)
-    ensures  (GetLabeling()).NonceForEventIsUnique(nonce, ev.typ)
-    ensures  (GetLabeling()).NonceForEventIsUnique(nonce, ev.typ) --* eventInv(principal, ev, prev)
+    ensures  GetLabeling().NonceForEventIsUnique(nonce, ev.typ)
+    ensures  GetLabeling().NonceForEventIsUnique(nonce, ev.typ) --* eventInv(principal, ev, prev)
     isUniqueImpliesUniqueResource(principal p.Principal, ev Event, prev TraceEntry) (nonce tm.Term)
 
 
@@ -89,6 +95,7 @@ type TraceContext interface {
 
     ghost
     decreases
+    requires Props()
     ensures res != nil && res.Props()
     pure GetLabeling() (res LabelingContext)
 }
@@ -260,7 +267,7 @@ type LabelingContext interface {
 
 // because Go & Gobra do not allow receivers of interface type, `ctx` becomes the first argument:
 pred validTrace(ctx TraceContext, t TraceEntry) {
-    ctx != nil && ctx.GetLabeling().Props() &&
+    ctx != nil && ctx.Props() &&
     // invariant holds recursively:
     (!t.isRoot() ==> validTrace(ctx, getPrev(t))) &&
 
@@ -275,7 +282,7 @@ pred validTrace(ctx TraceContext, t TraceEntry) {
 
 ghost
 decreases
-requires ctx != nil && ctx.GetLabeling().Props()
+requires ctx != nil && ctx.Props()
 requires t.isRoot()
 pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
     return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> ctx.GetLabeling().IsPublishable(t, publicTerm)
@@ -283,14 +290,14 @@ pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bo
 
 ghost
 decreases
-requires ctx != nil && ctx.GetLabeling().Props()
+requires ctx != nil && ctx.Props()
 pure func messageInv(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, prev TraceEntry) bool {
     return ctx.GetLabeling().IsPublishable(prev, payload)
 }
 
 ghost
 decreases
-requires ctx != nil && ctx.GetLabeling().Props()
+requires ctx != nil && ctx.Props()
 requires t1.isSuffix(t2)
 requires messageInv(ctx, sender, receiver, payload, t1)
 ensures  messageInv(ctx, sender, receiver, payload, t2)
@@ -299,7 +306,7 @@ func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payloa
 }
 
 pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {
-    ctx != nil &&
+    ctx != nil && ctx.Props() &&
     pureRandInv(ctx, nonce, prev) &&
     ctx.GetLabeling().NonceIsUnique(nonce)
 }
@@ -312,14 +319,14 @@ pure func pureRandInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) bool {
 
 ghost
 decreases
-requires ctx != nil && ctx.GetLabeling().Props()
+requires ctx != nil && ctx.Props()
 pure func madePublicInv(ctx TraceContext, term tm.Term, prev TraceEntry) bool {
     return ctx.GetLabeling().IsPublishable(prev, term)
 }
 
 ghost
 decreases
-requires ctx != nil && ctx.GetLabeling().Props()
+requires ctx != nil && ctx.Props()
 requires t1.isSuffix(t2)
 requires madePublicInv(ctx, term, t1)
 ensures  madePublicInv(ctx, term, t2)
