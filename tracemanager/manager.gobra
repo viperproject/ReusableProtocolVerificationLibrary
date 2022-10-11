@@ -19,6 +19,7 @@ type Client = p.Id
 // currently necessary because Gobra does apparently not support a dot expression as map key type
 type MapKey = p.Id
 
+decreases
 requires ctx != nil && isComparable(ctx) && ctx.Props()
 requires len(clients) > 0
 requires tr.validTrace(ctx, root)
@@ -56,6 +57,7 @@ func NewTraceManager(ctx tr.TraceContext, clients []Client, root tr.TraceEntry, 
     invariant forall j int :: { managers[j] } 0 <= j && j < i ==> (&managers[j]).Mem(ctx, clients[j])
     invariant forall j int :: { clients[j] } 0 <= j && j < i ==>
                 ((ms[clients[j]].ImmutableState(ctx, clients[j])).mutex == mutex)
+    decreases len(clients) - i
     for i := 0; i < len(clients); i++ {
         client := clients[i]
         m := &managers[i]
@@ -73,6 +75,7 @@ pred (m *TraceManager) Mem(ctx tr.TraceContext, owner Client) {
 }
 
 ghost
+decreases
 requires acc(m.Mem(ctx, owner), _)
 ensures  ctx != nil && ctx.Props()
 // indirection to learn that `ctx != nil`
@@ -81,6 +84,7 @@ pure func (m *TraceManager) Ctx(ctx tr.TraceContext, owner Client) tr.TraceConte
 }
 
 ghost
+decreases
 requires acc(m.Mem(ctx, owner), _)
 pure func (m *TraceManager) Snapshot(ctx tr.TraceContext, owner Client) tr.TraceEntry {
     return unfolding acc(m.Mem(ctx, owner), _) in m.mutex.LastSeenValue(ManagerInv{ ctx }, owner)
@@ -94,12 +98,14 @@ type ImmutableState struct {
 }
 
 ghost
+decreases
 requires acc(m.Mem(ctx, owner), _)
 pure func (m *TraceManager) ImmutableState(ctx tr.TraceContext, owner Client) ImmutableState {
     return unfolding acc(m.Mem(ctx, owner), _) in ImmutableState{ m.mutex }
 }
 
 ghost
+decreases
 requires m.Mem(ctx, owner)
 ensures  m.Mem(ctx, owner)
 ensures  trace == m.Snapshot(ctx, owner)
@@ -118,6 +124,7 @@ func (m *TraceManager) Sync(ctx tr.TraceContext, owner Client) (trace tr.TraceEn
 }
 
 ghost
+decreases
 requires destManager.Mem(ctx, destOwner)
 requires acc(origManager.Mem(ctx, origOwner), 1/8)
 requires destManager.ImmutableState(ctx, destOwner) == origManager.ImmutableState(ctx, origOwner)
@@ -152,6 +159,7 @@ func (destManager *TraceManager) SetSnapshot(origManager *TraceManager, ctx tr.T
 }
 
 ghost
+decreases
 requires m.Mem(ctx, owner)
 requires ctx.eventInv(owner.getPrincipal(), event, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
@@ -178,6 +186,7 @@ func (m *TraceManager) LogEvent(ctx tr.TraceContext, owner Client, event ev.Even
 }
 
 ghost
+decreases
 requires m.Mem(ctx, owner)
 requires tr.messageInv(m.Ctx(ctx, owner), sender, receiver, message, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
@@ -200,6 +209,7 @@ func (m *TraceManager) LogSend(ctx tr.TraceContext, owner Client, sender, receiv
 }
 
 ghost
+decreases
 requires m.Mem(ctx, owner)
 requires tr.madePublicInv(m.Ctx(ctx, owner), term, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
@@ -222,6 +232,7 @@ func (m *TraceManager) LogPublish(ctx tr.TraceContext, owner Client, term tm.Ter
 }
 
 ghost
+decreases
 requires m.Mem(ctx, owner)
 requires nonce.IsRandom()
 requires m.Ctx(ctx, owner).GetLabeling().NonceIsUnique(nonce)
@@ -259,6 +270,7 @@ pred (m ManagerInv) CurrentValueInv(t tr.TraceEntry) {
 }
 
 ghost
+decreases
 pure func (m ManagerInv) TwoStepValueInv(oldValue, currentValue tr.TraceEntry) bool {
     return oldValue.isSuffix(currentValue)
 }

@@ -101,6 +101,7 @@ func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman
 
 /*@
 ghost
+decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -168,6 +169,7 @@ func (l *LabeledLibrary) ApplyMonotonicity() {
 }
 
 ghost
+decreases
 requires l.Mem()
 requires l.LabelCtx() == labelCtx
 ensures  l.Mem()
@@ -192,6 +194,7 @@ func (l *LabeledLibrary) ApplyMonotonicityDflt(labelCtx labeling.DefaultLabeling
 }
 
 ghost
+decreases
 requires l.Mem()
 requires l.LabelCtx() == labelCtx
 requires snap.isSuffix(l.Snapshot())

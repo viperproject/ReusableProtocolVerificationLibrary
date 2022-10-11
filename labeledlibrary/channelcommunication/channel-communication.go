@@ -24,6 +24,7 @@ pred (com *ChannelCommunicaton) LibMem() {
 }
 @*/
 
+//@ decreases
 //@ ensures res.LibMem()
 func NewChannelCommunication(initiator, responder p.Principal) (res *ChannelCommunicaton) {
 	res = &ChannelCommunicaton{}

@@ -36,6 +36,7 @@ pred (l *LibraryState) Mem() {
 }
 @*/
 
+//@ decreases
 //@ ensures res.Mem()
 func NewLibrary(initiator, responder p.Principal) (res *LibraryState) {
 	res = &LibraryState{}

@@ -69,6 +69,7 @@ type ClientHistoryInv interface {
 
     /** two step invariant */
     ghost
+    decreases
     pure TwoStepValueInv(oldValue ValueType, currentValue ValueType) bool
     
     /** proof obligation to show that the two step invariant is reflexive */
@@ -87,35 +88,41 @@ type ClientHistoryInv interface {
 
 // indirection for ClientHistoryInv that gives us the property that
 // `inv` is non-nil
+decreases
 requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
 ensures  inv != nil
 pure func (m *ClientHistoryMutex) GetInvLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) ClientHistoryInv {
     return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in inv
 }
 
+decreases
 requires acc(m.ClientHistoryMutexState(inv, client), _)
 pure func (m *ClientHistoryMutex) LastSeenValue(inv ClientHistoryInv, client ClientId) ValueType {
     return unfolding acc(m.ClientHistoryMutexState(inv, client), _) in *(m.snapshots)[client]
 }
 
+decreases
 requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
 pure func (m *ClientHistoryMutex) LastSeenValueLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) ValueType {
     return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in *(m.snapshots)[client]
 }
 
 ghost
+decreases
 requires acc(m.ClientHistoryMutexState(inv, client), _)
 pure func (m *ClientHistoryMutex) Clients(inv ClientHistoryInv, client ClientId) set[ClientId] {
     return unfolding acc(m.ClientHistoryMutexState(inv, client), _) in domain(m.snapshots)
 }
 
 ghost
+decreases
 requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
 pure func (m *ClientHistoryMutex) ClientsLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) set[ClientId] {
     return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in domain(m.snapshots)
 }
 
 ghost
+decreases
 requires acc(m.ClientHistoryMutexState(inv, client1), 1/16)
 requires acc(m.ClientHistoryMutexState(inv, client2), 1/16)
 ensures  acc(m.ClientHistoryMutexState(inv, client1), 1/16)
@@ -126,6 +133,7 @@ func (m *ClientHistoryMutex) ClientsAreIdentical(inv ClientHistoryInv, client1, 
 }
 
 ghost
+decreases
 requires acc(m.ClientHistoryMutexStateLocked(inv, client1, currentValue1), 1/16)
 requires acc(m.ClientHistoryMutexState(inv, client2), 1/16)
 ensures  acc(m.ClientHistoryMutexStateLocked(inv, client1, currentValue1), 1/16)
@@ -135,6 +143,7 @@ func (m *ClientHistoryMutex) ClientsAreIdenticalLocked1(inv ClientHistoryInv, cl
     assert unfolding acc(m.ClientHistoryMutexStateLocked(inv, client1, currentValue1), 1/16) in unfolding acc(m.ClientHistoryMutexState(inv, client2), 1/16) in true
 }
 
+decreases
 ensures  m.ClientHistoryMutexStateInit()
 func NewClientHistoryMutex() (m *ClientHistoryMutex) {
     m = &ClientHistoryMutex{}
@@ -145,6 +154,7 @@ func NewClientHistoryMutex() (m *ClientHistoryMutex) {
     fold m.ClientHistoryMutexStateInit()
 }
 
+decreases
 requires m.ClientHistoryMutexStateInit()
 requires inv != nil && isComparable(inv)
 requires noPerm < p && p <= writePerm
@@ -174,6 +184,7 @@ func (m *ClientHistoryMutex) SetInv(inv ClientHistoryInv, clients []ClientId, in
     // each client has its own snapshot pointer and each snapshot satisfies the invariant:
     invariant forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, initVal) } snapshot in range(m.snapshots) ==> acc(snapshot) && inv.TwoStepValueInv(*snapshot, initVal)
     invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
+    decreases len(clients) - i
     for i := 0; i < len(clients); i++ {
         client := clients[i]
         clientSeq = clientSeq ++ seq[ClientId]{ client }
@@ -196,6 +207,7 @@ func (m *ClientHistoryMutex) SetInv(inv ClientHistoryInv, clients []ClientId, in
 }
 
 ghost
+decreases
 requires inv != nil && 0 < len(clients)
 requires forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
 requires m.ClientHistoryMutexStateInitWithInv(inv, set(clients))
@@ -220,6 +232,7 @@ func (m *ClientHistoryMutex) split(inv ClientHistoryInv, ghost clients seq[Clien
     // in each iteration an additional predicate instance is constructed:
     invariant forall j int :: { clients[j] } 0 <= j && j < i ==> m.ClientHistoryMutexState(inv, clients[j])
     invariant forall j int :: { clients[j] } 0 <= j && j < i ==> set(clients) subset m.Clients(inv, clients[j])
+    decreases len(clients) - i
     for i := 0; i < len(clients); i++ {
         client := clients[i]
         fold m.ClientHistoryMutexState(inv, client)
