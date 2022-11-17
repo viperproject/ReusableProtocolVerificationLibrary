@@ -293,6 +293,8 @@ func (m *ClientHistoryMutex) UnlockWithSnapshot(inv ClientHistoryInv, client Cli
     unfold m.ClientHistoryMutexStateLocked(inv, client, currentValue)
     m.applyInvTransitivity(inv, range(m.snapshots), currentValue, newValue, 1/2)
     *(m.snapshots)[client] = snapshot
+    // the following assert statement is necessary due to an incompleteness:
+    assert *(m.snapshots)[client] == snapshot
     *m.currentValue = newValue
     fold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
     m.mutex.Unlock()
