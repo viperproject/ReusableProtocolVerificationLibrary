@@ -4,7 +4,7 @@
         ".",
         ".verification"
     ],
-    "gobraSettings.buildVersion": "Stable",
+    "gobraSettings.buildVersion": "Nightly",
     "gobraSettings.autoVerify": false,
     "maptz.regionfolder": {
         "[gobra]": {                                      //Language selector

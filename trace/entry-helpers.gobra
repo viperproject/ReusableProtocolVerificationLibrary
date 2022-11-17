@@ -77,6 +77,25 @@ func (t1 TraceEntry) eventOccursMonotonic(t2 TraceEntry, principal p.Principal, 
     }
 }
 
+ghost
+decreases entry.traceLen()
+pure func (entry TraceEntry) eventOccursAt(principal p.Principal, ev Event, index int) bool {
+    return entry.isRoot() ? false :
+        entry.isEventAt(principal, ev) && index == entry.traceLen() - 1? true :
+            (getPrev(entry)).eventOccursAt(principal, ev, index)
+}
+
+ghost
+decreases t2.traceLen()
+requires t1.isSuffix(t2)
+requires t1.eventOccursAt(principal, ev, index)
+ensures  t2.eventOccursAt(principal, ev, index)
+func (t1 TraceEntry) eventOccursAtMonotonic(t2 TraceEntry, principal p.Principal, ev Event, index int) {
+    if (t1 != t2) {
+        t1.eventOccursAtMonotonic(getPrev(t2), principal, ev, index)
+    }
+}
+
 /** returns the trace length at the point when the specified event occurred */
 ghost
 decreases entry.traceLen()
@@ -84,6 +103,29 @@ requires entry.eventOccurs(principal, ev)
 pure func (entry TraceEntry) eventOccursAtTime(principal p.Principal, ev Event) int {
     return entry.isEventAt(principal, ev) ? entry.traceLen() :
             (getPrev(entry)).eventOccursAtTime(principal, ev)
+}
+
+ghost
+decreases entry.traceLen()
+requires entry.eventOccursAt(principal, ev, idx)
+ensures  entry.eventOccurs(principal, ev)
+func (entry TraceEntry) eventOccursAtLemma(principal p.Principal, ev Event, idx int) {
+    if !entry.isEventAt(principal, ev) {
+        getPrev(entry).eventOccursAtLemma(principal, ev, idx)
+    }
+}
+
+ghost
+decreases entry.traceLen()
+requires entry.eventOccurs(principal, ev)
+ensures  entry.eventOccursAt(principal, ev, res)
+ensures  res == entry.eventOccursAtTime(principal, ev) - 1
+func (entry TraceEntry) eventOccursAtTimeLemma(principal p.Principal, ev Event) (res int) {
+    if entry.isEventAt(principal, ev) {
+        res = entry.traceLen() - 1
+    } else {
+        res = getPrev(entry).eventOccursAtTimeLemma(principal, ev)
+    }
 }
 
 ghost

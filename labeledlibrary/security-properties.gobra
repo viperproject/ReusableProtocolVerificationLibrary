@@ -64,7 +64,9 @@ pure func (l *LabeledLibrary) EventIsUnique(principal p.Principal, event ev.Even
         l.Ctx().IsUnique(event.typ) &&
         l.Snapshot().eventOccurs(principal, event) &&
         (forall principal2 p.Principal, event2 ev.Event :: { l.Snapshot().eventOccurs(principal2, event2) } !(event.typ == event2.typ && l.Ctx().EventConsistency(event2) && l.Ctx().UniquenessWitness(event) == l.Ctx().UniquenessWitness(event2) && l.Snapshot().eventOccurs(principal2, event2) && l.Snapshot().eventOccursAtTime(principal, event) != l.Snapshot().eventOccursAtTime(principal2, event2))) &&
-        (forall prefix tr.TraceEntry :: { prefix.eventOccursWitness(principal, event) } prefix.isSuffix(l.Snapshot()) && prefix.eventOccurs(principal, event) ==> prefix.eventOccursWitness(principal, event) == l.Snapshot().eventOccursWitness(principal, event))
+        (forall prefix tr.TraceEntry :: { prefix.eventOccursWitness(principal, event) } prefix.isSuffix(l.Snapshot()) && prefix.eventOccurs(principal, event) ==> prefix.eventOccursWitness(principal, event) == l.Snapshot().eventOccursWitness(principal, event)) &&
+        // this is the property as stated in the paper:
+        (forall principal2 p.Principal, event2 ev.Event, idx int :: { l.Snapshot().eventOccursAt(principal2, event2, idx) } (event.typ != event2.typ || !l.Ctx().EventConsistency(event2) || l.Ctx().UniquenessWitness(event) != l.Ctx().UniquenessWitness(event2) || idx == l.Snapshot().eventOccursAtTime(principal, event) - 1 || !l.Snapshot().eventOccursAt(principal2, event2, idx)))
 }
 // #endregion
 
@@ -169,6 +171,21 @@ func (l *LabeledLibrary) UniqueEventIsUnique(principal p.Principal, event ev.Eve
     assert arbSuffix.isSuffix(l.Snapshot()) && arbSuffix.eventOccurs(principal, event) ==> arbSuffix.eventOccursWitness(principal, event) == l.Snapshot().eventOccursWitness(principal, event)
     // due to forall introduction
     assume forall suffix tr.TraceEntry :: { suffix.eventOccursWitness(principal, event) } suffix.isSuffix(l.Snapshot()) && suffix.eventOccurs(principal, event) ==> suffix.eventOccursWitness(principal, event) == l.Snapshot().eventOccursWitness(principal, event)
+
+    arbPrincipal = arb.GetArbPrincipal()
+    arbEvent = arb.GetArbEvent()
+    arbIndex := arb.GetArbInt()
+    if event.typ == arbEvent.typ &&
+        l.Ctx().EventConsistency(arbEvent) &&
+        l.Ctx().UniquenessWitness(event) == l.Ctx().UniquenessWitness(arbEvent) &&
+        arbIndex != l.Snapshot().eventOccursAtTime(principal, event) - 1  &&
+        l.Snapshot().eventOccursAt(arbPrincipal, arbEvent, arbIndex) {
+        idx1 := l.Snapshot().eventOccursAtTimeLemma(principal, event)
+        l.UniqueEventsAreUniqueAt(principal, arbPrincipal, event, arbEvent, idx1, arbIndex)
+    }
+    assert event.typ != arbEvent.typ || !l.Ctx().EventConsistency(arbEvent) || l.Ctx().UniquenessWitness(event) != l.Ctx().UniquenessWitness(arbEvent) || arbIndex == l.Snapshot().eventOccursAtTime(principal, event) - 1 || !l.Snapshot().eventOccursAt(arbPrincipal, arbEvent, arbIndex)
+    // due to forall introduction
+    assume forall principal2 p.Principal, event2 ev.Event, idx int :: { l.Snapshot().eventOccursAt(principal2, event2, idx) } event.typ != event2.typ || !l.Ctx().EventConsistency(event2) || l.Ctx().UniquenessWitness(event) != l.Ctx().UniquenessWitness(event2) || idx == l.Snapshot().eventOccursAtTime(principal, event) - 1 || !l.Snapshot().eventOccursAt(principal2, event2, idx)
 }
 
 ghost
@@ -178,16 +195,37 @@ requires l.Snapshot().eventOccurs(principal1, event1)
 requires l.Snapshot().eventOccurs(principal2, event2)
 requires event1.typ == event2.typ
 requires l.Ctx().IsUnique(event1.typ)
-requires l.Ctx().EventConsistency(event1) && (l.Ctx()).EventConsistency(event2)
-requires l.Ctx().UniquenessWitness(event1) == (l.Ctx()).UniquenessWitness(event2)
+requires l.Ctx().EventConsistency(event1) && l.Ctx().EventConsistency(event2)
+requires l.Ctx().UniquenessWitness(event1) == l.Ctx().UniquenessWitness(event2)
 ensures  l.Mem()
 ensures  principal1 == principal2
 ensures  event1 == event2
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
 func (l *LabeledLibrary) UniqueEventsAreUnique(principal1, principal2 p.Principal, event1, event2 ev.Event) {
+    idx1 := l.Snapshot().eventOccursAtTimeLemma(principal1, event1)
+    idx2 := l.Snapshot().eventOccursAtTimeLemma(principal2, event2)
+    l.UniqueEventsAreUniqueAt(principal1, principal2, event1, event2, idx1, idx2)
+}
+
+ghost
+decreases
+requires l.Mem()
+requires l.Snapshot().eventOccursAt(principal1, event1, idx1)
+requires l.Snapshot().eventOccursAt(principal2, event2, idx2)
+requires event1.typ == event2.typ
+requires l.Ctx().IsUnique(event1.typ)
+requires l.Ctx().EventConsistency(event1) && l.Ctx().EventConsistency(event2)
+requires l.Ctx().UniquenessWitness(event1) == l.Ctx().UniquenessWitness(event2)
+ensures  l.Mem()
+ensures  principal1 == principal2
+ensures  event1 == event2
+ensures  idx1 == idx2
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+func (l *LabeledLibrary) UniqueEventsAreUniqueAt(principal1, principal2 p.Principal, event1, event2 ev.Event, idx1, idx2 int) {
     unfold l.Mem()
-    l.manager.UniqueEventsAreUnique(l.ctx, l.owner, principal1, principal2, event1, event2)
+    l.manager.UniqueEventsAreUniqueAt(l.ctx, l.owner, principal1, principal2, event1, event2, idx1, idx2)
     fold l.Mem()
 }
 

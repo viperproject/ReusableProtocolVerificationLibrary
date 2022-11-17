@@ -37,3 +37,6 @@ func GetArbString() string
 
 decreases
 func GetArbUInt32() uint32
+
+decreases
+func GetArbInt() int
