@@ -699,6 +699,7 @@ func (ctx DefaultLabelingContext) canFlowInternalCreateMeetRhs_DYStar(corruptIds
 }
 
 ghost
+decreases
 requires ctx.CanFlow(t, l1, l2)
 requires ctx.CanFlow(t, l3, l4)
 ensures  ctx.CanFlow(t, label.Meet(l1, l3), label.Meet(l2, l4))
@@ -707,6 +708,7 @@ func (ctx DefaultLabelingContext) CanFlowCreateMeetBoth(t tr.TraceEntry, l1, l2,
 }
 
 ghost
+decreases
 requires ctx.canFlowInternal(corruptIds, l1, l2)
 requires ctx.canFlowInternal(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
@@ -718,6 +720,7 @@ func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth(corruptIds set[p
 }
 
 ghost
+decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 requires ctx.canFlowInternal_DYStar(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
@@ -727,6 +730,7 @@ func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth_DYStar(corruptId
 }
 
 ghost
+decreases
 requires ctx.CanFlow(t, l1, l2)
 requires ctx.CanFlow(t, l3, l4)
 ensures  ctx.CanFlow(t, label.Join(l1, l3), label.Join(l2, l4))
@@ -735,6 +739,7 @@ func (ctx DefaultLabelingContext) CanFlowCreateJoinBoth(t tr.TraceEntry, l1, l2,
 }
 
 ghost
+decreases
 requires ctx.canFlowInternal(corruptIds, l1, l2)
 requires ctx.canFlowInternal(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
@@ -746,6 +751,7 @@ func (ctx DefaultLabelingContext) canFlowInternalCreateJoinBoth(corruptIds IdSet
 }
 
 ghost
+decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 requires ctx.canFlowInternal_DYStar(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
@@ -1372,6 +1378,7 @@ func (ctx DefaultLabelingContext) canFlowFlowsToPublic_DYStar(corruptIds IdSet, 
 }
 
 ghost
+decreases
 requires l1.IsReaders() && l2.IsReaders()
 requires label.GetReaders(l2) subset label.GetReaders(l1)
 ensures  ctx.CanFlow(t, l1, l2)
@@ -1381,6 +1388,7 @@ func (ctx DefaultLabelingContext) CanFlowToSubsetReaders(t tr.TraceEntry, l1, l2
 }
 
 ghost
+decreases
 requires l1.IsReaders() && l2.IsReaders()
 requires label.GetReaders(l2) subset label.GetReaders(l1)
 ensures  ctx.canFlowInternal(corruptIds, l1, l2)
@@ -1390,6 +1398,7 @@ func (ctx DefaultLabelingContext) canFlowInternalToSubsetReaders(corruptIds IdSe
 }
 
 ghost
+decreases
 requires l1.IsReaders() && l2.IsReaders()
 requires label.GetReaders(l2) subset label.GetReaders(l1)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
@@ -1648,6 +1657,7 @@ func (ctx DefaultLabelingContext) IsSecretKeyMonotonic(t1, t2 tr.TraceEntry, own
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsSecretKey(t, owner, sk, keyType, usage)
 ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ owner }))
@@ -1657,6 +1667,7 @@ func (ctx DefaultLabelingContext) IsSecretKeyLemma(t tr.TraceEntry, owner p.Id, 
 }
 
 ghost
+decreases
 requires ctx.Props()
 pure func (ctx DefaultLabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) bool {
     // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
@@ -1679,6 +1690,7 @@ func (ctx DefaultLabelingContext) IsPublicKeyMonotonic(t1, t2 tr.TraceEntry, skO
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsPublicKey(t, skOwner, pk, sk, keyType, usage)
 ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner }))
@@ -1693,6 +1705,7 @@ func (ctx DefaultLabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner p.Id
 }
 
 ghost
+decreases
 requires ctx.Props()
 pure func (ctx DefaultLabelingContext) IsPublicKeyExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) bool {
     return (keyType == KeyTypePke() ==> exists sk tm.Term :: { ctx.IsPublicEncKey(t, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
@@ -1738,6 +1751,7 @@ func (ctx DefaultLabelingContext) IsPrivateDecKeyMonotonic(t1, t2 tr.TraceEntry,
 }
 
 ghost
+decreases
 requires ctx.Props()
 // sk is the witness
 pure func (ctx DefaultLabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {

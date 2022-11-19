@@ -10,7 +10,7 @@ ghost
 decreases _ // TODO: show that this function terminates because we are only calling ADT deconstructors
 ensures 0 <= res
 pure func (entry TraceEntry) traceLen() (res int) {
-    return entry.isRoot() ? 0 : 1 + (getPrev(entry)).traceLen()
+    return entry.isRoot() ? 1 : 1 + (getPrev(entry)).traceLen()
 }
 
 ghost
