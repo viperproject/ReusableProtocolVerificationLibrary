@@ -18,32 +18,3 @@ func (ctx DefaultLabelingContext) ApplyHash2Tuple(snapshot tr.TraceEntry, firstT
     assert ctx.IsValid(snapshot, inputT)
     assert ctx.nestedMeet(inputT, getTupleSeq(inputT), 0) == label.Meet(firstActualL, secondActualL)
 }
-/*
-ghost
-decreases
-requires ctx.Props()
-requires ctx.IsLabeledPrecise(snapshot, firstT, firstL)
-requires ctx.IsLabeledPrecise(snapshot, secondT, secondL)
-ensures  ctx.IsLabeledPrecise(snapshot, tm.hash(tm.tuple2(firstT, secondT)), label.Public())
-func (ctx DefaultLabelingContext) ApplyHash2TuplePrecise(snapshot tr.TraceEntry, firstT, secondT tm.Term, firstL, secondL label.SecrecyLabel) {
-    ctx.ApplyHash2Tuple(snapshot, firstT, secondT, firstL, secondL)
-    firstActualL := ctx.GetLabel(firstT)
-    secondActualL := ctx.GetLabel(secondT)
-    inputT := tm.tuple2(firstT, secondT)
-
-    assert ctx.IsValid(snapshot, inputT)
-    assert ctx.nestedMeet(inputT, getTupleSeq(inputT), 0) == label.Meet(firstActualL, secondActualL)
-    
-    ctx.CanFlowCreateMeetBoth(snapshot, firstActualL, firstL, secondActualL, secondL)
-    ctx.CanFlowCreateMeetBoth(snapshot, firstL, firstActualL, secondL, secondActualL)
-    ctx.CanFlowReflexive(snapshot, firstActualL)
-    ctx.CanFlowCreateMeetRhs(snapshot, firstActualL, firstActualL, secondActualL)
-    ctx.CanFlowTransitive(snapshot, firstL, firstActualL, label.Meet(firstActualL, secondActualL))
-    if ctx.IsLabeled(snapshot, secondT, label.Public()) {
-        ctx.CanFlowReflexive(snapshot, firstL)
-        ctx.FlowsToPublicCanFlow(snapshot, secondL, firstL)
-        ctx.CanFlowCreateMeetLhs(snapshot, firstL, secondL, firstL)
-        ctx.CanFlowTransitive(snapshot, label.Meet(firstActualL, secondActualL), label.Meet(firstL, secondL), firstL)
-    }
-}
-*/
