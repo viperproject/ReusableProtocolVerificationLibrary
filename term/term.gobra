@@ -3,6 +3,15 @@ package term
 import "github.com/ModularVerification/ReusableVerificationLibrary/label"
 import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 
+/**
+ * `getTermHeight` is useful as a termination measure for (pure & impure)
+ * functions & methods that recurse on the children of a term e.g. to perform
+ * induction on terms.
+ * Note however that the axiomatisation of `getTermHeight` has to consider
+ * equational theories. E.g. (g^x)^y == g^(x * y) == g^(y * x) == (g^y)^x
+ * all have the same height.
+ */
+
 type Term domain {
     // type 0
     func random(Bytes, label.SecrecyLabel, u.Usage) Term
@@ -262,7 +271,7 @@ type Term domain {
 
     axiom { // exp has type
         forall t1, t2 Term :: { exp(t1, t2) } getTermType(exp(t1, t2)) == 14 &&
-            getTermHeight(exp(t1, t2)) > max2(getTermHeight(t1), getTermHeight(t2)) // note that we an inequality to prevent inconsistencies due to the DH equational theory
+            getTermHeight(exp(t1, t2)) > max2(getTermHeight(t1), getTermHeight(t2)) // note that we use an inequality to prevent inconsistencies due to the DH equational theory
     }
     axiom { // exp is injective for a given base
         forall t1, t2, t3 Term :: { exp(t1, t2), exp(t1, t3) } exp(t1, t2) == exp(t1, t3) ==> t2 == t3
@@ -271,7 +280,7 @@ type Term domain {
 
     axiom { // mult has type
         forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 15 &&
-            getTermHeight(mult(t1, t2)) > max2(getTermHeight(t1), getTermHeight(t2)) // note that we an inequality to prevent inconsistencies due to the DH equational theory
+            getTermHeight(mult(t1, t2)) > max2(getTermHeight(t1), getTermHeight(t2)) // note that we use an inequality to prevent inconsistencies due to the DH equational theory
     }
 
     // mult is commutative
@@ -586,30 +595,3 @@ requires ciphertext.IsAead()
 pure func AeadExtract(ciphertext Term) Term {
     return getAuthtext(ciphertext)
 }
-
-/*
-ghost
-decreases
-func termHeightSanityCheck(x, y, z Term) {
-    xHeight := getTermHeight(x)
-    yHeight := getTermHeight(y)
-    zHeight := getTermHeight(z)
-    xy := exp(x, y)
-    xyHeight := getTermHeight(xy)
-    assert xyHeight > xHeight
-    assert xyHeight > yHeight
-    xyz := exp(xy, z)
-    xyzHeight := getTermHeight(xyz)
-    assert xyzHeight > xyHeight
-    yMultz := mult(y, z)
-    yMultzHeight := getTermHeight(yMultz)
-    assert yMultzHeight > yHeight
-    assert yMultzHeight > zHeight
-    xyz2 := exp(x, yMultz)
-    xyz2Height := getTermHeight(xyz2)
-    assert xyz2Height > yMultzHeight
-    assert xyzHeight == xyz2Height
-    assert xyz == xyz2
-    assert false // smoke check
-}
-*/
