@@ -211,6 +211,29 @@ func (m *TraceManager) LogSend(ctx tr.TraceContext, owner Client, sender, receiv
 ghost
 decreases
 requires m.Mem(ctx, owner)
+requires tr.messageInv(m.Ctx(ctx, owner), sender, receiver, message, m.Snapshot(ctx, owner))
+ensures  m.Mem(ctx, owner)
+ensures  (m.Snapshot(ctx, owner)).isMessageDroppedAt(sender, receiver, message)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogMsgDrop(ctx tr.TraceContext, owner Client, sender, receiver p.Principal, message tm.Term) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makeDropMessage(prevTrace, sender, receiver, message)
+    tr.messageInvTransitive(ctx, sender, receiver, message, lastSeenTrace, prevTrace)
+    fold tr.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
 requires tr.madePublicInv(m.Ctx(ctx, owner), term, m.Snapshot(ctx, owner))
 ensures  m.Mem(ctx, owner)
 ensures  (m.Snapshot(ctx, owner)).isPublic() && tr.getPayload(m.Snapshot(ctx, owner)) == term
@@ -229,6 +252,30 @@ func (m *TraceManager) LogPublish(ctx tr.TraceContext, owner Client, term tm.Ter
     fold inv.CurrentValueInv(trace)
     m.mutex.Unlock(inv, owner, prevTrace, trace)
     fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+ensures  m.Mem(ctx, owner)
+ensures  id in m.Snapshot(ctx, owner).getCorruptIds()
+ensures  tr.containsCorruptId(m.Snapshot(ctx, owner).getCorruptIds(), set[p.Id]{ id })
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogCorruption(ctx tr.TraceContext, owner Client, id p.Id) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makeCorrupt(prevTrace, id)
+    fold tr.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+    id.CoversReflexive()
+    assert tr.containsId(set[p.Id]{ id }, id)
 }
 
 ghost

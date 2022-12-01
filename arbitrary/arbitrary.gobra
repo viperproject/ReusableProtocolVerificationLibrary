@@ -39,4 +39,7 @@ decreases
 func GetArbUInt32() uint32
 
 decreases
+func GetArbUInt64() uint64
+
+decreases
 func GetArbInt() int

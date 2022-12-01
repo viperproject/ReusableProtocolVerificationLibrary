@@ -186,6 +186,15 @@ func (t1 TraceEntry) messageOccursMonotonic(t2 TraceEntry, sender, receiver p.Pr
     }
 }
 
+ghost
+decreases
+pure func (entry TraceEntry) isMessageDroppedAt(sender, receiver p.Principal, payload tm.Term) bool {
+    return entry.isDropMessage() &&
+        getSender(entry) == sender &&
+        getReceiver(entry) == receiver &&
+        getPayload(entry) == payload
+}
+
 /** returns true iff specified nonce occurs exactly a the current trace entry */
 ghost
 decreases

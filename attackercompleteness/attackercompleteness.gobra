@@ -1,0 +1,532 @@
+package attackercompleteness
+
+import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
+import att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
+import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+import "github.com/ModularVerification/ReusableVerificationLibrary/label"
+import ll "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary"
+import lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
+import "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+
+
+/**
+ * This file shows that the attacker can use the same functionality as the 
+ * labeledlibrary, i.e. the attacker can invoke all library functions with
+ * terms known to him (i.e. public/derivable terms) and will get back terms
+ * (e.g. the ciphertext in the case of encrypt) that are also derivable.
+ * This shows that `IsPublishable(t, term)` is a valid invariant for every
+ * `term` in the the attacker knowledge, i.e. all terms the attacker can
+ * derive satisfy this invariant. Furthermore, we show record all attacker
+ * performed operations on the trace and thus prove that the attacker
+ * maintains the trace invariant. We call all these properties together the
+ * attacker completeness.
+ */
+
+ghost
+requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext // needed to have access to the proven lemmas in `ExtendKnowlege`
+ensures  l.Mem()
+func Attacker(l *ll.LabeledLibrary) {
+    invariant l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext // needed to have access to the proven lemmas in `ExtendKnowlege`
+    for {
+        // the attacker chooses non-deterministically an operation it wants to perform
+        nonDeterministicChoice := arb.GetArbInt()
+        if nonDeterministicChoice == 1 {
+            CreateNonce(l, arb.GetArbString())
+        } else if nonDeterministicChoice == 2 {
+            // the attacker chooses an arbitrary sender & receiver and takes a message from its knowledge:
+            arbSender := arb.GetArbPrincipal()
+            arbReceiver := arb.GetArbPrincipal()
+            arbMsg := arb.GetArbTerm()
+            assume att.attackerKnows(l.Snapshot(), arbMsg)
+            Send(l, arbSender, arbReceiver, arbMsg)
+        } else if nonDeterministicChoice == 3 {
+            // there is only a single root entry at the very beginning of the trace so we skip this operation
+        } else if nonDeterministicChoice == 4 {
+            // we take 7 arbitrary terms from the attacker knowledge and call `ExtendKnowledge`
+            // that internally does a non-deterministic choice over all possible terms
+            t1, t2, t3, t4, t5, t6, t7 := arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm()
+            assume att.attackerKnows(l.Snapshot(), t1) && att.attackerKnows(l.Snapshot(), t2) && att.attackerKnows(l.Snapshot(), t3) && att.attackerKnows(l.Snapshot(), t4) && att.attackerKnows(l.Snapshot(), t5) && att.attackerKnows(l.Snapshot(), t6) && att.attackerKnows(l.Snapshot(), t7)
+            ExtendKnowledge(l, t1, t2, t3, t4, t5, t6, t7)
+        } else if nonDeterministicChoice == 5 {
+            arbPrincipal := arb.GetArbPrincipal()
+            CorruptParticipant(l, arbPrincipal)
+        } else if nonDeterministicChoice == 6 {
+            arbSession := arb.GetArbId()
+            CorruptSession(l, arbSession)
+        } else if nonDeterministicChoice == 7 {
+            arbSender := arb.GetArbPrincipal()
+            arbReceiver := arb.GetArbPrincipal()
+            arbMsg := arb.GetArbTerm()
+            // we pick an arbitrary message that has been previously sent:
+            assume l.Snapshot().messageOccurs(arbSender, arbReceiver, arbMsg)
+            DropMessage(l, arbSender, arbReceiver, arbMsg)
+        } else if nonDeterministicChoice == 8 {
+            arbSender := arb.GetArbPrincipal()
+            arbReceiver := arb.GetArbPrincipal()
+            Recv(l, arbSender, arbReceiver)
+        }
+    }
+}
+
+// operation 1: create nonce
+ghost
+requires l.Mem()
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), nonce)
+func CreateNonce(l *ll.LabeledLibrary, usageString string) (nonce tm.Term, err error) {
+    unfold l.Mem()
+    var nonceB lib.ByteString
+    nonceB, err = l.s.CreateNonce(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    if err == nil {
+        nonce = tm.random(lib.Abs(nonceB), label.Public(), u.Nonce(usageString))
+        l.manager.LogNonce(l.ctx, l.owner, nonce)
+        fold l.Mem()
+        l.Publish(nonce)
+    } else {
+        fold l.Mem()
+    }
+}
+
+// operation 2: send message
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), msg)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> l.Snapshot().isMessageAt(idSender, idReceiver, msg)
+func Send(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.Term) (err error) {
+    msgBytes := lib.NewByteStringWithContent(tm.gamma(msg))
+    l.AttackerOnlyKnowsPublishableValues(msg)
+    unfold l.Mem()
+    l.manager.LogSend(l.ctx, l.owner, idSender, idReceiver, msg)
+    snapshot := l.manager.Snapshot(l.ctx, l.owner)
+    err = l.com.Send(idSender, idReceiver, msgBytes, msg, snapshot)
+	fold l.Mem()
+}
+
+/**
+ * operation 3: root entry -- the attacker cannot add this to the trace because there is only
+ * a unique one at the root of the trace. We demonstrate in the NSL case study as part of
+ * proving initialization code (i.e. authentic key distribution and creation of the trace by
+ * appending a root entry) that the root entry satisfies the trace invariant.
+ */
+
+// operation 4: extend attacker knowledge
+ghost
+requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext // needed to have access to the proven lemmas
+requires att.attackerKnows(l.Snapshot(), t1)
+requires att.attackerKnows(l.Snapshot(), t2)
+requires att.attackerKnows(l.Snapshot(), t3)
+requires att.attackerKnows(l.Snapshot(), t4)
+requires att.attackerKnows(l.Snapshot(), t5)
+requires att.attackerKnows(l.Snapshot(), t6)
+requires att.attackerKnows(l.Snapshot(), t7)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), res)
+func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7 tm.Term) (res tm.Term, err error) {
+    l.AttackerOnlyKnowsPublishableValues(t1)
+    l.AttackerOnlyKnowsPublishableValues(t2)
+    l.AttackerOnlyKnowsPublishableValues(t3)
+    l.AttackerOnlyKnowsPublishableValues(t4)
+    l.AttackerOnlyKnowsPublishableValues(t5)
+    l.AttackerOnlyKnowsPublishableValues(t6)
+    l.AttackerOnlyKnowsPublishableValues(t7)
+    
+    // we do a non-deterministic choice over which operation to apply / term to construct,
+    // which shows that the attacker can perform all of them while maintaining the trace invariant.
+    nonDeterministicChoice := arb.GetArbInt()
+    // we restrict `nonDeterministicChoice` to be within range of a term type such that we
+    // can exhaustively explore all terms:
+    {
+        arbTerm := arb.GetArbTerm()
+        assume nonDeterministicChoice == tm.getTermType(arbTerm)
+    }
+
+    if nonDeterministicChoice == 0 {
+        // create nonce
+        res, err = CreateNonce(l, arb.GetArbString())
+    } else if nonDeterministicChoice == 1 {
+        // create tuple2
+        l.LabelCtx().(labeling.DefaultLabelingContext).tuple2(l.Snapshot(), t1, t2, label.Public())
+        res = tm.tuple2(t1, t2)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 2 {
+        // create tuple3
+        l.LabelCtx().(labeling.DefaultLabelingContext).tuple3(l.Snapshot(), t1, t2, t3, label.Public())
+        res = tm.tuple3(t1, t2, t3)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 3 {
+        // create tuple4
+        l.LabelCtx().(labeling.DefaultLabelingContext).tuple4(l.Snapshot(), t1, t2, t3, t4, label.Public())
+        res = tm.tuple4(t1, t2, t3, t4)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 4 {
+        // create tuple5
+        l.LabelCtx().(labeling.DefaultLabelingContext).tuple5(l.Snapshot(), t1, t2, t3, t4, t5, label.Public())
+        res = tm.tuple5(t1, t2, t3, t4, t5)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 5 {
+        // create tuple7
+        l.LabelCtx().(labeling.DefaultLabelingContext).tuple7(l.Snapshot(), t1, t2, t3, t4, t5, t6, t7, label.Public())
+        res = tm.tuple7(t1, t2, t3, t4, t5, t6, t7)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 6 {
+        // create hash
+        l.LabelCtx().(labeling.DefaultLabelingContext).hash(l.Snapshot(), t1, label.Public())
+        res = tm.hash(t1)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 7 {
+        // create kdf1
+        l.LabelCtx().(labeling.DefaultLabelingContext).kdf(l.Snapshot(), t1, label.Public())
+        res = tm.kdf1(t1)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 8 {
+        // create kdf2
+        l.LabelCtx().(labeling.DefaultLabelingContext).kdf(l.Snapshot(), t1, label.Public())
+        res = tm.kdf2(t1)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 9 {
+        // create kdf3
+        l.LabelCtx().(labeling.DefaultLabelingContext).kdf(l.Snapshot(), t1, label.Public())
+        res = tm.kdf3(t1)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 10 {
+        // create pk
+        l.LabelCtx().(labeling.DefaultLabelingContext).createPk(l.Snapshot(), t1, label.Public())
+        res = tm.createPk(t1)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 11 {
+        // create encrypt
+        res, err = Enc(l, t1, t2)
+    } else if nonDeterministicChoice == 12 {
+        // create aead
+        res, err = AeadEnc(l, t1, t2, t3, t4)
+    } else if nonDeterministicChoice == 13 {
+        // create const1
+        l.LabelCtx().(labeling.DefaultLabelingContext).const1(l.Snapshot(), label.Public())
+        res = tm.const1()
+        l.Publish(res)
+    } else if nonDeterministicChoice == 14 {
+        // create exp
+        l.LabelCtx().(labeling.DefaultLabelingContext).exp(l.Snapshot(), t1, t2, label.Public())
+        res = tm.exp(t1, t2)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 15 {
+        // create mult
+        l.LabelCtx().(labeling.DefaultLabelingContext).mult(l.Snapshot(), t1, t2, label.Public())
+        res = tm.mult(t1, t2)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 16 {
+        // create string constant
+        arbString := arb.GetArbString()
+        l.LabelCtx().(labeling.DefaultLabelingContext).stringTerm(l.Snapshot(), arbString, label.Public())
+        res = tm.stringTerm(arbString)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 17 {
+        // create zero string
+        arbLength := arb.GetArbInt()
+        l.LabelCtx().(labeling.DefaultLabelingContext).zeroString(l.Snapshot(), arbLength, label.Public())
+        res = tm.zeroString(arbLength)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 18 {
+        // create integer64
+        arbValue := arb.GetArbUInt64()
+        l.LabelCtx().(labeling.DefaultLabelingContext).integer64(l.Snapshot(), arbValue, label.Public())
+        res = tm.integer64(arbValue)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 19 {
+        // create integer32
+        arbValue := arb.GetArbUInt32()
+        l.LabelCtx().(labeling.DefaultLabelingContext).integer32(l.Snapshot(), arbValue, label.Public())
+        res = tm.integer32(arbValue)
+        l.Publish(res)
+    } else if nonDeterministicChoice == 20 {
+        // create info term
+        l.LabelCtx().(labeling.DefaultLabelingContext).infoTerm(l.Snapshot(), label.Public())
+        res = tm.infoTerm()
+        l.Publish(res)
+    } else if nonDeterministicChoice == 21 {
+        // create prologue term
+        l.LabelCtx().(labeling.DefaultLabelingContext).prologueTerm(l.Snapshot(), label.Public())
+        res = tm.prologueTerm()
+        l.Publish(res)
+    } else if nonDeterministicChoice == 22 {
+        // create DH generator
+        l.LabelCtx().(labeling.DefaultLabelingContext).generator(l.Snapshot(), label.Public())
+        res = tm.generator()
+        l.Publish(res)
+    } else {
+        // sanity check that we have not missed any term by checking that
+        // we have covered all term types
+        assert false
+    }
+    return
+}
+
+/**
+ * with `GeneratePkeKey`, `GenerateDHKey`, `Enc`, `Dec`, `AeadEnc`, and `AeadDec`
+ * we show that the attacker can invoke the corresponding cryptographic operations,
+ * i.e. satisfy the corresponding preconditions and publish the output's term
+ * representation
+ */
+ghost
+requires l.Mem()
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
+func GeneratePkeKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
+    unfold l.Mem()
+    var skB lib.ByteString
+    _, skB, err = l.s.GeneratePkeKey(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    if err == nil {
+        sk = tm.random(lib.Abs(skB), label.Public(), u.PkeKey(usageString))
+        l.manager.LogNonce(l.ctx, l.owner, sk)
+        fold l.Mem()
+        l.Publish(sk)
+    } else {
+        fold l.Mem()
+    }
+}
+
+ghost
+requires l.Mem()
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
+func GenerateDHKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
+    unfold l.Mem()
+    var skB lib.ByteString
+    skB, err = l.s.GenerateDHKey(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    if err == nil {
+        sk = tm.random(lib.Abs(skB), label.Public(), u.DhKey(usageString))
+        l.manager.LogNonce(l.ctx, l.owner, sk)
+        fold l.Mem()
+        l.Publish(sk)
+    } else {
+        fold l.Mem()
+    }
+}
+
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), pk)
+requires att.attackerKnows(l.Snapshot(), plaintext)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), ciphertext)
+func Enc(l *ll.LabeledLibrary, pk, plaintext tm.Term) (ciphertext tm.Term, err error) {
+    pkBytes := lib.NewByteStringWithContent(tm.gamma(pk))
+    plaintextBytes := lib.NewByteStringWithContent(tm.gamma(plaintext))
+    l.AttackerOnlyKnowsPublishableValues(pk)
+    l.AttackerOnlyKnowsPublishableValues(plaintext)
+    _, err = l.Enc(plaintextBytes, pkBytes, plaintext, pk)
+    if err == nil {
+        ciphertext = tm.encrypt(plaintext, pk)
+        l.Publish(ciphertext)
+    }
+}
+
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), ciphertext)
+requires att.attackerKnows(l.Snapshot(), sk)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), plaintext)
+func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err error) {
+    skBytes := lib.NewByteStringWithContent(tm.gamma(sk))
+    ciphertextBytes := lib.NewByteStringWithContent(tm.gamma(ciphertext))
+    l.AttackerOnlyKnowsPublishableValues(ciphertext)
+    l.AttackerOnlyKnowsPublishableValues(sk)
+    skOwner := arb.GetArbId()
+    l.LabelCtx().CanDecryptWithPublicSk(l.Snapshot(), ciphertext, sk, skOwner)
+    _, err = l.Dec(ciphertextBytes, skBytes, ciphertext, sk, skOwner)
+    if err != nil {
+        return
+    }
+    optPlaintext := tm.decrypt(ciphertext, sk)
+    if optPlaintext == none[tm.Term] {
+        // the attacker can use the labeled decryption function
+        // however, the attacker will only obtain guarantees on the byte-level.
+        // we model the attacker to operate on symbolic terms.
+        // thus, we additionally call decrypt on the term-level and abort
+        // if decryption fails
+        err = lib.NewError("decryption failed")
+        return
+    }
+    plaintext = get(optPlaintext)
+    l.LabelCtx().PlaintextIsPublishableForPublicSk(l.Snapshot(), plaintext, sk, skOwner)
+    l.Publish(plaintext)
+}
+
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), key)
+requires att.attackerKnows(l.Snapshot(), nonce)
+requires att.attackerKnows(l.Snapshot(), plaintext)
+requires att.attackerKnows(l.Snapshot(), additionalData)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), ciphertext)
+func AeadEnc(l *ll.LabeledLibrary, key, nonce, plaintext, additionalData tm.Term) (ciphertext tm.Term, err error) {
+    keyBytes := lib.NewByteStringWithContent(tm.gamma(key))
+    nonceBytes := lib.NewByteStringWithContent(tm.gamma(nonce))
+    plaintextBytes := lib.NewByteStringWithContent(tm.gamma(plaintext))
+    additionalDataBytes := lib.NewByteStringWithContent(tm.gamma(additionalData))
+    l.AttackerOnlyKnowsPublishableValues(key)
+    l.AttackerOnlyKnowsPublishableValues(nonce)
+    l.AttackerOnlyKnowsPublishableValues(plaintext)
+    l.AttackerOnlyKnowsPublishableValues(additionalData)
+    if lib.Size(keyBytes) != 32 || lib.Size(nonceBytes) != 12 {
+        err = lib.NewError("key or nonce have invalid length")
+        return
+    }
+    _, err = l.AeadEnc(keyBytes, nonceBytes, plaintextBytes, additionalDataBytes, key, nonce, plaintext, additionalData, label.Public())
+    if err == nil {
+        ciphertext = tm.aead(key, nonce, plaintext, additionalData)
+        l.Publish(ciphertext)
+    }
+}
+
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), key)
+requires att.attackerKnows(l.Snapshot(), nonce)
+requires att.attackerKnows(l.Snapshot(), ciphertext)
+requires att.attackerKnows(l.Snapshot(), additionalData)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), plaintext)
+func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Term) (plaintext tm.Term, err error) {
+    keyBytes := lib.NewByteStringWithContent(tm.gamma(key))
+    nonceBytes := lib.NewByteStringWithContent(tm.gamma(nonce))
+    ciphertextBytes := lib.NewByteStringWithContent(tm.gamma(ciphertext))
+    additionalDataBytes := lib.NewByteStringWithContent(tm.gamma(additionalData))
+    l.AttackerOnlyKnowsPublishableValues(key)
+    l.AttackerOnlyKnowsPublishableValues(nonce)
+    l.AttackerOnlyKnowsPublishableValues(ciphertext)
+    l.AttackerOnlyKnowsPublishableValues(additionalData)
+    if lib.Size(keyBytes) != 32 || lib.Size(nonceBytes) != 12 {
+        err = lib.NewError("key or nonce have invalid length")
+        return
+    }
+    // skOwner := arb.GetArbId()
+    l.LabelCtx().CanAeadDecryptWithPublishableKey(l.Snapshot(), key, nonce, ciphertext, additionalData, label.Public())
+    _, err = l.AeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, key, nonce, ciphertext, additionalData, label.Public())
+    if err != nil {
+        return
+    }
+    optPlaintext := tm.AeadDecrypt(ciphertext, key, nonce, additionalData)
+    if optPlaintext == none[tm.Term] {
+        // the attacker can use the labeled decryption function
+        // however, the attacker will only obtain guarantees on the byte-level.
+        // we model the attacker to operate on symbolic terms.
+        // thus, we additionally call decrypt on the term-level and abort
+        // if decryption fails
+        err = lib.NewError("decryption failed")
+        return
+    }
+    plaintext = get(optPlaintext)
+    l.LabelCtx().PlaintextIsPublishableForPublishableKey(l.Snapshot(), key, nonce, plaintext, additionalData, label.Public())
+    l.Publish(plaintext)
+}
+
+// operation 5: participant corruption
+ghost
+requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  p.principalId(principal) in l.Snapshot().getCorruptIds()
+ensures  tr.containsCorruptId(l.Snapshot().getCorruptIds(), set[p.Id]{ p.principalId(principal) })
+ensures  att.attackerKnows(l.Snapshot(), arbTerm)
+func CorruptParticipant(l *ll.LabeledLibrary, principal p.Principal) (arbTerm tm.Term) {
+    principalId := p.principalId(principal)
+    labelCtx := l.LabelCtx().(labeling.DefaultLabelingContext)
+
+    // we show now that we can add an arbitrary term that `principal` can read (i.e. is possibly in its long-term state)
+    // to the attacker knowledge after recording the corruption on the trace:
+    arbTerm = arb.GetArbTerm()
+    assume labelCtx.IsMsg(l.Snapshot(), arbTerm, label.Readers(set[p.Id]{ principalId }))
+
+    unfold l.Mem()
+    l.manager.LogCorruption(l.ctx, l.owner, principalId)
+    fold l.Mem()
+
+    labelCtx.IsMsgMonotonic(old(l.Snapshot()), l.Snapshot(), arbTerm, label.Readers(set[p.Id]{ principalId }))
+    labelCtx.CanFlowTransitive(l.Snapshot(), labelCtx.GetLabel(arbTerm), label.Readers(set[p.Id]{ principalId }), label.Public())
+    s1 := l.Snapshot()
+    l.Publish(arbTerm)
+    s1.getCorruptIdsMonotonic(l.Snapshot())
+}
+
+// operation 6: session corruption
+ghost
+requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  sessionId in l.Snapshot().getCorruptIds()
+ensures  tr.containsCorruptId(l.Snapshot().getCorruptIds(), set[p.Id]{ sessionId })
+ensures  sessionId in l.Snapshot().getCorruptIds()
+func CorruptSession(l *ll.LabeledLibrary, sessionId p.Id) (arbTerm tm.Term) {
+    labelCtx := l.LabelCtx().(labeling.DefaultLabelingContext)
+
+    // we show now that we can add an arbitrary term that `sessionId` can read (i.e. is possibly in its long-term or ephemeral/session state)
+    // to the attacker knowledge after recording the corruption on the trace:
+    arbTerm = arb.GetArbTerm()
+    assume labelCtx.IsMsg(l.Snapshot(), arbTerm, label.Readers(set[p.Id]{ sessionId }))
+
+    unfold l.Mem()
+    l.manager.LogCorruption(l.ctx, l.owner, sessionId)
+    fold l.Mem()
+    
+    labelCtx.IsMsgMonotonic(old(l.Snapshot()), l.Snapshot(), arbTerm, label.Readers(set[p.Id]{ sessionId }))
+    labelCtx.CanFlowTransitive(l.Snapshot(), labelCtx.GetLabel(arbTerm), label.Readers(set[p.Id]{ sessionId }), label.Public())
+    s1 := l.Snapshot()
+    l.Publish(arbTerm)
+    s1.getCorruptIdsMonotonic(l.Snapshot())
+}
+
+// operation 7: drop message
+ghost
+requires l.Mem()
+requires l.Snapshot().messageOccurs(idSender, idReceiver, msg) // only previously sent message can be dropped
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot().isMessageDroppedAt(idSender, idReceiver, msg)
+func DropMessage(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.Term) {
+    msgBytes := lib.NewByteStringWithContent(tm.gamma(msg))
+    // l.AttackerOnlyKnowsPublishableValues(msg)
+    l.MessageOccursImpliesMessageInv(idSender, idReceiver, msg)
+    unfold l.Mem()
+    l.manager.LogMsgDrop(l.ctx, l.owner, idSender, idReceiver, msg)
+    // the message drop has been recorded on the trace. A real attacker would now issue some command to the
+    // network to perform the actual I/O operation for dropping the message.
+	fold l.Mem()
+}
+
+// `Recv` shows that the attacker can read messages from the network and also add them
+// to its attacker knowledge (similarly to how the attacker adds a term derived by
+// function application to its knowledge)
+ghost
+requires l.Mem()
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), msg)
+func Recv(l *ll.LabeledLibrary, idSender, idReceiver p.Principal) (err error, msg tm.Term) {
+    snapshot := l.Snapshot()
+    unfold l.Mem()
+    _, err, msg = l.com.Receive(idSender, idReceiver, snapshot)
+    fold l.Mem()
+    ghost if err == nil {
+		prev := l.MessageOccursImpliesMessageInv(idSender, idReceiver, msg)
+		(tr.getPrev(prev)).isSuffixTransitive(prev, l.Snapshot())
+		tr.messageInvTransitive(l.Ctx(), idSender, idReceiver, msg, tr.getPrev(prev), l.Snapshot())
+        l.Publish(msg)
+	}
+}
