@@ -1,10 +1,11 @@
 package tracemanager
 
 import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
 
 
 type EntrySearcher struct {
-    ctx tr.TraceContext
+    ctx tri.TraceContext
     entry tr.TraceEntry
 }
 EntrySearcher implements TraceSearcher
@@ -19,7 +20,7 @@ ghost
 decreases
 requires es.Props()
 ensures  res != nil && res.Props()
-pure func (es EntrySearcher) Ctx() (res tr.TraceContext) {
+pure func (es EntrySearcher) Ctx() (res tri.TraceContext) {
     return es.ctx
 }
 
@@ -82,14 +83,14 @@ decreases
 requires noPerm < p && p <= writePerm
 requires es.Props()
 requires es.Matches(entry)
-requires acc(tr.validTrace(es.Ctx(), entry), p)
+requires acc(tri.validTrace(es.Ctx(), entry), p)
 ensures  es.PureEntryInv(entry)
-ensures  acc(tr.validTrace(es.Ctx(), entry), p)
+ensures  acc(tri.validTrace(es.Ctx(), entry), p)
 func (es EntrySearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
-    unfold acc(tr.validTrace(es.Ctx(), entry), p)
+    unfold acc(tri.validTrace(es.Ctx(), entry), p)
     if es.entry.isEvent() {
         es.Ctx().getPureEventInv(tr.getPrincipal(es.entry), tr.getEvent(es.entry), tr.getPrev(entry), p)
     }
-    fold acc(tr.validTrace(es.Ctx(), entry), p)
+    fold acc(tri.validTrace(es.Ctx(), entry), p)
 }
 // end of EntrySearcher's implementation

@@ -1,0 +1,170 @@
+package traceinvariant
+
+import . "github.com/ModularVerification/ReusableVerificationLibrary/event"
+import label "github.com/ModularVerification/ReusableVerificationLibrary/label"
+import . "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import . "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+import . "github.com/ModularVerification/ReusableVerificationLibrary/usagecontext"
+
+type TraceContext interface {
+    ghost
+    decreases
+    /** used to express (pure) properties about fields of TraceContext implementations */
+    pure Props() bool
+
+    pred eventInv(principal p.Principal, ev Event, prev TraceEntry)
+
+    ghost
+    decreases
+    /**
+     * Specifies consistency conditions for an event. These conditions
+     * have to be implied by `pureEventInv`
+     */
+    pure EventConsistency(ev Event) bool
+
+    ghost
+    decreases
+    pure pureEventInv(principal p.Principal, ev Event, prev TraceEntry) bool
+
+    ghost
+    decreases
+    requires pureEventInv(principal, ev, prev)
+    ensures  EventConsistency(ev)
+    eventInvImpliesConsistency(principal p.Principal, ev Event, prev TraceEntry)
+    
+    ghost
+    decreases
+    /**
+     * expresses whether an event type does only occur once with 
+     * certain parameters
+     */
+    pure IsUnique(typ EventType) bool
+
+    ghost
+    decreases
+    requires EventConsistency(ev)
+    requires IsUnique(ev.typ)
+    /** 
+     * returns the witness from which event uniqueness can be derived.
+     * This typically is a nonce stored as an event parameter
+     */
+    pure UniquenessWitness(ev Event) tm.Term
+
+    ghost
+    decreases
+    requires Props()
+    requires IsUnique(ev.typ)
+    requires eventInv(principal, ev, prev)
+    ensures  EventConsistency(ev)
+    ensures  nonce == UniquenessWitness(ev)
+    ensures  GetDefaultLabelingContext(GetUsageContext()).NonceForEventIsUnique(nonce, ev.typ)
+    ensures  GetDefaultLabelingContext(GetUsageContext()).NonceForEventIsUnique(nonce, ev.typ) --* eventInv(principal, ev, prev)
+    isUniqueImpliesUniqueResource(principal p.Principal, ev Event, prev TraceEntry) (nonce tm.Term)
+
+    ghost
+    decreases
+    requires noPerm < p && p <= writePerm
+    requires acc(eventInv(principal, ev, prev), p)
+    ensures  acc(eventInv(principal, ev, prev), p)
+    ensures  pureEventInv(principal, ev, prev)
+    getPureEventInv(principal p.Principal, ev Event, prev TraceEntry, p perm)
+
+    ghost
+    decreases
+    requires t1.isSuffix(t2)
+    requires eventInv(principal, ev, t1)
+    ensures  eventInv(principal, ev, t2)
+    eventInvMonotonic(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
+
+    ghost
+    decreases
+    requires t1.isSuffix(t2)
+    requires pureEventInv(principal, ev, t1)
+    ensures  pureEventInv(principal, ev, t2)
+    pureEventInvMonotonic(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
+
+    ghost
+    decreases
+    requires Props()
+    ensures res != nil
+    pure GetUsageContext() (res UsageContext)
+}
+
+ghost
+decreases
+requires ctx != nil && ctx.Props()
+ensures  res.Props()
+pure func (ctx TraceContext) GetLabeling() (res DefaultLabelingContext) {
+    return GetDefaultLabelingContext(ctx.GetUsageContext())
+}
+
+// because Go & Gobra do not allow receivers of interface type, `ctx` becomes the first argument:
+pred validTrace(ctx TraceContext, t TraceEntry) {
+    ctx != nil && ctx.Props() &&
+    // invariant holds recursively:
+    (!t.isRoot() ==> validTrace(ctx, getPrev(t))) &&
+
+    (t.isRoot() ==> publicInv(ctx, getPublicTerms(t), t)) &&
+    (t.isEvent() ==> ctx.eventInv(getPrincipal(t), getEvent(t), getPrev(t))) &&
+    (t.isMessage() ==> messageInv(ctx, getSender(t), getReceiver(t), getPayload(t), getPrev(t))) &&
+    (t.isDropMessage() ==> messageInv(ctx, getSender(t), getReceiver(t), getPayload(t), getPrev(t))) &&
+    (t.isNonce() ==> randInv(ctx, getNonce(t), getPrev(t))) &&
+    (t.isPublic() ==> madePublicInv(ctx, getPayload(t), getPrev(t)))
+}
+
+ghost
+decreases
+requires ctx != nil && ctx.Props()
+requires t.isRoot()
+pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
+    return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> ctx.GetLabeling().IsPublishable(t, publicTerm)
+}
+
+ghost
+decreases
+requires ctx != nil && ctx.Props()
+pure func messageInv(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, prev TraceEntry) bool {
+    return ctx.GetLabeling().IsPublishable(prev, payload)
+}
+
+ghost
+decreases
+requires ctx != nil && ctx.Props()
+requires t1.isSuffix(t2)
+requires messageInv(ctx, sender, receiver, payload, t1)
+ensures  messageInv(ctx, sender, receiver, payload, t2)
+func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, t1, t2 TraceEntry) {
+    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, payload)
+}
+
+pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {
+    ctx != nil && ctx.Props() &&
+    pureRandInv(ctx, nonce, prev) &&
+    ctx.GetLabeling().NonceIsUnique(nonce)
+}
+
+ghost
+decreases
+pure func pureRandInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) bool {
+    return nonce.IsRandom()
+}
+
+ghost
+decreases
+requires ctx != nil && ctx.Props()
+pure func madePublicInv(ctx TraceContext, term tm.Term, prev TraceEntry) bool {
+    return ctx.GetLabeling().IsPublishable(prev, term)
+}
+
+ghost
+decreases
+requires ctx != nil && ctx.Props()
+requires t1.isSuffix(t2)
+requires madePublicInv(ctx, term, t1)
+ensures  madePublicInv(ctx, term, t2)
+func madePublicInvTransitive(ctx TraceContext, term tm.Term, t1, t2 TraceEntry) {
+    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, term)
+}

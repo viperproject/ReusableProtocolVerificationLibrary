@@ -10,6 +10,7 @@ import "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
 import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
 import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
 import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 
 
@@ -27,10 +28,10 @@ import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
  */
 
 ghost
-requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext // needed to have access to the proven lemmas in `ExtendKnowlege`
+requires l.Mem()
 ensures  l.Mem()
 func Attacker(l *ll.LabeledLibrary) {
-    invariant l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext // needed to have access to the proven lemmas in `ExtendKnowlege`
+    invariant l.Mem()
     for {
         // the attacker chooses non-deterministically an operation it wants to perform
         nonDeterministicChoice := arb.GetArbInt()
@@ -118,7 +119,7 @@ func Send(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.Term) (
 
 // operation 4: extend attacker knowledge
 ghost
-requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext // needed to have access to the proven lemmas
+requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), t1)
 requires att.attackerKnows(l.Snapshot(), t2)
 requires att.attackerKnows(l.Snapshot(), t3)
@@ -153,52 +154,52 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7 tm.Term) (
         res, err = CreateNonce(l, arb.GetArbString())
     } else if nonDeterministicChoice == 1 {
         // create tuple2
-        l.LabelCtx().(labeling.DefaultLabelingContext).tuple2(l.Snapshot(), t1, t2, label.Public())
+        l.LabelCtx().tuple2(l.Snapshot(), t1, t2, label.Public())
         res = tm.tuple2(t1, t2)
         l.Publish(res)
     } else if nonDeterministicChoice == 2 {
         // create tuple3
-        l.LabelCtx().(labeling.DefaultLabelingContext).tuple3(l.Snapshot(), t1, t2, t3, label.Public())
+        l.LabelCtx().tuple3(l.Snapshot(), t1, t2, t3, label.Public())
         res = tm.tuple3(t1, t2, t3)
         l.Publish(res)
     } else if nonDeterministicChoice == 3 {
         // create tuple4
-        l.LabelCtx().(labeling.DefaultLabelingContext).tuple4(l.Snapshot(), t1, t2, t3, t4, label.Public())
+        l.LabelCtx().tuple4(l.Snapshot(), t1, t2, t3, t4, label.Public())
         res = tm.tuple4(t1, t2, t3, t4)
         l.Publish(res)
     } else if nonDeterministicChoice == 4 {
         // create tuple5
-        l.LabelCtx().(labeling.DefaultLabelingContext).tuple5(l.Snapshot(), t1, t2, t3, t4, t5, label.Public())
+        l.LabelCtx().tuple5(l.Snapshot(), t1, t2, t3, t4, t5, label.Public())
         res = tm.tuple5(t1, t2, t3, t4, t5)
         l.Publish(res)
     } else if nonDeterministicChoice == 5 {
         // create tuple7
-        l.LabelCtx().(labeling.DefaultLabelingContext).tuple7(l.Snapshot(), t1, t2, t3, t4, t5, t6, t7, label.Public())
+        l.LabelCtx().tuple7(l.Snapshot(), t1, t2, t3, t4, t5, t6, t7, label.Public())
         res = tm.tuple7(t1, t2, t3, t4, t5, t6, t7)
         l.Publish(res)
     } else if nonDeterministicChoice == 6 {
         // create hash
-        l.LabelCtx().(labeling.DefaultLabelingContext).hash(l.Snapshot(), t1, label.Public())
+        l.LabelCtx().hash(l.Snapshot(), t1, label.Public())
         res = tm.hash(t1)
         l.Publish(res)
     } else if nonDeterministicChoice == 7 {
         // create kdf1
-        l.LabelCtx().(labeling.DefaultLabelingContext).kdf(l.Snapshot(), t1, label.Public())
+        l.LabelCtx().kdf(l.Snapshot(), t1, label.Public())
         res = tm.kdf1(t1)
         l.Publish(res)
     } else if nonDeterministicChoice == 8 {
         // create kdf2
-        l.LabelCtx().(labeling.DefaultLabelingContext).kdf(l.Snapshot(), t1, label.Public())
+        l.LabelCtx().kdf(l.Snapshot(), t1, label.Public())
         res = tm.kdf2(t1)
         l.Publish(res)
     } else if nonDeterministicChoice == 9 {
         // create kdf3
-        l.LabelCtx().(labeling.DefaultLabelingContext).kdf(l.Snapshot(), t1, label.Public())
+        l.LabelCtx().kdf(l.Snapshot(), t1, label.Public())
         res = tm.kdf3(t1)
         l.Publish(res)
     } else if nonDeterministicChoice == 10 {
         // create pk
-        l.LabelCtx().(labeling.DefaultLabelingContext).createPk(l.Snapshot(), t1, label.Public())
+        l.LabelCtx().createPk(l.Snapshot(), t1, label.Public())
         res = tm.createPk(t1)
         l.Publish(res)
     } else if nonDeterministicChoice == 11 {
@@ -209,56 +210,56 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7 tm.Term) (
         res, err = AeadEnc(l, t1, t2, t3, t4)
     } else if nonDeterministicChoice == 13 {
         // create const1
-        l.LabelCtx().(labeling.DefaultLabelingContext).const1(l.Snapshot(), label.Public())
+        l.LabelCtx().const1(l.Snapshot(), label.Public())
         res = tm.const1()
         l.Publish(res)
     } else if nonDeterministicChoice == 14 {
         // create exp
-        l.LabelCtx().(labeling.DefaultLabelingContext).exp(l.Snapshot(), t1, t2, label.Public())
+        l.LabelCtx().exp(l.Snapshot(), t1, t2, label.Public())
         res = tm.exp(t1, t2)
         l.Publish(res)
     } else if nonDeterministicChoice == 15 {
         // create mult
-        l.LabelCtx().(labeling.DefaultLabelingContext).mult(l.Snapshot(), t1, t2, label.Public())
+        l.LabelCtx().mult(l.Snapshot(), t1, t2, label.Public())
         res = tm.mult(t1, t2)
         l.Publish(res)
     } else if nonDeterministicChoice == 16 {
         // create string constant
         arbString := arb.GetArbString()
-        l.LabelCtx().(labeling.DefaultLabelingContext).stringTerm(l.Snapshot(), arbString, label.Public())
+        l.LabelCtx().stringTerm(l.Snapshot(), arbString, label.Public())
         res = tm.stringTerm(arbString)
         l.Publish(res)
     } else if nonDeterministicChoice == 17 {
         // create zero string
         arbLength := arb.GetArbInt()
-        l.LabelCtx().(labeling.DefaultLabelingContext).zeroString(l.Snapshot(), arbLength, label.Public())
+        l.LabelCtx().zeroString(l.Snapshot(), arbLength, label.Public())
         res = tm.zeroString(arbLength)
         l.Publish(res)
     } else if nonDeterministicChoice == 18 {
         // create integer64
         arbValue := arb.GetArbUInt64()
-        l.LabelCtx().(labeling.DefaultLabelingContext).integer64(l.Snapshot(), arbValue, label.Public())
+        l.LabelCtx().integer64(l.Snapshot(), arbValue, label.Public())
         res = tm.integer64(arbValue)
         l.Publish(res)
     } else if nonDeterministicChoice == 19 {
         // create integer32
         arbValue := arb.GetArbUInt32()
-        l.LabelCtx().(labeling.DefaultLabelingContext).integer32(l.Snapshot(), arbValue, label.Public())
+        l.LabelCtx().integer32(l.Snapshot(), arbValue, label.Public())
         res = tm.integer32(arbValue)
         l.Publish(res)
     } else if nonDeterministicChoice == 20 {
         // create info term
-        l.LabelCtx().(labeling.DefaultLabelingContext).infoTerm(l.Snapshot(), label.Public())
+        l.LabelCtx().infoTerm(l.Snapshot(), label.Public())
         res = tm.infoTerm()
         l.Publish(res)
     } else if nonDeterministicChoice == 21 {
         // create prologue term
-        l.LabelCtx().(labeling.DefaultLabelingContext).prologueTerm(l.Snapshot(), label.Public())
+        l.LabelCtx().prologueTerm(l.Snapshot(), label.Public())
         res = tm.prologueTerm()
         l.Publish(res)
     } else if nonDeterministicChoice == 22 {
         // create DH generator
-        l.LabelCtx().(labeling.DefaultLabelingContext).generator(l.Snapshot(), label.Public())
+        l.LabelCtx().generator(l.Snapshot(), label.Public())
         res = tm.generator()
         l.Publish(res)
     } else {
@@ -416,7 +417,6 @@ func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Ter
         err = lib.NewError("key or nonce have invalid length")
         return
     }
-    // skOwner := arb.GetArbId()
     l.LabelCtx().CanAeadDecryptWithPublishableKey(l.Snapshot(), key, nonce, ciphertext, additionalData, label.Public())
     _, err = l.AeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, key, nonce, ciphertext, additionalData, label.Public())
     if err != nil {
@@ -439,7 +439,7 @@ func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Ter
 
 // operation 5: participant corruption
 ghost
-requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext
+requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  p.principalId(principal) in l.Snapshot().getCorruptIds()
@@ -447,7 +447,7 @@ ensures  tr.containsCorruptId(l.Snapshot().getCorruptIds(), set[p.Id]{ p.princip
 ensures  att.attackerKnows(l.Snapshot(), arbTerm)
 func CorruptParticipant(l *ll.LabeledLibrary, principal p.Principal) (arbTerm tm.Term) {
     principalId := p.principalId(principal)
-    labelCtx := l.LabelCtx().(labeling.DefaultLabelingContext)
+    labelCtx := l.LabelCtx()
 
     // we show now that we can add an arbitrary term that `principal` can read (i.e. is possibly in its long-term state)
     // to the attacker knowledge after recording the corruption on the trace:
@@ -467,14 +467,14 @@ func CorruptParticipant(l *ll.LabeledLibrary, principal p.Principal) (arbTerm tm
 
 // operation 6: session corruption
 ghost
-requires l.Mem() && typeOf(l.LabelCtx()) == labeling.DefaultLabelingContext
+requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  sessionId in l.Snapshot().getCorruptIds()
 ensures  tr.containsCorruptId(l.Snapshot().getCorruptIds(), set[p.Id]{ sessionId })
 ensures  sessionId in l.Snapshot().getCorruptIds()
 func CorruptSession(l *ll.LabeledLibrary, sessionId p.Id) (arbTerm tm.Term) {
-    labelCtx := l.LabelCtx().(labeling.DefaultLabelingContext)
+    labelCtx := l.LabelCtx()
 
     // we show now that we can add an arbitrary term that `sessionId` can read (i.e. is possibly in its long-term or ephemeral/session state)
     // to the attacker knowledge after recording the corruption on the trace:
@@ -501,7 +501,6 @@ ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot().isMessageDroppedAt(idSender, idReceiver, msg)
 func DropMessage(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.Term) {
     msgBytes := lib.NewByteStringWithContent(tm.gamma(msg))
-    // l.AttackerOnlyKnowsPublishableValues(msg)
     l.MessageOccursImpliesMessageInv(idSender, idReceiver, msg)
     unfold l.Mem()
     l.manager.LogMsgDrop(l.ctx, l.owner, idSender, idReceiver, msg)
@@ -526,7 +525,7 @@ func Recv(l *ll.LabeledLibrary, idSender, idReceiver p.Principal) (err error, ms
     ghost if err == nil {
 		prev := l.MessageOccursImpliesMessageInv(idSender, idReceiver, msg)
 		(tr.getPrev(prev)).isSuffixTransitive(prev, l.Snapshot())
-		tr.messageInvTransitive(l.Ctx(), idSender, idReceiver, msg, tr.getPrev(prev), l.Snapshot())
+		tri.messageInvTransitive(l.Ctx(), idSender, idReceiver, msg, tr.getPrev(prev), l.Snapshot())
         l.Publish(msg)
 	}
 }

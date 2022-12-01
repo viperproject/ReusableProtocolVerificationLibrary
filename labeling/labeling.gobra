@@ -109,7 +109,6 @@ type CanFlowLemmas_DYStar interface {
 type DefaultLabelingContext struct {
     usage UsageContext
 }
-DefaultLabelingContext implements tr.LabelingContext
 DefaultLabelingContext implements CanFlowLemmas_DYStar
 
 ghost

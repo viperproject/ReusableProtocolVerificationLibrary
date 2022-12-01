@@ -3,10 +3,11 @@ package tracemanager
 import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
 import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
 
 
 type MessageSearcher struct {
-    ctx tr.TraceContext
+    ctx tri.TraceContext
     sender p.Principal
     receiver p.Principal
     payload tm.Term
@@ -23,7 +24,7 @@ ghost
 decreases
 requires ms.Props()
 ensures  res != nil && res.Props()
-pure func (ms MessageSearcher) Ctx() (res tr.TraceContext) {
+pure func (ms MessageSearcher) Ctx() (res tri.TraceContext) {
     return ms.ctx
 }
 
@@ -51,7 +52,7 @@ ghost
 decreases
 requires ms.Props()
 pure func (ms MessageSearcher) PureEntryInv(entry tr.TraceEntry) bool {
-    return tr.messageInv(ms.ctx, ms.sender, ms.receiver, ms.payload, tr.getPrev(entry))
+    return tri.messageInv(ms.ctx, ms.sender, ms.receiver, ms.payload, tr.getPrev(entry))
 }
 
 ghost
@@ -86,11 +87,11 @@ decreases
 requires noPerm < p && p <= writePerm
 requires ms.Props()
 requires ms.Matches(entry)
-requires acc(tr.validTrace(ms.Ctx(), entry), p)
+requires acc(tri.validTrace(ms.Ctx(), entry), p)
 ensures  ms.PureEntryInv(entry)
-ensures  acc(tr.validTrace(ms.Ctx(), entry), p)
+ensures  acc(tri.validTrace(ms.Ctx(), entry), p)
 func (ms MessageSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
-    assert unfolding acc(tr.validTrace(ms.Ctx(), entry), p) in true
+    assert unfolding acc(tri.validTrace(ms.Ctx(), entry), p) in true
 }
 // end of MessageSearcher's implementation
 
@@ -104,10 +105,10 @@ ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isMessage()
 ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  prev.isMessageAt(sender, receiver, payload)
-ensures  tr.messageInv(m.Ctx(ctx, owner), sender, receiver, payload, tr.getPrev(prev))
+ensures  tri.messageInv(m.Ctx(ctx, owner), sender, receiver, payload, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tr.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
+func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
     searcher := MessageSearcher{ ctx, sender, receiver, payload }
     // the following assert stmt is necessary to derive that `ctx != nil`:
     assert unfolding m.Mem(ctx, owner) in true

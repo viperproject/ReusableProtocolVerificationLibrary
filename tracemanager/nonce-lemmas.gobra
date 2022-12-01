@@ -2,10 +2,11 @@ package tracemanager
 
 import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
 
 
 type NonceSearcher struct {
-    ctx tr.TraceContext
+    ctx tri.TraceContext
     nonce tm.Term
 }
 NonceSearcher implements TraceSearcher
@@ -20,7 +21,7 @@ ghost
 decreases
 requires ns.Props()
 ensures  res != nil && res.Props()
-pure func (ns NonceSearcher) Ctx() (res tr.TraceContext) {
+pure func (ns NonceSearcher) Ctx() (res tri.TraceContext) {
     return ns.ctx
 }
 
@@ -48,7 +49,7 @@ ghost
 decreases
 requires ns.Props()
 pure func (ns NonceSearcher) PureEntryInv(entry tr.TraceEntry) bool {
-    return tr.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))
+    return tri.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))
 }
 
 ghost
@@ -83,13 +84,13 @@ decreases
 requires noPerm < p && p <= writePerm
 requires ns.Props()
 requires ns.Matches(entry)
-requires acc(tr.validTrace(ns.Ctx(), entry), p)
+requires acc(tri.validTrace(ns.Ctx(), entry), p)
 ensures  ns.PureEntryInv(entry)
-ensures  acc(tr.validTrace(ns.Ctx(), entry), p)
+ensures  acc(tri.validTrace(ns.Ctx(), entry), p)
 func (ns NonceSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
-    unfold acc(tr.validTrace(ns.Ctx(), entry), p)
-    assert unfolding acc(tr.randInv(ns.Ctx(), ns.nonce, tr.getPrev(entry)), p) in true
-    fold acc(tr.validTrace(ns.Ctx(), entry), p)
+    unfold acc(tri.validTrace(ns.Ctx(), entry), p)
+    assert unfolding acc(tri.randInv(ns.Ctx(), ns.nonce, tr.getPrev(entry)), p) in true
+    fold acc(tri.validTrace(ns.Ctx(), entry), p)
 }
 // end of NonceSearcher's implementation
 
@@ -101,10 +102,10 @@ requires (m.Snapshot(ctx, owner)).OnlyNonceOccurs(nonce)
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(m.Snapshot(ctx, owner)) && prev.isNonce()
 ensures  prev.isNonceAt(nonce)
-ensures  tr.pureRandInv(ctx, nonce, tr.getPrev(prev))
+ensures  tri.pureRandInv(ctx, nonce, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) NonceOccursImpliesRandInv(ctx tr.TraceContext, owner Client, nonce tm.Term) (prev tr.TraceEntry) {
+func (m *TraceManager) NonceOccursImpliesRandInv(ctx tri.TraceContext, owner Client, nonce tm.Term) (prev tr.TraceEntry) {
     searcher := NonceSearcher{ ctx, nonce }
     // the following assert stmt is necessary to derive that `ctx != nil`:
     assert unfolding m.Mem(ctx, owner) in true

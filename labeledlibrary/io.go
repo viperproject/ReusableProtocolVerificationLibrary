@@ -7,6 +7,7 @@ import (
 	p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
 	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+	//@ tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
 )
 
 
@@ -42,7 +43,7 @@ type Communication interface {
 //@ requires l.Owner().getPrincipal() == idSender
 //@ requires acc(lib.Mem(msg), 1/16)
 //@ requires tm.gamma(msgT) == lib.Abs(msg)
-//@ requires tr.messageInv(l.Ctx(), idSender, idReceiver, msgT, l.Snapshot())
+//@ requires tri.messageInv(l.Ctx(), idSender, idReceiver, msgT, l.Snapshot())
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
@@ -64,7 +65,7 @@ func (l *LabeledLibrary) Send(idSender, idReceiver p.Principal, msg lib.ByteStri
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
 //@ ensures  err == nil ==> lib.Mem(msg)
 //@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
-//@ ensures  err == nil ==> tr.messageInv(l.Ctx(), idSender, idReceiver, msgT, l.Snapshot())
+//@ ensures  err == nil ==> tri.messageInv(l.Ctx(), idSender, idReceiver, msgT, l.Snapshot())
 //@ ensures  err == nil ==> (l.Snapshot()).messageOccurs(idSender, idReceiver, msgT)
 func (l *LabeledLibrary) Receive(idSender, idReceiver p.Principal) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/) {
 	//@ unfold l.Mem()
@@ -77,7 +78,7 @@ func (l *LabeledLibrary) Receive(idSender, idReceiver p.Principal) (msg lib.Byte
 	ghost if err == nil {
 		prev := l.MessageOccursImpliesMessageInv(idSender, idReceiver, msgT)
 		(tr.getPrev(prev)).isSuffixTransitive(prev, l.Snapshot())
-		tr.messageInvTransitive(l.Ctx(), idSender, idReceiver, msgT, tr.getPrev(prev), l.Snapshot())
+		tri.messageInvTransitive(l.Ctx(), idSender, idReceiver, msgT, tr.getPrev(prev), l.Snapshot())
 	}
 	@*/
 	return
