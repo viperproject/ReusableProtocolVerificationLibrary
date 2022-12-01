@@ -9,7 +9,7 @@ isCi=$CI
 
 # gobraJar="/gobra/gobra.jar"
 gobraJar="/Users/arquintlinard/ETH/PhD/gobra/target/scala-2.13/gobra.jar"
-additionalGobraArgs="--module github.com/ModularVerification/ReusableVerificationLibrary --include .verification --z3Exe /Users/arquintlinard/Downloads/z3-4.8.7-x64-osx-10.14.6/bin/z3"
+additionalGobraArgs="--module github.com/ModularVerification/ReusableVerificationLibrary --include .verification --z3Exe /Users/arquintlinard/Downloads/z3-4.8.7-x64-osx-10.14.6/bin/z3 --parallelizeBranches"
 
 if [ $isCi ]; then
     echo -e "\033[0Ksection_start:`date +%s`:verify[collapsed=true]\r\033[0KVerifying packages"
