@@ -147,6 +147,7 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7 tm.Term) (
     {
         arbTerm := arb.GetArbTerm()
         assume nonDeterministicChoice == tm.getTermType(arbTerm)
+        assert 0 <= nonDeterministicChoice && nonDeterministicChoice <= 22
     }
 
     if nonDeterministicChoice == 0 {
@@ -265,6 +266,7 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7 tm.Term) (
     } else {
         // sanity check that we have not missed any term by checking that
         // we have covered all term types
+        assert nonDeterministicChoice < 0 || 22 < nonDeterministicChoice
         assert false
     }
     return
