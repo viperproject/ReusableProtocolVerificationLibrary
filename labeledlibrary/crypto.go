@@ -8,11 +8,12 @@ import (
 	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
 	//@ p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
 	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+	//@ tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
 	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 )
 
 //@ requires l.Mem()
-//@ requires l.Ctx().GetLabeling().CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
+//@ requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
@@ -22,7 +23,7 @@ import (
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> (l.LabelCtx()).NonceForEventIsUnique(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce lib.ByteString, err error) {
 	//@ unfold l.Mem()
-	nonce, err = l.s.CreateNonce(/*@ l.ctx.GetLabeling(), nonceLabel, usageString, eventTypes @*/)
+	nonce, err = l.s.CreateNonce(/*@ tri.GetLabeling(l.ctx), nonceLabel, usageString, eventTypes @*/)
 	// store nonce on trace
 	/*@
 	ghost if err == nil {
@@ -47,12 +48,12 @@ func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, gh
 func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost usageString string @*/) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
 	//@ unfold l.Mem()
 	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
-	pk, sk, err = l.s.GeneratePkeKey(/*@ l.ctx.GetLabeling(), keyLabel, usageString, set[ev.EventType]{} @*/)
+	pk, sk, err = l.s.GeneratePkeKey(/*@ tri.GetLabeling(l.ctx), keyLabel, usageString, set[ev.EventType]{} @*/)
 	// store sk on trace
 	/*@
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(sk), keyLabel, u.PkeKey(usageString))
-		l.ctx.GetLabeling().CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
+		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
 		l.manager.LogNonce(l.ctx, l.owner, skT)
 	}
 	@*/
@@ -72,12 +73,12 @@ func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost usageString string @*/) (pk, s
 func (l *LabeledLibrary) GenerateDHKey(/*@ ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
 	//@ unfold l.Mem()
 	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
-	key, err = l.s.GenerateDHKey(/*@ l.ctx.GetLabeling(), keyLabel, usageString, eventTypes @*/)
+	key, err = l.s.GenerateDHKey(/*@ tri.GetLabeling(l.ctx), keyLabel, usageString, eventTypes @*/)
 	// store key on trace
 	/*@
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString))
-		l.ctx.GetLabeling().CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
+		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
 		l.manager.LogNonce(l.ctx, l.owner, skT)
 	}
 	@*/

@@ -82,7 +82,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), nonce)
 func CreateNonce(l *ll.LabeledLibrary, usageString string) (nonce tm.Term, err error) {
     unfold l.Mem()
     var nonceB lib.ByteString
-    nonceB, err = l.s.CreateNonce(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    nonceB, err = l.s.CreateNonce(GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
     if err == nil {
         nonce = tm.random(lib.Abs(nonceB), label.Public(), u.Nonce(usageString))
         l.manager.LogNonce(l.ctx, l.owner, nonce)
@@ -284,7 +284,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
 func GeneratePkeKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
     unfold l.Mem()
     var skB lib.ByteString
-    _, skB, err = l.s.GeneratePkeKey(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    _, skB, err = l.s.GeneratePkeKey(GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.PkeKey(usageString))
         l.manager.LogNonce(l.ctx, l.owner, sk)
@@ -303,7 +303,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
 func GenerateDHKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
     unfold l.Mem()
     var skB lib.ByteString
-    skB, err = l.s.GenerateDHKey(l.ctx.GetLabeling(), label.Public(), usageString, set[ev.EventType]{})
+    skB, err = l.s.GenerateDHKey(GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.DhKey(usageString))
         l.manager.LogNonce(l.ctx, l.owner, sk)

@@ -97,7 +97,7 @@ ghost
 decreases
 requires ctx != nil && ctx.Props()
 ensures  res.Props()
-pure func (ctx TraceContext) GetLabeling() (res DefaultLabelingContext) {
+pure func GetLabeling(ctx TraceContext) (res DefaultLabelingContext) {
     return GetDefaultLabelingContext(ctx.GetUsageContext())
 }
 
@@ -120,14 +120,14 @@ decreases
 requires ctx != nil && ctx.Props()
 requires t.isRoot()
 pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
-    return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> ctx.GetLabeling().IsPublishable(t, publicTerm)
+    return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> GetLabeling(ctx).IsPublishable(t, publicTerm)
 }
 
 ghost
 decreases
 requires ctx != nil && ctx.Props()
 pure func messageInv(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, prev TraceEntry) bool {
-    return ctx.GetLabeling().IsPublishable(prev, payload)
+    return GetLabeling(ctx).IsPublishable(prev, payload)
 }
 
 ghost
@@ -137,13 +137,13 @@ requires t1.isSuffix(t2)
 requires messageInv(ctx, sender, receiver, payload, t1)
 ensures  messageInv(ctx, sender, receiver, payload, t2)
 func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payload tm.Term, t1, t2 TraceEntry) {
-    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, payload)
+    GetLabeling(ctx).IsPublishableMonotonic(t1, t2, payload)
 }
 
 pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {
     ctx != nil && ctx.Props() &&
     pureRandInv(ctx, nonce, prev) &&
-    ctx.GetLabeling().NonceIsUnique(nonce)
+    GetLabeling(ctx).NonceIsUnique(nonce)
 }
 
 ghost
@@ -156,7 +156,7 @@ ghost
 decreases
 requires ctx != nil && ctx.Props()
 pure func madePublicInv(ctx TraceContext, term tm.Term, prev TraceEntry) bool {
-    return ctx.GetLabeling().IsPublishable(prev, term)
+    return GetLabeling(ctx).IsPublishable(prev, term)
 }
 
 ghost
@@ -166,5 +166,5 @@ requires t1.isSuffix(t2)
 requires madePublicInv(ctx, term, t1)
 ensures  madePublicInv(ctx, term, t2)
 func madePublicInvTransitive(ctx TraceContext, term tm.Term, t1, t2 TraceEntry) {
-    ctx.GetLabeling().IsPublishableMonotonic(t1, t2, term)
+    GetLabeling(ctx).IsPublishableMonotonic(t1, t2, term)
 }

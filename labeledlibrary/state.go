@@ -70,7 +70,7 @@ pure func (l *LabeledLibrary) Owner() p.Id {
 ghost
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) LabelCtx() labeling.DefaultLabelingContext {
-	return l.Ctx().GetLabeling()
+	return tri.GetLabeling(l.Ctx())
 }
 
 ghost

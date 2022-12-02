@@ -283,11 +283,11 @@ ghost
 decreases
 requires m.Mem(ctx, owner)
 requires nonce.IsRandom()
-requires m.Ctx(ctx, owner).GetLabeling().NonceIsUnique(nonce)
+requires tri.GetLabeling(m.Ctx(ctx, owner)).NonceIsUnique(nonce)
 // the following precondition specifies that `owner` can read the nonce
 // i.e. this enforces for upper library layers that an owner cannot create nonces
 // or keys that it cannot read itself
-requires ctx.GetLabeling().CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ owner }))
+requires tri.GetLabeling(ctx).CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ owner }))
 ensures  m.Mem(ctx, owner)
 ensures  m.Snapshot(ctx, owner).isNonceAt(nonce)
 ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))

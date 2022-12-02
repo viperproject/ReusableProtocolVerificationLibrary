@@ -245,7 +245,7 @@ func (m *TraceManager) UniqueEventsAreUniqueAt(ctx tri.TraceContext, owner Clien
         // derive contradiction
         nonce1 := ctx.isUniqueImpliesUniqueResource(principal1, event1, tr.getPrev(s1))
         nonce2 := ctx.isUniqueImpliesUniqueResource(principal2, event2, tr.getPrev(s2))
-        ctx.GetLabeling().NonceForEventContradiction(nonce1, event1.typ)
+        tri.GetLabeling(ctx).NonceForEventContradiction(nonce1, event1.typ)
     }
     // the following assertion would hold:
     // assert s1 == s2
@@ -292,7 +292,7 @@ func (m *TraceManager) UniqueEventsOccurOnlyOnce(ctx tri.TraceContext, owner Cli
         unfold localValidTrace(ctx, s2)
         nonce1 := ctx.isUniqueImpliesUniqueResource(principal, event, tr.getPrev(s1))
         nonce2 := ctx.isUniqueImpliesUniqueResource(principal, event, tr.getPrev(s2))
-        ctx.GetLabeling().NonceForEventContradiction(nonce1, event.typ)
+        tri.GetLabeling(ctx).NonceForEventContradiction(nonce1, event.typ)
     }
     fold inv.CurrentValueInv(trace)
     // there is no need to update the snapshot
