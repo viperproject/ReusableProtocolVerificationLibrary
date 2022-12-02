@@ -11,7 +11,7 @@ requires ctx.Props()
 requires ctx.IsLabeledRelaxed(snapshot, firstT, firstL)
 requires ctx.IsLabeledRelaxed(snapshot, secondT, secondL)
 ensures  ctx.IsLabeledPrecise(snapshot, tm.hash(tm.tuple2(firstT, secondT)), label.Public())
-func (ctx DefaultLabelingContext) ApplyHash2Tuple(snapshot tr.TraceEntry, firstT, secondT tm.Term, firstL, secondL label.SecrecyLabel) {
+func (ctx LabelingContext) ApplyHash2Tuple(snapshot tr.TraceEntry, firstT, secondT tm.Term, firstL, secondL label.SecrecyLabel) {
     firstActualL := ctx.GetLabel(firstT)
     secondActualL := ctx.GetLabel(secondT)
     inputT := tm.tuple2(firstT, secondT)

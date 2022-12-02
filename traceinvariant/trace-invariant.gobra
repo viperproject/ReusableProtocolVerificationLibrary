@@ -60,8 +60,8 @@ type TraceContext interface {
     requires eventInv(principal, ev, prev)
     ensures  EventConsistency(ev)
     ensures  nonce == UniquenessWitness(ev)
-    ensures  GetDefaultLabelingContext(GetUsageContext()).NonceForEventIsUnique(nonce, ev.typ)
-    ensures  GetDefaultLabelingContext(GetUsageContext()).NonceForEventIsUnique(nonce, ev.typ) --* eventInv(principal, ev, prev)
+    ensures  GetLabelingContext(GetUsageContext()).NonceForEventIsUnique(nonce, ev.typ)
+    ensures  GetLabelingContext(GetUsageContext()).NonceForEventIsUnique(nonce, ev.typ) --* eventInv(principal, ev, prev)
     isUniqueImpliesUniqueResource(principal p.Principal, ev Event, prev TraceEntry) (nonce tm.Term)
 
     ghost
@@ -97,8 +97,8 @@ ghost
 decreases
 requires ctx != nil && ctx.Props()
 ensures  res.Props()
-pure func GetLabeling(ctx TraceContext) (res DefaultLabelingContext) {
-    return GetDefaultLabelingContext(ctx.GetUsageContext())
+pure func GetLabeling(ctx TraceContext) (res LabelingContext) {
+    return GetLabelingContext(ctx.GetUsageContext())
 }
 
 // because Go & Gobra do not allow receivers of interface type, `ctx` becomes the first argument:

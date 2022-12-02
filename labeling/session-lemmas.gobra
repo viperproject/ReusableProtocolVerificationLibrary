@@ -13,7 +13,7 @@ requires ctx.Props()
 // the required label is Meet(bJoinAL, bJoinAL)
 requires ctx.IsLabeledRelaxed(snapshot, term, label.Join(label.Readers(set[p.Id]{ bId }), label.Readers(set[p.Id]{ aId })))
 ensures ctx.IsLabeledRelaxed(snapshot, term, label.Readers(set[p.Id]{ aId, bId }))
-func (ctx DefaultLabelingContext) SimplifyJoinToReaders(snapshot tr.TraceEntry, term tm.Term, aId, bId p.Id) {
+func (ctx LabelingContext) SimplifyJoinToReaders(snapshot tr.TraceEntry, term tm.Term, aId, bId p.Id) {
     bothL := label.Readers(set[p.Id]{ aId, bId })
     bJoinAL := label.Join(label.Readers(set[p.Id]{ bId }), label.Readers(set[p.Id]{ aId }))
     actualL := ctx.GetLabel(term)
@@ -29,7 +29,7 @@ requires ctx.Props()
 // the required label is Meet(bJoinAL, bJoinAL)
 requires ctx.IsLabeledRelaxed(snapshot, term, label.Join(label.Readers(readers1), label.Readers(readers2)))
 ensures ctx.IsLabeledRelaxed(snapshot, term, label.Readers(readers1 union readers2))
-func (ctx DefaultLabelingContext) SimplifyJoinToReadersSet(snapshot tr.TraceEntry, term tm.Term, readers1, readers2 set[p.Id]) {
+func (ctx LabelingContext) SimplifyJoinToReadersSet(snapshot tr.TraceEntry, term tm.Term, readers1, readers2 set[p.Id]) {
     bothL := label.Readers(readers1 union readers2)
     bJoinAL := label.Join(label.Readers(readers1), label.Readers(readers2))
     actualL := ctx.GetLabel(term)
@@ -44,7 +44,7 @@ decreases
 requires ctx.Props()
 requires ctx.IsSecretPrecise(snapshot, term, label.Meet(l, l), usage)
 ensures ctx.IsSecretPrecise(snapshot, term, l, usage)
-func (ctx DefaultLabelingContext) SimplifySymMeet(snapshot tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
+func (ctx LabelingContext) SimplifySymMeet(snapshot tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
     inputL := label.Meet(l, l)
     actualL := ctx.GetLabel(term)
     ctx.CanFlowReflexive(snapshot, l)
@@ -57,7 +57,7 @@ requires ctx.Props()
 requires ctx.CanFlow(snapshot, l2, l1)
 requires ctx.IsLabeledPrecise(snapshot, term, label.Meet(l1, l2))
 ensures ctx.IsLabeledPrecise(snapshot, term, l1)
-func (ctx DefaultLabelingContext) SimplifySimilarMeet(snapshot tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) SimplifySimilarMeet(snapshot tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
     inputL := label.Meet(l1, l2)
     actualL := ctx.GetLabel(term)
     ctx.CanFlowReflexive(snapshot, l1)
@@ -70,7 +70,7 @@ func (ctx DefaultLabelingContext) SimplifySimilarMeet(snapshot tr.TraceEntry, te
 ghost
 decreases
 ensures ctx.CanFlow(snapshot, label.Readers(set[p.Id]{ sessId.getPrincipalId() }), label.Readers(set[p.Id]{ sessId }))
-func (ctx DefaultLabelingContext) PrincipalFlowsToSession(snapshot tr.TraceEntry, sessId p.Id) {
+func (ctx LabelingContext) PrincipalFlowsToSession(snapshot tr.TraceEntry, sessId p.Id) {
     // the following assert stmt is necessary:
     assert sessId.getPrincipalId().Covers(sessId)
 }
@@ -80,7 +80,7 @@ decreases
 ensures ctx.CanFlow(snapshot, label.Readers(set[p.Id]{ aSessId.getPrincipalId(), bSessId }), label.Readers(set[p.Id]{ aSessId, bSessId }))
 ensures ctx.CanFlow(snapshot, label.Readers(set[p.Id]{ aSessId, bSessId.getPrincipalId() }), label.Readers(set[p.Id]{ aSessId, bSessId }))
 ensures ctx.CanFlow(snapshot, label.Readers(set[p.Id]{ aSessId.getPrincipalId(), bSessId.getPrincipalId() }), label.Readers(set[p.Id]{ aSessId, bSessId }))
-func (ctx DefaultLabelingContext) PrincipalsFlowsToSession(snapshot tr.TraceEntry, aSessId, bSessId p.Id) {
+func (ctx LabelingContext) PrincipalsFlowsToSession(snapshot tr.TraceEntry, aSessId, bSessId p.Id) {
     ctx.PrincipalsFlowsToSession1(snapshot, aSessId, bSessId)
     ctx.PrincipalsFlowsToSession1(snapshot, bSessId, aSessId)
     assert set[p.Id]{ aSessId, bSessId.getPrincipalId() } == set[p.Id]{ bSessId.getPrincipalId(), aSessId }
@@ -90,14 +90,14 @@ func (ctx DefaultLabelingContext) PrincipalsFlowsToSession(snapshot tr.TraceEntr
 ghost
 decreases
 ensures ctx.CanFlow(snapshot, label.Readers(set[p.Id]{ aSessId.getPrincipalId(), bSessId }), label.Readers(set[p.Id]{ aSessId, bSessId }))
-func (ctx DefaultLabelingContext) PrincipalsFlowsToSession1(snapshot tr.TraceEntry, aSessId, bSessId p.Id) {
+func (ctx LabelingContext) PrincipalsFlowsToSession1(snapshot tr.TraceEntry, aSessId, bSessId p.Id) {
     ctx.PrincipalsIncludeSessions(aSessId, bSessId)
 }
 
 ghost
 decreases
 ensures ctx.CanFlow(snapshot, label.Readers(set[p.Id]{ aSessId.getPrincipalId(), bSessId.getPrincipalId() }), label.Readers(set[p.Id]{ aSessId, bSessId }))
-func (ctx DefaultLabelingContext) PrincipalsFlowsToSession2(snapshot tr.TraceEntry, aSessId, bSessId p.Id) {
+func (ctx LabelingContext) PrincipalsFlowsToSession2(snapshot tr.TraceEntry, aSessId, bSessId p.Id) {
     ctx.PrincipalsIncludeSessions(aSessId, bSessId)
 }
 
@@ -105,7 +105,7 @@ ghost
 decreases
 ensures includesIds(set[p.Id]{ aSessId.getPrincipalId(), bSessId }, set[p.Id]{ aSessId, bSessId })
 ensures includesIds(set[p.Id]{ aSessId.getPrincipalId(), bSessId.getPrincipalId() }, set[p.Id]{ aSessId, bSessId })
-func (ctx DefaultLabelingContext) PrincipalsIncludeSessions(aSessId, bSessId p.Id) {
+func (ctx LabelingContext) PrincipalsIncludeSessions(aSessId, bSessId p.Id) {
     // these steps are inspired by `includesIdsSubset`
     aSessId.getPrincipalId().CoversReflexive()
     bSessId.CoversReflexive()
@@ -122,7 +122,7 @@ ensures ctx.CanFlow(snapshot, lhsL, rhsL)
 ensures ctx.IsJoinOfReaders(lhsL) && ctx.IsJoinOfReaders(rhsL)
 ensures ctx.ReaderUnionFromJoin(lhsL) == label.Readers(set[p.Id]{ aSessId.getPrincipalId(), bId })
 ensures ctx.ReaderUnionFromJoin(rhsL) == label.Readers(set[p.Id]{ aSessId, bId })
-func (ctx DefaultLabelingContext) PrincipalsJoinFlowsToSessions(snapshot tr.TraceEntry, aSessId, bId p.Id) (lhsL, rhsL label.SecrecyLabel) {
+func (ctx LabelingContext) PrincipalsJoinFlowsToSessions(snapshot tr.TraceEntry, aSessId, bId p.Id) (lhsL, rhsL label.SecrecyLabel) {
     aL := label.Readers(set[p.Id]{ aSessId.getPrincipalId() })
     aSessL := label.Readers(set[p.Id]{ aSessId })
     bL := label.Readers(set[p.Id]{ bId })
@@ -145,7 +145,7 @@ ensures ctx.CanFlow(snapshot, lhsL, rhsL)
 ensures ctx.IsJoinOfReaders(lhsL) && ctx.IsJoinOfReaders(rhsL)
 ensures ctx.ReaderUnionFromJoin(lhsL) == label.Readers(set[p.Id]{ aSessId, bSessId.getPrincipalId() })
 ensures ctx.ReaderUnionFromJoin(rhsL) == label.Readers(set[p.Id]{ aSessId, bSessId })
-func (ctx DefaultLabelingContext) PrincipalsJoinFlowsToBSessions(snapshot tr.TraceEntry, aSessId, bSessId p.Id) (lhsL, rhsL label.SecrecyLabel) {
+func (ctx LabelingContext) PrincipalsJoinFlowsToBSessions(snapshot tr.TraceEntry, aSessId, bSessId p.Id) (lhsL, rhsL label.SecrecyLabel) {
     aSessL := label.Readers(set[p.Id]{ aSessId })
     bL := label.Readers(set[p.Id]{ bSessId.getPrincipalId() })
     bSessL := label.Readers(set[p.Id]{ bSessId })
@@ -163,7 +163,7 @@ func (ctx DefaultLabelingContext) PrincipalsJoinFlowsToBSessions(snapshot tr.Tra
 ghost
 decreases
 ensures ctx.ReaderUnionFromJoin(label.Join(label.Readers(set[p.Id]{ id1 }), label.Readers(set[p.Id]{ id2 }))) == label.Readers(set[p.Id]{ id1, id2 })
-func (ctx DefaultLabelingContext) ShowReaderUnionFromJoin(id1, id2 p.Id) {
+func (ctx LabelingContext) ShowReaderUnionFromJoin(id1, id2 p.Id) {
     lhsL := label.Readers(set[p.Id]{ id1 })
     rhsL := label.Readers(set[p.Id]{ id2 })
     joinL := label.Join(lhsL, rhsL)
@@ -180,7 +180,7 @@ func (ctx DefaultLabelingContext) ShowReaderUnionFromJoin(id1, id2 p.Id) {
 ghost
 decreases
 /** helper function that checks whether l == Join(Readers(set1), Readers(set2)) for some set1 and set2 */
-pure func (ctx DefaultLabelingContext) IsJoinOfReaders(l label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) IsJoinOfReaders(l label.SecrecyLabel) bool {
     return l.IsJoin() &&
         label.GetFirstLabel(l).IsReaders() &&
         label.GetSecondLabel(l).IsReaders()
@@ -190,6 +190,6 @@ ghost
 decreases
 requires ctx.IsJoinOfReaders(l)
 /** helper function to convert l == Join(Readers(set1), Readers(set2)) for some set1 and set2 to Readers(set1 union set2) */
-pure func (ctx DefaultLabelingContext) ReaderUnionFromJoin(l label.SecrecyLabel) label.SecrecyLabel {
+pure func (ctx LabelingContext) ReaderUnionFromJoin(l label.SecrecyLabel) label.SecrecyLabel {
     return label.Readers(label.GetReaders(label.GetFirstLabel(l)) union label.GetReaders(label.GetSecondLabel(l)))
 }

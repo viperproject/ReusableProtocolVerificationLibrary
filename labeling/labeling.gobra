@@ -13,120 +13,119 @@ import . "github.com/ModularVerification/ReusableVerificationLibrary/usagecontex
 /** alias */
 type IdSet = set[p.Id]
 
-/** interface to collect all lemmas for convenience */
-type CanFlowLemmas_DYStar interface {
-    ghost
-    pure canFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) bool
+/** 
+ * overview over some lemmas available in this file on the level of `canFlowInternal_DYStar
+ * ghost
+ * pure canFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) bool
+ * 
+ * ghost
+ * ensures  canFlowInternal_DYStar(corruptIds, l, l)
+ * canFlowInternalReflexive_DYStar(corruptIds IdSet, l label.SecrecyLabel)
+ * 
+ * ghost
+ * ensures (canFlowInternal_DYStar(corruptIds, l1, l2) && canFlowInternal_DYStar(corruptIds, l2, l3)) ==> canFlowInternal_DYStar(corruptIds, l1, l3)
+ * canFlowInternalTransitive_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
+ * 
+ * ghost
+ * ensures  canFlowInternal_DYStar(corruptIds, l1, label.Public()) ==> canFlowInternal_DYStar(corruptIds, l1, l2)
+ * flowsToPublicCanFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
+ * 
+ * ghost
+ * ensures  (canFlowInternal_DYStar(corruptIds, l2, label.Public()) && canFlowInternal_DYStar(corruptIds, l1, l2)) ==> canFlowInternal_DYStar(corruptIds, l1, label.Public())
+ * canFlowFlowsToPublic_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires l1.IsReaders() && l2.IsReaders()
+ * requires label.GetReaders(l2) subset label.GetReaders(l1)
+ * ensures canFlowInternal_DYStar(corruptIds, l1, l2)
+ * canFlowInternalToSubsetReaders_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, l3)
+ * requires canFlowInternal_DYStar(corruptIds, l2, l3)
+ * ensures  canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
+ * canFlowInternalCreateMeetLhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
+ * ensures  canFlowInternal_DYStar(corruptIds, l1, l3)
+ * ensures  canFlowInternal_DYStar(corruptIds, l2, l3)
+ * canFlowInternalResolveMeetLhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, l2) || canFlowInternal_DYStar(corruptIds, l1, l3)
+ * ensures  canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
+ * canFlowInternalCreateMeetRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
+ * requires canFlowInternal_DYStar(corruptIds, l2, l3)
+ * ensures  canFlowInternal_DYStar(corruptIds, l1, l3)
+ * canFlowInternalResolveMeetRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, l3) || canFlowInternal_DYStar(corruptIds, l2, l3)
+ * ensures  canFlowInternal_DYStar(corruptIds, label.Join(l1, l2), l3)
+ * canFlowInternalCreateJoinLhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, label.Join(l1, l1), l2)
+ * ensures  canFlowInternal_DYStar(corruptIds, l1, l2)
+ * canFlowInternalResolveJoinLhs_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, l2)
+ * requires canFlowInternal_DYStar(corruptIds, l1, l3)
+ * ensures  canFlowInternal_DYStar(corruptIds, l1, label.Join(l2, l3))
+ * canFlowInternalCreateJoinRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, label.Join(l2, l3))
+ * ensures  canFlowInternal_DYStar(corruptIds, l1, l2)
+ * ensures  canFlowInternal_DYStar(corruptIds, l1, l3)
+ * canFlowInternalResolveJoinRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
+ * requires  l2FlowsToPublic ==> canFlowInternal_DYStar(corruptIds, l2, label.Public())
+ * requires !l2FlowsToPublic ==> canFlowInternal_DYStar(corruptIds, l3, label.Public())
+ * ensures   l2FlowsToPublic ==> canFlowInternal_DYStar(corruptIds, l1, l3)
+ * ensures  !l2FlowsToPublic ==> canFlowInternal_DYStar(corruptIds, l1, l2)
+ * canFlowInternalResolveMeetPublicRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, l2)
+ * requires canFlowInternal_DYStar(corruptIds, l3, l4)
+ * ensures  canFlowInternal_DYStar(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
+ * canFlowInternalCreateMeetBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel)
+ * 
+ * ghost
+ * requires canFlowInternal_DYStar(corruptIds, l1, l2)
+ * requires canFlowInternal_DYStar(corruptIds, l3, l4)
+ * ensures  canFlowInternal_DYStar(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
+ * canFlowInternalCreateJoinBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel)
+ */
 
-    ghost
-    ensures  canFlowInternal_DYStar(corruptIds, l, l)
-    canFlowInternalReflexive_DYStar(corruptIds IdSet, l label.SecrecyLabel)
-
-    ghost
-    ensures (canFlowInternal_DYStar(corruptIds, l1, l2) && canFlowInternal_DYStar(corruptIds, l2, l3)) ==> canFlowInternal_DYStar(corruptIds, l1, l3)
-    canFlowInternalTransitive_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
-
-    ghost
-    ensures  canFlowInternal_DYStar(corruptIds, l1, label.Public()) ==> canFlowInternal_DYStar(corruptIds, l1, l2)
-    flowsToPublicCanFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
-
-    ghost
-    ensures  (canFlowInternal_DYStar(corruptIds, l2, label.Public()) && canFlowInternal_DYStar(corruptIds, l1, l2)) ==> canFlowInternal_DYStar(corruptIds, l1, label.Public())
-    canFlowFlowsToPublic_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
-
-    ghost
-    requires l1.IsReaders() && l2.IsReaders()
-    requires label.GetReaders(l2) subset label.GetReaders(l1)
-    ensures canFlowInternal_DYStar(corruptIds, l1, l2)
-    canFlowInternalToSubsetReaders_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, l3)
-    requires canFlowInternal_DYStar(corruptIds, l2, l3)
-    ensures  canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
-    canFlowInternalCreateMeetLhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
-    ensures  canFlowInternal_DYStar(corruptIds, l1, l3)
-    ensures  canFlowInternal_DYStar(corruptIds, l2, l3)
-    canFlowInternalResolveMeetLhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, l2) || canFlowInternal_DYStar(corruptIds, l1, l3)
-    ensures  canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
-    canFlowInternalCreateMeetRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
-    requires canFlowInternal_DYStar(corruptIds, l2, l3)
-    ensures  canFlowInternal_DYStar(corruptIds, l1, l3)
-    canFlowInternalResolveMeetRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, l3) || canFlowInternal_DYStar(corruptIds, l2, l3)
-    ensures  canFlowInternal_DYStar(corruptIds, label.Join(l1, l2), l3)
-    canFlowInternalCreateJoinLhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, label.Join(l1, l1), l2)
-    ensures  canFlowInternal_DYStar(corruptIds, l1, l2)
-    canFlowInternalResolveJoinLhs_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, l2)
-    requires canFlowInternal_DYStar(corruptIds, l1, l3)
-    ensures  canFlowInternal_DYStar(corruptIds, l1, label.Join(l2, l3))
-    canFlowInternalCreateJoinRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, label.Join(l2, l3))
-    ensures  canFlowInternal_DYStar(corruptIds, l1, l2)
-    ensures  canFlowInternal_DYStar(corruptIds, l1, l3)
-    canFlowInternalResolveJoinRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
-    requires  l2FlowsToPublic ==> canFlowInternal_DYStar(corruptIds, l2, label.Public())
-    requires !l2FlowsToPublic ==> canFlowInternal_DYStar(corruptIds, l3, label.Public())
-    ensures   l2FlowsToPublic ==> canFlowInternal_DYStar(corruptIds, l1, l3)
-    ensures  !l2FlowsToPublic ==> canFlowInternal_DYStar(corruptIds, l1, l2)
-    canFlowInternalResolveMeetPublicRhs_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, l2)
-    requires canFlowInternal_DYStar(corruptIds, l3, l4)
-    ensures  canFlowInternal_DYStar(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
-    canFlowInternalCreateMeetBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel)
-
-    ghost
-    requires canFlowInternal_DYStar(corruptIds, l1, l2)
-    requires canFlowInternal_DYStar(corruptIds, l3, l4)
-    ensures  canFlowInternal_DYStar(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
-    canFlowInternalCreateJoinBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel)
-}
-
-type DefaultLabelingContext struct {
+type LabelingContext struct {
     usage UsageContext
 }
-DefaultLabelingContext implements CanFlowLemmas_DYStar
 
 ghost
 decreases
-pure func (ctx DefaultLabelingContext) Props() bool {
+pure func (ctx LabelingContext) Props() bool {
     return ctx.usage != nil
 }
 
 // TODO make ghost
 decreases
-pure func GetDefaultLabelingContext(usage UsageContext) (res DefaultLabelingContext) {
-    return DefaultLabelingContext{ usage }
+pure func GetLabelingContext(usage UsageContext) (res LabelingContext) {
+    return LabelingContext{ usage }
 }
 
 ghost
 decreases tm.getTermHeight(term)
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bool {
+pure func (ctx LabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bool {
     return (term.IsInteger64() ==> true) &&
         (term.IsInteger32() ==> true) &&
         (term.IsConst1() ==> true) &&
@@ -152,7 +151,7 @@ ghost
 decreases
 requires ctx.Props()
 requires ctx.GetLabel(plaintext) == plaintextLabel
-pure func (ctx DefaultLabelingContext) IsValidEncrypt(t tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) IsValidEncrypt(t tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel) bool {
     return ctx.IsValidEncryptInternal(t, pk, plaintext, plaintextLabel, true)
 }
 
@@ -164,7 +163,7 @@ requires ctx.GetLabel(plaintext) == plaintextLabel
   * `IsValidEncryptInternal` is used with a fake argument to over-come a common limitation in proving termination for
   * mutally recursive calls. `IsValidEncrypt` provides a wrapper that hides these internal details.
   */
-pure func (ctx DefaultLabelingContext) IsValidEncryptInternal(t tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel, mutualRecursionTrick bool) bool {
+pure func (ctx LabelingContext) IsValidEncryptInternal(t tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel, mutualRecursionTrick bool) bool {
     return ctx.IsValid(t, pk) &&
         ctx.IsValid(t, plaintext) &&
         // message has to flow to secrecy label of secret key
@@ -183,7 +182,7 @@ ghost
 decreases
 requires ctx.Props()
 requires ctx.GetLabel(plaintext) == plaintextLabel
-pure func (ctx DefaultLabelingContext) IsValidAead(t tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term) bool {
+pure func (ctx LabelingContext) IsValidAead(t tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term) bool {
     return ctx.IsValidAeadInternal(t, key, nonce, plaintext, plaintextLabel, authtext, true)
 }
 
@@ -195,7 +194,7 @@ requires ctx.GetLabel(plaintext) == plaintextLabel
   * `IsValidAeadInternal` is used with a fake argument to over-come a common limitation in proving termination for
   * mutally recursive calls. `IsValidAead` provides a wrapper that hides these internal details.
   */
-pure func (ctx DefaultLabelingContext) IsValidAeadInternal(t tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term, mutualRecursionTrick bool) bool {
+pure func (ctx LabelingContext) IsValidAeadInternal(t tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term, mutualRecursionTrick bool) bool {
     return ctx.IsValid(t, key) &&
         ctx.IsValid(t, nonce) &&
         ctx.IsValid(t, plaintext) &&
@@ -216,7 +215,7 @@ pure func (ctx DefaultLabelingContext) IsValidAeadInternal(t tr.TraceEntry, key,
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsAeadKey(t tr.TraceEntry, key tm.Term, keyL label.SecrecyLabel, usageString string) bool {
+pure func (ctx LabelingContext) IsAeadKey(t tr.TraceEntry, key tm.Term, keyL label.SecrecyLabel, usageString string) bool {
     return ctx.IsSecretRelaxed(t, key, keyL, u.AeadKey(usageString))
 }
 
@@ -226,7 +225,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsValid(t1, term)
 ensures  ctx.IsValid(t2, term)
-func (ctx DefaultLabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term) {
+func (ctx LabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term) {
     if (term.IsRandom()) {
         t1.OnlyNonceOccursMonotonic(t2, term)
     } else if (term.IsPk()) {
@@ -267,7 +266,7 @@ requires t1.isSuffix(t2)
 requires ctx.GetLabel(plaintext) == plaintextLabel
 requires ctx.IsValidEncrypt(t1, pk, plaintext, plaintextLabel)
 ensures  ctx.IsValidEncrypt(t2, pk, plaintext, plaintextLabel)
-func (ctx DefaultLabelingContext) IsValidEncryptMonotonic(t1, t2 tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel, mutualRecursionTrick bool) {
+func (ctx LabelingContext) IsValidEncryptMonotonic(t1, t2 tr.TraceEntry, pk, plaintext tm.Term, plaintextLabel label.SecrecyLabel, mutualRecursionTrick bool) {
     ctx.IsValidMonotonic(t1, t2, pk)
     ctx.IsValidMonotonic(t1, t2, plaintext)
     skLabel := ctx.GetSkLabel(pk)
@@ -286,7 +285,7 @@ requires t1.isSuffix(t2)
 requires ctx.GetLabel(plaintext) == plaintextLabel
 requires ctx.IsValidAead(t1, key, nonce, plaintext, plaintextLabel, authtext)
 ensures  ctx.IsValidAead(t2, key, nonce, plaintext, plaintextLabel, authtext)
-func (ctx DefaultLabelingContext) IsValidAeadMonotonic(t1, t2 tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term, mutualRecursionTrick bool) {
+func (ctx LabelingContext) IsValidAeadMonotonic(t1, t2 tr.TraceEntry, key, nonce, plaintext tm.Term, plaintextLabel label.SecrecyLabel, authtext tm.Term, mutualRecursionTrick bool) {
     ctx.IsValidMonotonic(t1, t2, key)
     ctx.IsValidMonotonic(t1, t2, nonce)
     ctx.IsValidMonotonic(t1, t2, plaintext)
@@ -308,7 +307,7 @@ ghost
 decreases
 requires ctx.Props()
 /** expresses that a term is valid and that its label is `l` */
-pure func (ctx DefaultLabelingContext) IsLabeled(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) IsLabeled(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
     return ctx.IsValid(t, term) &&
         ctx.GetLabel(term) == l
 }
@@ -317,7 +316,7 @@ ghost
 decreases
 requires ctx.Props()
 /** expresses that a term is valid and that `l` flows to its label */
-pure func (ctx DefaultLabelingContext) IsLabeledRelaxed(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) IsLabeledRelaxed(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
     return ctx.IsValid(t, term) &&
         ctx.CanFlow(t, l, ctx.GetLabel(term))
 }
@@ -326,7 +325,7 @@ ghost
 decreases
 requires ctx.Props()
 /** expresses that a term is valid and that `l` flows to its label and back */
-pure func (ctx DefaultLabelingContext) IsLabeledPrecise(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) IsLabeledPrecise(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
     return ctx.IsValid(t, term) &&
         ctx.CanFlow(t, l, ctx.GetLabel(term)) &&
         ctx.CanFlow(t, ctx.GetLabel(term), l)
@@ -338,7 +337,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsLabeled(t1, term, l)
 ensures  ctx.IsLabeled(t2, term, l)
-func (ctx DefaultLabelingContext) IsLabeledMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) IsLabeledMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     ctx.IsValidMonotonic(t1, t2, term)
 }
 
@@ -348,7 +347,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsLabeledRelaxed(t1, term, l)
 ensures  ctx.IsLabeledRelaxed(t2, term, l)
-func (ctx DefaultLabelingContext) IsLabeledRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) IsLabeledRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     ctx.IsValidMonotonic(t1, t2, term)
     ctx.CanFlowMonotonic(t1, t2, l, ctx.GetLabel(term))
 }
@@ -359,7 +358,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsLabeledPrecise(t1, term, l)
 ensures  ctx.IsLabeledPrecise(t2, term, l)
-func (ctx DefaultLabelingContext) IsLabeledPreciseMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) IsLabeledPreciseMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     ctx.IsValidMonotonic(t1, t2, term)
     ctx.CanFlowMonotonic(t1, t2, l, ctx.GetLabel(term))
     ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(term), l)
@@ -368,7 +367,7 @@ func (ctx DefaultLabelingContext) IsLabeledPreciseMonotonic(t1, t2 tr.TraceEntry
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsSecret(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
+pure func (ctx LabelingContext) IsSecret(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
     return ctx.IsLabeled(t, term, l) &&
         ctx.GetUsage(term) == some(usage)
 }
@@ -376,7 +375,7 @@ pure func (ctx DefaultLabelingContext) IsSecret(t tr.TraceEntry, term tm.Term, l
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsSecretRelaxed(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
+pure func (ctx LabelingContext) IsSecretRelaxed(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
     return ctx.IsLabeledRelaxed(t, term, l) &&
         ctx.GetUsage(term) == some(usage)
 }
@@ -384,7 +383,7 @@ pure func (ctx DefaultLabelingContext) IsSecretRelaxed(t tr.TraceEntry, term tm.
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsSecretPrecise(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
+pure func (ctx LabelingContext) IsSecretPrecise(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) bool {
     return ctx.IsLabeledPrecise(t, term, l) &&
         ctx.GetUsage(term) == some(usage)
 }
@@ -395,7 +394,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsSecret(t1, term, l, usage)
 ensures  ctx.IsSecret(t2, term, l, usage)
-func (ctx DefaultLabelingContext) IsSecretMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
+func (ctx LabelingContext) IsSecretMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
     ctx.IsLabeledMonotonic(t1, t2, term, l)
 }
 
@@ -405,7 +404,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsSecretRelaxed(t1, term, l, usage)
 ensures  ctx.IsSecretRelaxed(t2, term, l, usage)
-func (ctx DefaultLabelingContext) IsSecretRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
+func (ctx LabelingContext) IsSecretRelaxedMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel, usage u.Usage) {
     ctx.IsLabeledRelaxedMonotonic(t1, t2, term, l)
 }
 
@@ -450,7 +449,7 @@ ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) ==>
   * WARNING:
   * 2 terms that are equal based on the equational theory must return the same label!
   */
-pure func (ctx DefaultLabelingContext) GetLabel(term tm.Term) (res label.SecrecyLabel)
+pure func (ctx LabelingContext) GetLabel(term tm.Term) (res label.SecrecyLabel)
 
 
 ghost
@@ -471,7 +470,7 @@ ghost
 decreases
 requires ctx.Props() && t.IsTuple() && terms == getTupleSeq(t)
 requires 0 <= startIdx && startIdx + 2 <= len(terms)
-pure func (ctx DefaultLabelingContext) nestedMeet(t tm.Term, terms seq[tm.Term], startIdx int) label.SecrecyLabel {
+pure func (ctx LabelingContext) nestedMeet(t tm.Term, terms seq[tm.Term], startIdx int) label.SecrecyLabel {
     return ctx.nestedMeetInternal(t, terms, startIdx, true)
 }
 
@@ -479,7 +478,7 @@ ghost
 decreases tm.getTermHeight(t), len(terms) - startIdx, mutualRecursionTrick
 requires ctx.Props() && t.IsTuple() && terms == getTupleSeq(t)
 requires 0 <= startIdx && startIdx + 2 <= len(terms)
-pure func (ctx DefaultLabelingContext) nestedMeetInternal(t tm.Term, terms seq[tm.Term], startIdx int, mutualRecursionTrick bool) label.SecrecyLabel {
+pure func (ctx LabelingContext) nestedMeetInternal(t tm.Term, terms seq[tm.Term], startIdx int, mutualRecursionTrick bool) label.SecrecyLabel {
     return startIdx + 2 == len(terms) ? label.Meet(ctx.GetLabel(terms[startIdx]), ctx.GetLabel(terms[startIdx + 1])) :
             label.Meet(ctx.GetLabel(terms[startIdx]), ctx.nestedMeetInternal(t, terms, startIdx + 1, mutualRecursionTrick))
 }
@@ -487,7 +486,7 @@ pure func (ctx DefaultLabelingContext) nestedMeetInternal(t tm.Term, terms seq[t
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) GetUsage(t tm.Term) option[u.Usage] {
+pure func (ctx LabelingContext) GetUsage(t tm.Term) option[u.Usage] {
     return ctx.usage.GetUsage(t)
 }
 
@@ -495,7 +494,7 @@ ghost
 decreases
 requires ctx.Props()
 /** wrapper to get and check usage of a term for convenience */
-pure func (ctx DefaultLabelingContext) IsPkeKey(sk tm.Term) bool {
+pure func (ctx LabelingContext) IsPkeKey(sk tm.Term) bool {
     return (ctx.GetUsage(sk) != none[u.Usage]) && (get(ctx.GetUsage(sk))).IsPkeKey()
 }
 
@@ -503,14 +502,14 @@ ghost
 decreases
 requires ctx.Props()
 /** wrapper to get and check usage of a term for convenience */
-pure func (ctx DefaultLabelingContext) HasAeadKeyUsage(key tm.Term) bool {
+pure func (ctx LabelingContext) HasAeadKeyUsage(key tm.Term) bool {
     return (ctx.GetUsage(key) != none[u.Usage]) && (get(ctx.GetUsage(key))).IsAeadKey()
 }
 
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsMsg(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) IsMsg(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) bool {
     return ctx.IsValid(t, term) &&
         ctx.CanFlow(t, ctx.GetLabel(term), l)
 }
@@ -521,7 +520,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsMsg(t1, term, l)
 ensures  ctx.IsMsg(t2, term, l)
-func (ctx DefaultLabelingContext) IsMsgMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) IsMsgMonotonic(t1, t2 tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     ctx.IsValidMonotonic(t1, t2, term)
     ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(term), l)
 }
@@ -532,7 +531,7 @@ requires ctx.Props()
 requires ctx.CanFlow(t, l1, l2)
 requires ctx.IsMsg(t, term, l1)
 ensures  ctx.IsMsg(t, term, l2)
-func (ctx DefaultLabelingContext) IsMsgTransitive(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) IsMsgTransitive(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
     ctx.CanFlowTransitive(t, ctx.GetLabel(term), l1, l2)
 }
 
@@ -543,7 +542,7 @@ requires term.IsTuple()
 requires forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsMsg(t, tm.getTupleElem(term, i), l)
 ensures  ctx.IsMsg(t, term, l)
 /** lemma for tuples having same label */
-func (ctx DefaultLabelingContext) IsMsgTupleCreate(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) IsMsgTupleCreate(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     n := term.GetTupleArity()
     subterms := getTupleSeq(term)
     secondToLastT := subterms[n-2]
@@ -577,7 +576,7 @@ requires term.IsTuple()
 requires ctx.IsMsg(t, term, l)
 ensures  forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsMsg(t, tm.getTupleElem(term, i), l)
 /** lemma for tuples flowing to some label */
-func (ctx DefaultLabelingContext) IsMsgTupleResolve(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) IsMsgTupleResolve(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     n := term.GetTupleArity()
     subterms := getTupleSeq(term)
 
@@ -604,7 +603,7 @@ decreases
 requires ctx.CanFlow(t, l1, l3)
 requires ctx.CanFlow(t, l2, l3)
 ensures  ctx.CanFlow(t, label.Meet(l1, l2), l3)
-func (ctx DefaultLabelingContext) CanFlowCreateMeetLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowCreateMeetLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalCreateMeetLhs(t.getCorruptIds(), l1, l2, l3)
 }
 
@@ -613,7 +612,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, l1, l3)
 requires ctx.canFlowInternal(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal(corruptIds, label.Meet(l1, l2), l3)
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetLhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateMeetLhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l3)
     ctx.canFlowInternalImpliesDYStar(corruptIds, l2, l3)
     ctx.canFlowInternalCreateMeetLhs_DYStar(corruptIds, l1, l2, l3)
@@ -625,7 +624,7 @@ decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 requires ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateMeetLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     // no body needed
 }
 
@@ -634,7 +633,7 @@ decreases
 requires ctx.CanFlow(t, label.Meet(l1, l2), l3)
 ensures  ctx.CanFlow(t, l1, l3)
 ensures  ctx.CanFlow(t, l2, l3)
-func (ctx DefaultLabelingContext) CanFlowResolveMeetLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowResolveMeetLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalResolveMeetLhs(t.getCorruptIds(), l1, l2, l3)
 }
 
@@ -643,7 +642,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, label.Meet(l1, l2), l3)
 ensures  ctx.canFlowInternal(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal(corruptIds, l2, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetLhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalResolveMeetLhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, label.Meet(l1, l2), l3)
     ctx.canFlowInternalResolveMeetLhs_DYStar(corruptIds, l1, l2, l3)
     ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l1, l3)
@@ -655,7 +654,7 @@ decreases label.GetHeight(l3)
 requires ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalResolveMeetLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     if (l3.IsMeet() || l3.IsJoin()) {
         if (ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l2), label.GetFirstLabel(l3))) {
             ctx.canFlowInternalResolveMeetLhs_DYStar(corruptIds, l1, l2, label.GetFirstLabel(l3))
@@ -670,7 +669,7 @@ ghost
 decreases
 requires ctx.CanFlow(t, l1, l2) || ctx.CanFlow(t, l1, l3)
 ensures  ctx.CanFlow(t, l1, label.Meet(l2, l3))
-func (ctx DefaultLabelingContext) CanFlowCreateMeetRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowCreateMeetRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalCreateMeetRhs(t.getCorruptIds(), l1, l2, l3)
 }
 
@@ -678,7 +677,7 @@ ghost
 decreases
 requires ctx.canFlowInternal(corruptIds, l1, l2) || ctx.canFlowInternal(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal(corruptIds, l1, label.Meet(l2, l3))
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateMeetRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l1, l2) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
     }
@@ -693,7 +692,7 @@ ghost
 decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2) || ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateMeetRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     // no body needed
 }
 
@@ -702,7 +701,7 @@ decreases
 requires ctx.CanFlow(t, l1, l2)
 requires ctx.CanFlow(t, l3, l4)
 ensures  ctx.CanFlow(t, label.Meet(l1, l3), label.Meet(l2, l4))
-func (ctx DefaultLabelingContext) CanFlowCreateMeetBoth(t tr.TraceEntry, l1, l2, l3, l4 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowCreateMeetBoth(t tr.TraceEntry, l1, l2, l3, l4 label.SecrecyLabel) {
     ctx.canFlowInternalCreateMeetBoth(t.getCorruptIds(), l1, l2, l3, l4)
 }
 
@@ -711,7 +710,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, l1, l2)
 requires ctx.canFlowInternal(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth(corruptIds set[p.Id], l1, l2, l3, l4 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateMeetBoth(corruptIds set[p.Id], l1, l2, l3, l4 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
     ctx.canFlowInternalImpliesDYStar(corruptIds, l3, l4)
     ctx.canFlowInternalCreateMeetBoth_DYStar(corruptIds, l1, l2, l3, l4)
@@ -723,7 +722,7 @@ decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 requires ctx.canFlowInternal_DYStar(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Meet(l1, l3), label.Meet(l2, l4))
-func (ctx DefaultLabelingContext) canFlowInternalCreateMeetBoth_DYStar(corruptIds set[p.Id], l1, l2, l3, l4 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateMeetBoth_DYStar(corruptIds set[p.Id], l1, l2, l3, l4 label.SecrecyLabel) {
     ctx.canFlowInternalCreateMeetRhs_DYStar(corruptIds, l1, l2, l4)
     ctx.canFlowInternalCreateMeetRhs_DYStar(corruptIds, l3, l2, l4)
 }
@@ -733,7 +732,7 @@ decreases
 requires ctx.CanFlow(t, l1, l2)
 requires ctx.CanFlow(t, l3, l4)
 ensures  ctx.CanFlow(t, label.Join(l1, l3), label.Join(l2, l4))
-func (ctx DefaultLabelingContext) CanFlowCreateJoinBoth(t tr.TraceEntry, l1, l2, l3, l4 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowCreateJoinBoth(t tr.TraceEntry, l1, l2, l3, l4 label.SecrecyLabel) {
     ctx.canFlowInternalCreateJoinBoth(t.getCorruptIds(), l1, l2, l3, l4)
 }
 
@@ -742,7 +741,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, l1, l2)
 requires ctx.canFlowInternal(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
-func (ctx DefaultLabelingContext) canFlowInternalCreateJoinBoth(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateJoinBoth(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
     ctx.canFlowInternalImpliesDYStar(corruptIds, l3, l4)
     ctx.canFlowInternalCreateJoinBoth_DYStar(corruptIds, l1, l2, l3, l4)
@@ -754,7 +753,7 @@ decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 requires ctx.canFlowInternal_DYStar(corruptIds, l3, l4)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Join(l1, l3), label.Join(l2, l4))
-func (ctx DefaultLabelingContext) canFlowInternalCreateJoinBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateJoinBoth_DYStar(corruptIds IdSet, l1, l2, l3, l4 label.SecrecyLabel) {
     ctx.canFlowInternalCreateJoinLhs_DYStar(corruptIds, l1, l3, l2)
     ctx.canFlowInternalCreateJoinLhs_DYStar(corruptIds, l1, l3, l4)
 }
@@ -764,7 +763,7 @@ decreases
 requires ctx.CanFlow(t, l1, label.Meet(l2, l3))
 requires ctx.CanFlow(t, l2, l3)
 ensures  ctx.CanFlow(t, l1, l3)
-func (ctx DefaultLabelingContext) CanFlowResolveMeetRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowResolveMeetRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalResolveMeetRhs(t.getCorruptIds(), l1, l2, l3)
 }
 
@@ -773,7 +772,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, l1, label.Meet(l2, l3))
 requires ctx.canFlowInternal(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalResolveMeetRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Meet(l2, l3))
     ctx.canFlowInternalImpliesDYStar(corruptIds, l2, l3)
     ctx.canFlowInternalResolveMeetRhs_DYStar(corruptIds, l1, l2, l3)
@@ -785,7 +784,7 @@ decreases label.GetHeight(l1)
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, label.Meet(l2, l3))
 requires ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalResolveMeetRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     if ctx.canFlowInternal_DYStar(corruptIds, l1, l2) {
         ctx.canFlowInternalTransitive_DYStar(corruptIds, l1, l2, l3)
     }
@@ -807,7 +806,7 @@ ghost
 decreases
 requires ctx.CanFlow(t, l1, l3) || ctx.CanFlow(t, l2, l3)
 ensures  ctx.CanFlow(t, label.Join(l1, l2), l3)
-func (ctx DefaultLabelingContext) CanFlowCreateJoinLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowCreateJoinLhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalCreateJoinLhs(t.getCorruptIds(), l1, l2, l3)
 }
 
@@ -815,7 +814,7 @@ ghost
 decreases
 requires ctx.canFlowInternal(corruptIds, l1, l3) || ctx.canFlowInternal(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal(corruptIds, label.Join(l1, l2), l3)
-func (ctx DefaultLabelingContext) canFlowInternalCreateJoinLhs(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateJoinLhs(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l1, l3) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l3)
     } else {
@@ -829,7 +828,7 @@ ghost
 decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l3) || ctx.canFlowInternal_DYStar(corruptIds, l2, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, label.Join(l1, l2), l3)
-func (ctx DefaultLabelingContext) canFlowInternalCreateJoinLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateJoinLhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     // no body needed
 }
 
@@ -841,7 +840,7 @@ ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 //    (ctx.canFlowInternal_DYStar(corruptIds, l1, l3) ||
 //     ctx.canFlowInternal_DYStar(corruptIds, l2, l3))
 // the lhs is weaker because it permits that l1 flows to l31 and l2 to l32 (if l3 == Meet(l31, l32))
-func (ctx DefaultLabelingContext) canFlowInternalResolveJoinLhs_DYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalResolveJoinLhs_DYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
     if (l2.IsMeet()) {
         if (ctx.canFlowInternal_DYStar(corruptIds, label.Join(l1, l1), label.GetFirstLabel(l2))) {
             ctx.canFlowInternalResolveJoinLhs_DYStar(corruptIds, l1, label.GetFirstLabel(l2))
@@ -861,7 +860,7 @@ decreases
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, label.Join(l2, l3))
-func (ctx DefaultLabelingContext) canFlowInternalCreateJoinRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalCreateJoinRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     // no body needed
 }
 
@@ -870,7 +869,7 @@ decreases
 requires ctx.CanFlow(t, l1, label.Join(l2, l3))
 ensures  ctx.CanFlow(t, l1, l2)
 ensures  ctx.CanFlow(t, l1, l3)
-func (ctx DefaultLabelingContext) CanFlowResolveJoinRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowResolveJoinRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalResolveJoinRhs(t.getCorruptIds(), l1, l2, l3)
 }
 
@@ -879,7 +878,7 @@ decreases
 requires ctx.canFlowInternal(corruptIds, l1, label.Join(l2, l3))
 ensures  ctx.canFlowInternal(corruptIds, l1, l2)
 ensures  ctx.canFlowInternal(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveJoinRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalResolveJoinRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Join(l2, l3))
     ctx.canFlowInternalResolveJoinRhs_DYStar(corruptIds, l1, l2, l3)
     ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l1, l2)
@@ -891,7 +890,7 @@ decreases label.GetHeight(l1)
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, label.Join(l2, l3))
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalResolveJoinRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalResolveJoinRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel) {
     if (l1.IsMeet() || l1.IsJoin()) {
         if (ctx.canFlowInternal_DYStar(corruptIds, label.GetFirstLabel(l1), label.Join(l2, l3))) {
             ctx.canFlowInternalResolveJoinRhs_DYStar(corruptIds, label.GetFirstLabel(l1), l2, l3)
@@ -909,7 +908,7 @@ requires  l2FlowsToPublic ==> ctx.CanFlow(t, l2, label.Public())
 requires !l2FlowsToPublic ==> ctx.CanFlow(t, l3, label.Public())
 ensures   l2FlowsToPublic ==> ctx.CanFlow(t, l1, l3)
 ensures  !l2FlowsToPublic ==> ctx.CanFlow(t, l1, l2)
-func (ctx DefaultLabelingContext) CanFlowResolveMeetPublicRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
+func (ctx LabelingContext) CanFlowResolveMeetPublicRhs(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
     ctx.canFlowInternalResolveMeetPublicRhs(t.getCorruptIds(), l1, l2, l3, l2FlowsToPublic)
 }
 
@@ -920,7 +919,7 @@ requires  l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l2, label.Public()
 requires !l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l3, label.Public())
 ensures   l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l1, l3)
 ensures  !l2FlowsToPublic ==> ctx.canFlowInternal(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
+func (ctx LabelingContext) canFlowInternalResolveMeetPublicRhs(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
     ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Meet(l2, l3))
     if l2FlowsToPublic {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l2, label.Public())
@@ -942,7 +941,7 @@ requires  l2FlowsToPublic ==> ctx.canFlowInternal_DYStar(corruptIds, l2, label.P
 requires !l2FlowsToPublic ==> ctx.canFlowInternal_DYStar(corruptIds, l3, label.Public())
 ensures   l2FlowsToPublic ==> ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
 ensures  !l2FlowsToPublic ==> ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
+func (ctx LabelingContext) canFlowInternalResolveMeetPublicRhs_DYStar(corruptIds set[p.Id], l1, l2, l3 label.SecrecyLabel, l2FlowsToPublic bool) {
     if (ctx.canFlowInternal_DYStar(corruptIds, l1, label.Public())) {
         ctx.flowsToPublicCanFlowInternal_DYStar(corruptIds, l1, l2)
         ctx.flowsToPublicCanFlowInternal_DYStar(corruptIds, l1, l3)
@@ -971,7 +970,7 @@ func (ctx DefaultLabelingContext) canFlowInternalResolveMeetPublicRhs_DYStar(cor
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsPublishable(t tr.TraceEntry, term tm.Term) bool {
+pure func (ctx LabelingContext) IsPublishable(t tr.TraceEntry, term tm.Term) bool {
     return ctx.IsMsg(t, term, label.Public())
 }
 
@@ -981,20 +980,20 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsPublishable(t1, term)
 ensures  ctx.IsPublishable(t2, term)
-func (ctx DefaultLabelingContext) IsPublishableMonotonic(t1, t2 tr.TraceEntry, term tm.Term) {
+func (ctx LabelingContext) IsPublishableMonotonic(t1, t2 tr.TraceEntry, term tm.Term) {
     ctx.IsMsgMonotonic(t1, t2, term, label.Public())
 }
 
 ghost
 decreases
-pure func (ctx DefaultLabelingContext) CanFlow(t tr.TraceEntry, l1, l2 label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) CanFlow(t tr.TraceEntry, l1, l2 label.SecrecyLabel) bool {
     return ctx.canFlowInternal(t.getCorruptIds(), l1, l2)
 }
 
 ghost
 decreases label.GetHeight(l1), label.GetHeight(l2)
 /** this is the canFlowInternal function that we use throughout */
-pure func (ctx DefaultLabelingContext) canFlowInternal(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) canFlowInternal(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) bool {
     // public can flow to anything
     return l1.IsPublic() ? true :
         ////////// begin special cases //////////
@@ -1038,7 +1037,7 @@ ghost
   * this is the orginal `can_flow` function used by DY*.
   * we show below that `canFlowInternal` and `canFlowInternal_DYStar` are equivalent.
   */
-pure func (ctx DefaultLabelingContext) canFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) canFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) bool {
     // public can flow to anything
     return (l1.IsPublic() ==> true) &&
         // label with a corrupted reader flows to public
@@ -1064,7 +1063,7 @@ ghost
 decreases label.GetHeight(l1), label.GetHeight(l2)
 requires ctx.canFlowInternal(corruptIds, l1, l2)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalImpliesDYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalImpliesDYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
     if (l1.IsMeet() || l1.IsJoin()) && label.GetFirstLabel(l1) == label.GetSecondLabel(l1) {
         // special case 1
         l11 := label.GetFirstLabel(l1)
@@ -1129,7 +1128,7 @@ ghost
 decreases label.GetHeight(l1), label.GetHeight(l2)
 requires ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
 ensures  ctx.canFlowInternal(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalIsImpliesByDYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalIsImpliesByDYStar(corruptIds set[p.Id], l1, l2 label.SecrecyLabel) {
     if (l1.IsMeet() || l1.IsJoin()) && label.GetFirstLabel(l1) == label.GetSecondLabel(l1) {
         // special case 1
         l11 := label.GetFirstLabel(l1)
@@ -1193,7 +1192,7 @@ func (ctx DefaultLabelingContext) canFlowInternalIsImpliesByDYStar(corruptIds se
 ghost
 decreases
 ensures  ctx.CanFlow(t, l, l)
-func (ctx DefaultLabelingContext) CanFlowReflexive(t tr.TraceEntry, l label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowReflexive(t tr.TraceEntry, l label.SecrecyLabel) {
     corruptIds := t.getCorruptIds()
     ctx.canFlowInternalReflexive(corruptIds, l)
 }
@@ -1201,7 +1200,7 @@ func (ctx DefaultLabelingContext) CanFlowReflexive(t tr.TraceEntry, l label.Secr
 ghost
 decreases
 ensures  ctx.canFlowInternal(corruptIds, l, l)
-func (ctx DefaultLabelingContext) canFlowInternalReflexive(corruptIds IdSet, l label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalReflexive(corruptIds IdSet, l label.SecrecyLabel) {
     ctx.canFlowInternalReflexive_DYStar(corruptIds, l)
     ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l, l)
 }
@@ -1209,7 +1208,7 @@ func (ctx DefaultLabelingContext) canFlowInternalReflexive(corruptIds IdSet, l l
 ghost
 decreases label.GetHeight(l)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l, l)
-func (ctx DefaultLabelingContext) canFlowInternalReflexive_DYStar(corruptIds IdSet, l label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalReflexive_DYStar(corruptIds IdSet, l label.SecrecyLabel) {
     if l.IsReaders() {
         ctx.includesIdsReflexive(label.GetReaders(l))
     } else if (l.IsJoin()) {
@@ -1236,7 +1235,7 @@ decreases
 requires ctx.CanFlow(t, l1, l2)
 requires ctx.CanFlow(t, l2, l3)
 ensures  ctx.CanFlow(t, l1, l3)
-func (ctx DefaultLabelingContext) CanFlowTransitive(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowTransitive(t tr.TraceEntry, l1, l2, l3 label.SecrecyLabel) {
     corruptIds := t.getCorruptIds()
     ctx.canFlowInternalTransitive(corruptIds, l1, l2, l3)
 }
@@ -1244,7 +1243,7 @@ func (ctx DefaultLabelingContext) CanFlowTransitive(t tr.TraceEntry, l1, l2, l3 
 ghost
 decreases
 ensures (ctx.canFlowInternal(corruptIds, l1, l2) && ctx.canFlowInternal(corruptIds, l2, l3)) ==> ctx.canFlowInternal(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalTransitive(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalTransitive(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l1, l2) && ctx.canFlowInternal(corruptIds, l2, l3) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
         ctx.canFlowInternalImpliesDYStar(corruptIds, l2, l3)
@@ -1256,7 +1255,7 @@ func (ctx DefaultLabelingContext) canFlowInternalTransitive(corruptIds IdSet, l1
 ghost
 decreases label.GetHeight(l1), label.GetHeight(l2), label.GetHeight(l3)
 ensures (ctx.canFlowInternal_DYStar(corruptIds, l1, l2) && ctx.canFlowInternal_DYStar(corruptIds, l2, l3)) ==> ctx.canFlowInternal_DYStar(corruptIds, l1, l3)
-func (ctx DefaultLabelingContext) canFlowInternalTransitive_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalTransitive_DYStar(corruptIds IdSet, l1, l2, l3 label.SecrecyLabel) {
     if (l1.IsPublic()) {
         // no body needed
         return
@@ -1307,14 +1306,14 @@ func (ctx DefaultLabelingContext) canFlowInternalTransitive_DYStar(corruptIds Id
 ghost
 decreases
 ensures  ctx.CanFlow(t, l1, label.Public()) ==> ctx.CanFlow(t, l1, l2)
-func (ctx DefaultLabelingContext) FlowsToPublicCanFlow(t tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) FlowsToPublicCanFlow(t tr.TraceEntry, l1, l2 label.SecrecyLabel) {
     ctx.flowsToPublicCanFlowInternal(t.getCorruptIds(), l1, l2)
 }
 
 ghost
 decreases
 ensures  ctx.canFlowInternal(corruptIds, l1, label.Public()) ==> ctx.canFlowInternal(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) flowsToPublicCanFlowInternal(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l1, label.Public()) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, label.Public())
         ctx.flowsToPublicCanFlowInternal_DYStar(corruptIds, l1, l2)
@@ -1325,7 +1324,7 @@ func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal(corruptIds IdSet,
 ghost
 decreases label.GetHeight(l1), label.GetHeight(l2)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, label.Public()) ==> ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) flowsToPublicCanFlowInternal_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
     if (l1.IsJoin() || l1.IsMeet()) {
         l11 := label.GetFirstLabel(l1)
         l12 := label.GetSecondLabel(l1)
@@ -1343,7 +1342,7 @@ func (ctx DefaultLabelingContext) flowsToPublicCanFlowInternal_DYStar(corruptIds
 ghost
 decreases
 ensures  (ctx.canFlowInternal(corruptIds, l2, label.Public()) && ctx.canFlowInternal(corruptIds, l1, l2)) ==> ctx.canFlowInternal(corruptIds, l1, label.Public())
-func (ctx DefaultLabelingContext) canFlowFlowsToPublic(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowFlowsToPublic(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
     if ctx.canFlowInternal(corruptIds, l2, label.Public()) && ctx.canFlowInternal(corruptIds, l1, l2) {
         ctx.canFlowInternalImpliesDYStar(corruptIds, l2, label.Public())
         ctx.canFlowInternalImpliesDYStar(corruptIds, l1, l2)
@@ -1355,7 +1354,7 @@ func (ctx DefaultLabelingContext) canFlowFlowsToPublic(corruptIds IdSet, l1, l2 
 ghost
 decreases label.GetHeight(l1), label.GetHeight(l2)
 ensures  (ctx.canFlowInternal_DYStar(corruptIds, l2, label.Public()) && ctx.canFlowInternal_DYStar(corruptIds, l1, l2)) ==> ctx.canFlowInternal_DYStar(corruptIds, l1, label.Public())
-func (ctx DefaultLabelingContext) canFlowFlowsToPublic_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowFlowsToPublic_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
     if l1.IsReaders() && l2.IsReaders() &&
         ctx.canFlowInternal_DYStar(corruptIds, l2, label.Public()) &&
         ctx.canFlowInternal_DYStar(corruptIds, l1, l2) &&
@@ -1381,7 +1380,7 @@ decreases
 requires l1.IsReaders() && l2.IsReaders()
 requires label.GetReaders(l2) subset label.GetReaders(l1)
 ensures  ctx.CanFlow(t, l1, l2)
-func (ctx DefaultLabelingContext) CanFlowToSubsetReaders(t tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowToSubsetReaders(t tr.TraceEntry, l1, l2 label.SecrecyLabel) {
     corruptIds := t.getCorruptIds()
     ctx.canFlowInternalToSubsetReaders(corruptIds, l1, l2)
 }
@@ -1391,7 +1390,7 @@ decreases
 requires l1.IsReaders() && l2.IsReaders()
 requires label.GetReaders(l2) subset label.GetReaders(l1)
 ensures  ctx.canFlowInternal(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalToSubsetReaders(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalToSubsetReaders(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
     ctx.canFlowInternalToSubsetReaders_DYStar(corruptIds, l1, l2)
     ctx.canFlowInternalIsImpliesByDYStar(corruptIds, l1, l2)
 }
@@ -1401,7 +1400,7 @@ decreases
 requires l1.IsReaders() && l2.IsReaders()
 requires label.GetReaders(l2) subset label.GetReaders(l1)
 ensures  ctx.canFlowInternal_DYStar(corruptIds, l1, l2)
-func (ctx DefaultLabelingContext) canFlowInternalToSubsetReaders_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) canFlowInternalToSubsetReaders_DYStar(corruptIds IdSet, l1, l2 label.SecrecyLabel) {
     ids1 := label.GetReaders(l1)
     ids2 := label.GetReaders(l2)
     ctx.includesIdsSubset(ids1, ids2)
@@ -1412,7 +1411,7 @@ decreases
 requires t1.isSuffix(t2)
 requires ctx.CanFlow(t1, l1, l2)
 ensures  ctx.CanFlow(t2, l1, l2)
-func (ctx DefaultLabelingContext) CanFlowMonotonic(t1, t2 tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowMonotonic(t1, t2 tr.TraceEntry, l1, l2 label.SecrecyLabel) {
     ctx.CanFlowMonotonicInternal(t1, t2, l1, l2)
 }
 
@@ -1420,7 +1419,7 @@ ghost
 decreases label.GetHeight(l1), label.GetHeight(l2)
 requires t1.isSuffix(t2)
 ensures  ctx.CanFlow(t1, l1, l2) ==> ctx.CanFlow(t2, l1, l2)
-func (ctx DefaultLabelingContext) CanFlowMonotonicInternal(t1, t2 tr.TraceEntry, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) CanFlowMonotonicInternal(t1, t2 tr.TraceEntry, l1, l2 label.SecrecyLabel) {
     if (!l1.IsJoin() && !l1.IsMeet() && !l2.IsJoin() && !l2.IsMeet()) {
         t1.getCorruptIdsMonotonic(t2)
     } else {
@@ -1443,7 +1442,7 @@ ghost
 decreases
 requires ctx.CanFlow(t, label.Readers(set[p.Id]{ id }), label.Public())
 ensures  corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
-func (ctx DefaultLabelingContext) CanFlowToPublicImpliesCorruption(t tr.TraceEntry, id p.Id) (corruptedId p.Id) {
+func (ctx LabelingContext) CanFlowToPublicImpliesCorruption(t tr.TraceEntry, id p.Id) (corruptedId p.Id) {
     assert exists corruptedId p.Id :: corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
     // get witness
     corruptedId := arb.GetArbId()
@@ -1455,7 +1454,7 @@ decreases
 requires ids1 subset ids2 || includesIds(ids2, ids1)
 requires tr.containsCorruptId(corruptIds, ids1)
 ensures  tr.containsCorruptId(corruptIds, ids2)
-func (ctx DefaultLabelingContext) containsCorruptIdMonotonic(corruptIds, ids1, ids2 set[p.Id]) {
+func (ctx LabelingContext) containsCorruptIdMonotonic(corruptIds, ids1, ids2 set[p.Id]) {
     assert exists corruptedId p.Id :: { tr.containsId(ids1, corruptedId) } corruptedId in corruptIds && tr.containsId(ids1, corruptedId)
     // get witness:
     corruptedId := arb.GetArbId()
@@ -1472,7 +1471,7 @@ decreases
 requires corruptIds1 subset corruptIds2
 requires tr.containsCorruptId(corruptIds1, ids)
 ensures  tr.containsCorruptId(corruptIds2, ids)
-func (ctx DefaultLabelingContext) containsCorruptIdMonotonic2(corruptIds1, corruptIds2, ids set[p.Id]) {
+func (ctx LabelingContext) containsCorruptIdMonotonic2(corruptIds1, corruptIds2, ids set[p.Id]) {
     assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds1 && tr.containsId(ids, corruptedId)
     // get witness:
     corruptedId := arb.GetArbId()
@@ -1484,7 +1483,7 @@ ghost
 decreases
 requires tr.containsCorruptId(corruptIds, ids1 union ids2)
 ensures  tr.containsCorruptId(corruptIds, ids1) || tr.containsCorruptId(corruptIds, ids2)
-func (ctx DefaultLabelingContext) containsCorruptIdSplit(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+func (ctx LabelingContext) containsCorruptIdSplit(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
     ids := ids1 union ids2
     assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds && tr.containsId(ids, corruptedId)
     // get witness:
@@ -1497,7 +1496,7 @@ ghost
 decreases
 requires tr.containsCorruptId(corruptIds, ids1) || tr.containsCorruptId(corruptIds, ids2)
 ensures  tr.containsCorruptId(corruptIds, ids1 union ids2)
-func (ctx DefaultLabelingContext) containsCorruptIdUnion(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+func (ctx LabelingContext) containsCorruptIdUnion(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
     ids := ids1 union ids2
     if tr.containsCorruptId(corruptIds, ids1) {
         ctx.containsCorruptIdMonotonic(corruptIds, ids1, ids)
@@ -1509,7 +1508,7 @@ func (ctx DefaultLabelingContext) containsCorruptIdUnion(corruptIds set[p.Id], i
 ghost
 decreases
 ensures  (!tr.containsCorruptId(corruptIds, ids1) && !tr.containsCorruptId(corruptIds, ids2)) == !tr.containsCorruptId(corruptIds, ids1 union ids2)
-func (ctx DefaultLabelingContext) containsCorruptIdNotUnion(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
+func (ctx LabelingContext) containsCorruptIdNotUnion(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
     ids := ids1 union ids2
     if !tr.containsCorruptId(corruptIds, ids1) &&
         !tr.containsCorruptId(corruptIds, ids2) {
@@ -1531,7 +1530,7 @@ ghost
 decreases
 requires tr.containsId(ids1, corruptedId) && includesIds(ids2, ids1)
 ensures  tr.containsId(ids2, corruptedId)
-func (ctx DefaultLabelingContext) containsIdTransitive(ids1, ids2 set[p.Id], corruptedId p.Id) {
+func (ctx LabelingContext) containsIdTransitive(ids1, ids2 set[p.Id], corruptedId p.Id) {
     // apply `containsId(ids1, corruptedId)`:
     assert exists id1 p.Id :: { id1.Covers(corruptedId) } id1 in ids1 && id1.Covers(corruptedId)
     // get witness:
@@ -1556,7 +1555,7 @@ ghost
 decreases
 requires tr.containsId(ids1 union ids2, corruptedId)
 ensures  tr.containsId(ids1, corruptedId) || tr.containsId(ids2, corruptedId)
-func (ctx DefaultLabelingContext) containsIdSplit(ids1, ids2 set[p.Id], corruptedId p.Id) {
+func (ctx LabelingContext) containsIdSplit(ids1, ids2 set[p.Id], corruptedId p.Id) {
     // no body needed
 }
 
@@ -1575,7 +1574,7 @@ pure func includesIds(haystack, ids set[p.Id]) bool {
 ghost
 decreases
 ensures includesIds(ids, ids)
-func (ctx DefaultLabelingContext) includesIdsReflexive(ids set[p.Id]) {
+func (ctx LabelingContext) includesIdsReflexive(ids set[p.Id]) {
     arbId := arb.GetArbId()
     if arbId in ids {
         arbId.CoversReflexive()
@@ -1589,7 +1588,7 @@ ghost
 decreases
 requires includesIds(ids1, ids2) && includesIds(ids2, ids3)
 ensures  includesIds(ids1, ids3)
-func (ctx DefaultLabelingContext) includesIdsTransitive(ids1, ids2, ids3 set[p.Id]) {
+func (ctx LabelingContext) includesIdsTransitive(ids1, ids2, ids3 set[p.Id]) {
     assert forall id p.Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
     assert forall id p.Id :: { tr.containsId(ids2, id) } id in ids3 ==> tr.containsId(ids2, id)
     
@@ -1609,7 +1608,7 @@ ghost
 decreases
 requires ids2 subset ids1
 ensures  includesIds(ids1, ids2)
-func (ctx DefaultLabelingContext) includesIdsSubset(ids1, ids2 set[p.Id]) {
+func (ctx LabelingContext) includesIdsSubset(ids1, ids2 set[p.Id]) {
     arbId := arb.GetArbId()
     if arbId in ids2 {
         // apply `ids2 subset ids1`:
@@ -1626,7 +1625,7 @@ func (ctx DefaultLabelingContext) includesIdsSubset(ids1, ids2 set[p.Id]) {
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) GetSkLabel(pk tm.Term) label.SecrecyLabel {
+pure func (ctx LabelingContext) GetSkLabel(pk tm.Term) label.SecrecyLabel {
     return (pk.IsPk()) ?
         ctx.GetLabel(tm.getSk(pk)) :
         label.Public()
@@ -1635,7 +1634,7 @@ pure func (ctx DefaultLabelingContext) GetSkLabel(pk tm.Term) label.SecrecyLabel
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsSecretKey(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
+pure func (ctx LabelingContext) IsSecretKey(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
     // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
     return (keyType == KeyTypePke() ==> ctx.IsPrivateDecKey(t, owner, sk, usage)) &&
         (keyType == KeyTypeDHPk() ==> ctx.IsPrivateDhKey(t, owner, sk, usage))
@@ -1647,7 +1646,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsSecretKey(t1, owner, sk, keyType, usage)
 ensures  ctx.IsSecretKey(t2, owner, sk, keyType, usage)
-func (ctx DefaultLabelingContext) IsSecretKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
+func (ctx LabelingContext) IsSecretKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
     if keyType == KeyTypePke() {
         ctx.IsPrivateDecKeyMonotonic(t1, t2, owner, sk, usage)
     } else if keyType == KeyTypeDHPk() {
@@ -1660,7 +1659,7 @@ decreases
 requires ctx.Props()
 requires ctx.IsSecretKey(t, owner, sk, keyType, usage)
 ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ owner }))
-func (ctx DefaultLabelingContext) IsSecretKeyLemma(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) {
+func (ctx LabelingContext) IsSecretKeyLemma(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) {
     // the following assert stmt is needed for triggering reasons:
     assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1
 }
@@ -1668,7 +1667,7 @@ func (ctx DefaultLabelingContext) IsSecretKeyLemma(t tr.TraceEntry, owner p.Id, 
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) bool {
+pure func (ctx LabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) bool {
     // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
     return (keyType == KeyTypePke() ==> ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
         (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPk(t, skOwner, pk, sk, usage))
@@ -1680,7 +1679,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsPublicKey(t1, skOwner, pk, sk, keyType, usage)
 ensures  ctx.IsPublicKey(t2, skOwner, pk, sk, keyType, usage)
-func (ctx DefaultLabelingContext) IsPublicKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
+func (ctx LabelingContext) IsPublicKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
     if keyType == KeyTypePke() {
         ctx.IsPublicEncKeyMonotonic(t1, t2, skOwner, pk, sk, usage)
     } else if keyType == KeyTypeDHPk() {
@@ -1693,7 +1692,7 @@ decreases
 requires ctx.Props()
 requires ctx.IsPublicKey(t, skOwner, pk, sk, keyType, usage)
 ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner }))
-func (ctx DefaultLabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
+func (ctx LabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
     // the following assert stmt is needed for triggering reasons:
     assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1
     if keyType == KeyTypePke() {
@@ -1706,7 +1705,7 @@ func (ctx DefaultLabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner p.Id
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsPublicKeyExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) bool {
+pure func (ctx LabelingContext) IsPublicKeyExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) bool {
     return (keyType == KeyTypePke() ==> exists sk tm.Term :: { ctx.IsPublicEncKey(t, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
         (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPkExistential(t, skOwner, pk, usage))
 }
@@ -1717,7 +1716,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsPublicKeyExistential(t1, skOwner, pk, keyType, usage)
 ensures  ctx.IsPublicKeyExistential(t2, skOwner, pk, keyType, usage)
-func (ctx DefaultLabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) {
+func (ctx LabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) {
     skWitness := arb.GetArbTerm()
 	if keyType == KeyTypePke() {
 		assert exists sk tm.Term :: { ctx.IsPublicEncKey(t1, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t1, skOwner, pk, sk, usage)
@@ -1734,7 +1733,7 @@ func (ctx DefaultLabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.Trac
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsPrivateDecKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
+pure func (ctx LabelingContext) IsPrivateDecKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
     return sk == tm.random(tm.gamma(sk), label.Readers(set[p.Id]{ owner }), u.PkeKey(usage)) &&
         ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
 }
@@ -1745,7 +1744,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsPrivateDecKey(t1, owner, sk, usage)
 ensures  ctx.IsPrivateDecKey(t2, owner, sk, usage)
-func (ctx DefaultLabelingContext) IsPrivateDecKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
+func (ctx LabelingContext) IsPrivateDecKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
     ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[p.Id]{ owner }), u.PkeKey(usage))
 }
 
@@ -1753,7 +1752,7 @@ ghost
 decreases
 requires ctx.Props()
 // sk is the witness
-pure func (ctx DefaultLabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
+pure func (ctx LabelingContext) IsPublicEncKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
     return ctx.IsPublishable(t, pk) &&
         ctx.IsPrivateDecKey(t, skOwner, sk, usage) &&
         pk == tm.createPk(sk)
@@ -1765,7 +1764,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsPublicEncKey(t1, skOwner, pk ,sk, usage)
 ensures  ctx.IsPublicEncKey(t2, skOwner, pk ,sk, usage)
-func (ctx DefaultLabelingContext) IsPublicEncKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
+func (ctx LabelingContext) IsPublicEncKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
     ctx.IsPublishableMonotonic(t1, t2, pk)
     ctx.IsPrivateDecKeyMonotonic(t1, t2, skOwner, sk, usage)
 }
@@ -1773,7 +1772,7 @@ func (ctx DefaultLabelingContext) IsPublicEncKeyMonotonic(t1, t2 tr.TraceEntry, 
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsPublicEncKeyExistential(t tr.TraceEntry, pk tm.Term, l label.SecrecyLabel, usage string) bool {
+pure func (ctx LabelingContext) IsPublicEncKeyExistential(t tr.TraceEntry, pk tm.Term, l label.SecrecyLabel, usage string) bool {
     return ctx.IsPublishable(t, pk) &&
         pk.IsPk() &&
         ctx.IsSecret(t, tm.getSk(pk), l, u.PkeKey(usage))
@@ -1783,7 +1782,7 @@ ghost
 decreases
 requires ctx.Props()
 // sk is the witness
-pure func (ctx DefaultLabelingContext) IsPrivateDhKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
+pure func (ctx LabelingContext) IsPrivateDhKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
     return sk.IsRandom() &&
         ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.DhKey(usage))
 }
@@ -1794,7 +1793,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsPrivateDhKey(t1, owner, sk, usage)
 ensures  ctx.IsPrivateDhKey(t2, owner, sk, usage)
-func (ctx DefaultLabelingContext) IsPrivateDhKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
+func (ctx LabelingContext) IsPrivateDhKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
     ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[p.Id]{ owner }), u.DhKey(usage))
 }
 
@@ -1802,7 +1801,7 @@ ghost
 decreases
 requires ctx.Props()
 // sk is the witness
-pure func (ctx DefaultLabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
+pure func (ctx LabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
     return ctx.IsPublishable(t, pk) &&
         pk == tm.exp(tm.generator(), sk) &&
         ctx.IsPrivateDhKey(t, skOwner, sk, usage)
@@ -1814,7 +1813,7 @@ requires ctx.Props()
 requires t1.isSuffix(t2)
 requires ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage)
 ensures  ctx.IsPublicDhPk(t2, skOwner, pk, sk, usage)
-func (ctx DefaultLabelingContext) IsPublicDhPkMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
+func (ctx LabelingContext) IsPublicDhPkMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
     ctx.IsPublishableMonotonic(t1, t2, pk)
     ctx.IsPrivateDhKeyMonotonic(t1, t2, skOwner, sk, usage)
 }
@@ -1822,7 +1821,7 @@ func (ctx DefaultLabelingContext) IsPublicDhPkMonotonic(t1, t2 tr.TraceEntry, sk
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) IsPublicDhPkExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, usage string) bool {
+pure func (ctx LabelingContext) IsPublicDhPkExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, usage string) bool {
     return exists sk tm.Term :: { ctx.IsPublicDhPk(t, skOwner, pk, sk, usage) } ctx.IsPublicDhPk(t, skOwner, pk, sk, usage)
 }
 
@@ -1832,15 +1831,15 @@ requires ctx.Props()
 requires ctx.IsMsg(t, term, l1)
 requires ctx.CanFlow(t, l1, l2)
 ensures  ctx.IsMsg(t, term, l2)
-func (ctx DefaultLabelingContext) Restrict(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
+func (ctx LabelingContext) Restrict(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) {
     ctx.CanFlowTransitive(t, ctx.GetLabel(term), l1, l2)
 }
 
-pred (ctx DefaultLabelingContext) NonceIsUnique(nonce tm.Term) {
+pred (ctx LabelingContext) NonceIsUnique(nonce tm.Term) {
     acc(ctx.getNonceIsUniquePointer(nonce))
 }
 
-pred (ctx DefaultLabelingContext) NonceForEventIsUnique(nonce tm.Term, eventType ev.EventType) {
+pred (ctx LabelingContext) NonceForEventIsUnique(nonce tm.Term, eventType ev.EventType) {
     acc(ctx.getNonceForEventIsUniquePointer(nonce, eventType))
 }
 
@@ -1851,24 +1850,24 @@ pred (ctx DefaultLabelingContext) NonceForEventIsUnique(nonce tm.Term, eventType
 // results in a contradiction when unfolding the predicate instances
 type Void int // note that `struct{}` results in Gobra not generating the expected heap permissions
 ghost
-pure func (ctx DefaultLabelingContext) getNonceIsUniquePointer(nonce tm.Term) *Void
+pure func (ctx LabelingContext) getNonceIsUniquePointer(nonce tm.Term) *Void
 
 ghost
-pure func (ctx DefaultLabelingContext) getNonceForEventIsUniquePointer(nonce tm.Term, eventType ev.EventType) *Void
+pure func (ctx LabelingContext) getNonceForEventIsUniquePointer(nonce tm.Term, eventType ev.EventType) *Void
 
 ghost
 decreases
 requires ctx.Props()
 requires acc(ctx.NonceForEventIsUnique(nonce, eventType), 2/1)
 ensures  false
-func (ctx DefaultLabelingContext) NonceForEventContradiction(nonce tm.Term, eventType ev.EventType) {
+func (ctx LabelingContext) NonceForEventContradiction(nonce tm.Term, eventType ev.EventType) {
     unfold acc(ctx.NonceForEventIsUnique(nonce, eventType), 2/1)
 }
 
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) CanEncrypt(t tr.TraceEntry, msg, pk tm.Term) bool {
+pure func (ctx LabelingContext) CanEncrypt(t tr.TraceEntry, msg, pk tm.Term) bool {
     return ctx.IsPublishable(t, pk) &&
         ctx.IsPkeKey(tm.getSk(pk)) &&
         ctx.IsMsg(t, msg, ctx.GetSkLabel(pk)) &&
@@ -1881,7 +1880,7 @@ decreases
 requires ctx.Props()
 requires ctx.CanEncrypt(t, msg, pk) || (ctx.IsPublishable(t, msg) && ctx.IsPublishable(t, pk))
 ensures  ctx.IsPublishable(t, tm.encrypt(msg, pk))
-func (ctx DefaultLabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, pk tm.Term) {
+func (ctx LabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, pk tm.Term) {
     msgLabel := ctx.GetLabel(msg)
     if ctx.IsPublishable(t, msg) {
         ctx.FlowsToPublicCanFlow(t, msgLabel, ctx.GetSkLabel(pk))
@@ -1893,7 +1892,7 @@ func (ctx DefaultLabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, 
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) CanDecrypt(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) bool {
+pure func (ctx LabelingContext) CanDecrypt(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) bool {
     return ctx.IsPublishable(t, ciphertext) &&
         (ctx.IsPublishable(t, sk) || exists usageString string :: { ctx.IsPrivateDecKey(t, skOwner, sk, usageString) } ctx.IsPrivateDecKey(t, skOwner, sk, usageString))
 }
@@ -1901,7 +1900,7 @@ pure func (ctx DefaultLabelingContext) CanDecrypt(t tr.TraceEntry, ciphertext, s
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) WasDecrypted(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) bool {
+pure func (ctx LabelingContext) WasDecrypted(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) bool {
     return ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner })) ==>
         (ctx.IsMsg(t, msg, label.Readers(set[p.Id]{ skOwner })) &&
         (forall usageString string :: { ctx.IsPrivateDecKey(t, skOwner, sk, usageString) } ctx.IsPrivateDecKey(t, skOwner, sk, usageString) ==>
@@ -1913,7 +1912,7 @@ decreases
 requires ctx.Props()
 requires ctx.IsPublishable(t, ciphertext) && ctx.IsPublishable(t, sk)
 ensures  ctx.CanDecrypt(t, ciphertext, sk, skOwner)
-func (ctx DefaultLabelingContext) CanDecryptWithPublicSk(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) {
+func (ctx LabelingContext) CanDecryptWithPublicSk(t tr.TraceEntry, ciphertext, sk tm.Term, skOwner p.Id) {
     // no body needed
 }
 
@@ -1922,7 +1921,7 @@ decreases
 requires ctx.Props()
 requires ctx.CanDecrypt(t, tm.encrypt(msg, tm.createPk(sk)), sk, skOwner)
 ensures  ctx.WasDecrypted(t, msg, sk, skOwner)
-func (ctx DefaultLabelingContext) DecryptSatisfiesInvariant(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
+func (ctx LabelingContext) DecryptSatisfiesInvariant(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
     pk := tm.createPk(sk)
 	plaintextLabel := ctx.GetLabel(msg)
 	skLabel := ctx.GetLabel(sk)
@@ -1938,7 +1937,7 @@ decreases
 requires ctx.Props()
 requires ctx.IsPublishable(t, tm.encrypt(msg, tm.createPk(sk))) && ctx.IsPublishable(t, sk)
 ensures  ctx.IsPublishable(t, msg)
-func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublicSk(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
+func (ctx LabelingContext) PlaintextIsPublishableForPublicSk(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
     pk := tm.createPk(sk)
 	plaintextLabel := ctx.GetLabel(msg)
 	skLabel := ctx.GetLabel(sk)
@@ -1950,7 +1949,7 @@ func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublicSk(t tr.TraceEn
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) CanAeadEncrypt(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) CanAeadEncrypt(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool {
     return ctx.IsLabeledRelaxed(t, key, keyL) &&
         (ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
@@ -1964,7 +1963,7 @@ decreases
 requires ctx.Props()
 requires ctx.CanAeadEncrypt(t, key, nonce, msg, ad, keyL) || (ctx.IsPublishable(t, key) && ctx.IsPublishable(t, nonce) && ctx.IsPublishable(t, msg) && ctx.IsPublishable(t, ad))
 ensures  ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad))
-func (ctx DefaultLabelingContext) AeadCiphertextIsPublishable(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
+func (ctx LabelingContext) AeadCiphertextIsPublishable(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
     msgL := ctx.GetLabel(msg)
     if ctx.IsPublishable(t, key) {
         if !ctx.IsPublishable(t, msg) {
@@ -1984,14 +1983,14 @@ func (ctx DefaultLabelingContext) AeadCiphertextIsPublishable(t tr.TraceEntry, k
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) CanAeadDecrypt(t tr.TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) CanAeadDecrypt(t tr.TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) bool {
     return true
 }
 
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx DefaultLabelingContext) WasAeadDecrypted(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool {
+pure func (ctx LabelingContext) WasAeadDecrypted(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) bool {
     return ((ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
         ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) &&
@@ -2008,7 +2007,7 @@ decreases
 requires ctx.Props()
 requires ctx.IsPublishable(t, key) && ctx.IsPublishable(t, nonce) && ctx.IsPublishable(t, ciphertext) && ctx.IsPublishable(t, ad)
 ensures  ctx.CanAeadDecrypt(t, key, nonce, ciphertext, ad, keyL)
-func (ctx DefaultLabelingContext) CanAeadDecryptWithPublishableKey(t tr.TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) {
+func (ctx LabelingContext) CanAeadDecryptWithPublishableKey(t tr.TraceEntry, key, nonce, ciphertext, ad tm.Term, keyL label.SecrecyLabel) {
     // no body needed
 }
 
@@ -2017,7 +2016,7 @@ decreases
 requires ctx.Props()
 requires ctx.CanAeadDecrypt(t, key, nonce, tm.aead(key, nonce, msg, ad), ad, keyL)
 ensures  ctx.WasAeadDecrypted(t, key, nonce, msg, ad, keyL)
-func (ctx DefaultLabelingContext) AeadDecryptSatisfiesInvariant(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
+func (ctx LabelingContext) AeadDecryptSatisfiesInvariant(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
     if ((ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
         ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) &&
@@ -2036,7 +2035,7 @@ decreases
 requires ctx.Props()
 requires ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) && ctx.IsPublishable(t, key) && ctx.IsPublishable(t, nonce) && ctx.IsPublishable(t, ad)
 ensures  ctx.IsPublishable(t, msg)
-func (ctx DefaultLabelingContext) PlaintextIsPublishableForPublishableKey(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
+func (ctx LabelingContext) PlaintextIsPublishableForPublishableKey(t tr.TraceEntry, key, nonce, msg, ad tm.Term, keyL label.SecrecyLabel) {
     if ((ctx.IsPublishable(t, key) || exists usageString string :: ctx.IsAeadKey(t, key, keyL, usageString)) &&
         ctx.IsPublishable(t, nonce) &&
         ctx.IsPublishable(t, tm.aead(key, nonce, msg, ad)) &&
@@ -2057,7 +2056,7 @@ requires ctx.IsLabeled(t, term, l)
 requires l.IsReaders()
 requires !tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
 ensures  !ctx.IsPublishable(t, term)
-func (ctx DefaultLabelingContext) PublishableRequiresCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) PublishableRequiresCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     // no body needed
 }
 
@@ -2072,7 +2071,7 @@ ensures  !ctx.IsPublishable(t, term)
   * weakened version of `PublishableRequiresCorruption`: instead of requiring `term` being
   * labeled with a `Readers` label, we can permit any label to which `Readers` (i.e. `l`) flows to
   */
-func (ctx DefaultLabelingContext) PublishableRequiresCorruptionWeakened(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) PublishableRequiresCorruptionWeakened(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     // proof by contradiction:
     // we assume that `l` flows to public and show then that term's actual label would flow
     // to public as well, which contradicts the precondition that `l` does not
@@ -2093,7 +2092,7 @@ requires ctx.IsPublishable(t, term)
 ensures  tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
 ensures  corruptedId in t.getCorruptIds()
 ensures  id in label.GetReaders(l) && id.Covers(corruptedId)
-func (ctx DefaultLabelingContext) PublishableImpliesCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) (corruptedId, id p.Id) {
+func (ctx LabelingContext) PublishableImpliesCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) (corruptedId, id p.Id) {
     termL := ctx.GetLabel(term)
     readers := label.GetReaders(l)
     corruptIds := t.getCorruptIds()
@@ -2117,7 +2116,7 @@ requires ctx.IsMsg(t, term, l)
 requires l.IsReaders()
 requires !ctx.IsPublishable(t, term)
 ensures  !tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
-func (ctx DefaultLabelingContext) NotPublishableImpliesNoCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
+func (ctx LabelingContext) NotPublishableImpliesNoCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) {
     if ctx.CanFlow(t, l, label.Public()) {
         // derive a contradiction:
         ctx.CanFlowTransitive(t, ctx.GetLabel(term), l, label.Public())
@@ -2134,7 +2133,7 @@ ensures  optCorruptedId == none[p.Id] ?
     ((tr.containsId(label.GetReaders(l1), get(optCorruptedId)) || tr.containsId(label.GetReaders(l2), get(optCorruptedId))) &&
         get(optCorruptedId) in t.getCorruptIds() &&
         tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l1) union label.GetReaders(l2)))
-func (ctx DefaultLabelingContext) RelaxedLabelingImpliesNotPublishableOrCorruption(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) (optCorruptedId option[p.Id]) {
+func (ctx LabelingContext) RelaxedLabelingImpliesNotPublishableOrCorruption(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) (optCorruptedId option[p.Id]) {
     termL := ctx.GetLabel(term)
     if ctx.IsPublishable(t, term) {
         joinL := label.Join(l1, l2)
