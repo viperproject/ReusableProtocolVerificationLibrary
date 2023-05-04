@@ -29,7 +29,7 @@ type Id domain {
 			getIdPrincipal(principalId(principal)) == principal
 	}
 	axiom { // principalId implies its constructions
-        forall id Id :: { getIdType(id) == 0 } getIdType(id) == 0 ==>
+        forall id Id :: { getIdType(id) } getIdType(id) == 0 ==>
             id == principalId(getIdPrincipal(id))
     }
 
@@ -39,7 +39,7 @@ type Id domain {
 			getIdSession(sessionId(principal, session)) == session
 	}
 	axiom { // sessionId implies its constructions
-        forall id Id :: { getIdType(id) == 1 } getIdType(id) == 1 ==>
+        forall id Id :: { getIdType(id) } getIdType(id) == 1 ==>
             id == sessionId(getIdPrincipal(id), getIdSession(id))
     }
 
@@ -50,7 +50,7 @@ type Id domain {
 			getIdStep(stepId(principal, session, step)) == step
 	}
 	axiom { // stepId implies its constructions
-        forall id Id :: { getIdType(id) == 2 } getIdType(id) == 2 ==>
+        forall id Id :: { getIdType(id) } getIdType(id) == 2 ==>
             id == stepId(getIdPrincipal(id), getIdSession(id), getIdStep(id))
     }
 }

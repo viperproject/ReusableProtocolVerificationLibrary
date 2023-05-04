@@ -43,3 +43,6 @@ func GetArbUInt64() uint64
 
 decreases
 func GetArbInt() int
+
+decreases
+func GetArbBool() bool

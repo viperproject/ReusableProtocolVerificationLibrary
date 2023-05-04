@@ -30,7 +30,7 @@ type Usage domain {
             GetUsageString(PkeKey(s)) == s
     }
     axiom { // PkeKey implies its construction
-        forall u Usage :: { GetUsageType(u) == 0 } GetUsageType(u) == 0 ==> u == PkeKey(GetUsageString(u))
+        forall u Usage :: { GetUsageType(u) } GetUsageType(u) == 0 ==> u == PkeKey(GetUsageString(u))
     }
 
     axiom { // DhKey is injective
@@ -38,7 +38,7 @@ type Usage domain {
             GetUsageString(DhKey(s)) == s
     }
     axiom { // DhKey implies its construction
-        forall u Usage :: { GetUsageType(u) == 1 } GetUsageType(u) == 1 ==> u == DhKey(GetUsageString(u))
+        forall u Usage :: { GetUsageType(u) } GetUsageType(u) == 1 ==> u == DhKey(GetUsageString(u))
     }
 
     axiom { // Nonce is injective
@@ -46,7 +46,7 @@ type Usage domain {
             GetUsageString(Nonce(s)) == s
     }
     axiom { // Nonce implies its construction
-        forall u Usage :: { GetUsageType(u) == 2 } GetUsageType(u) == 2 ==> u == Nonce(GetUsageString(u))
+        forall u Usage :: { GetUsageType(u) } GetUsageType(u) == 2 ==> u == Nonce(GetUsageString(u))
     }
 
     axiom { // AeadKey is injective
@@ -54,7 +54,7 @@ type Usage domain {
             GetUsageString(AeadKey(s)) == s
     }
     axiom { // AeadKey implies its construction
-        forall u Usage :: { GetUsageType(u) == 3 } GetUsageType(u) == 3 ==> u == AeadKey(GetUsageString(u))
+        forall u Usage :: { GetUsageType(u) } GetUsageType(u) == 3 ==> u == AeadKey(GetUsageString(u))
     }
 
     axiom { // KdfKey is injective
@@ -62,7 +62,7 @@ type Usage domain {
             GetUsageString(KdfKey(s)) == s
     }
     axiom { // KdfKey implies its construction
-        forall u Usage :: { GetUsageType(u) == 4 } GetUsageType(u) == 4 ==> u == KdfKey(GetUsageString(u))
+        forall u Usage :: { GetUsageType(u) } GetUsageType(u) == 4 ==> u == KdfKey(GetUsageString(u))
     }
 }
 

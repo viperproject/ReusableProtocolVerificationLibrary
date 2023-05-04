@@ -2,7 +2,6 @@ package labeling
 
 import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
 import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import . "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
 import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 

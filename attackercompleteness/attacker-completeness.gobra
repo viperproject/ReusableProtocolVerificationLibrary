@@ -49,23 +49,29 @@ func Attacker(l *ll.LabeledLibrary) {
         } else if nonDeterministicChoice == 4 {
             // we take 7 arbitrary terms from the attacker knowledge and call `ExtendKnowledge`
             // that internally does a non-deterministic choice over all possible terms
-            t1, t2, t3, t4, t5, t6, t7 := arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm()
-            assume att.attackerKnows(l.Snapshot(), t1) && att.attackerKnows(l.Snapshot(), t2) && att.attackerKnows(l.Snapshot(), t3) && att.attackerKnows(l.Snapshot(), t4) && att.attackerKnows(l.Snapshot(), t5) && att.attackerKnows(l.Snapshot(), t6) && att.attackerKnows(l.Snapshot(), t7)
-            ExtendKnowledge(l, t1, t2, t3, t4, t5, t6, t7)
+            t1, t2, t3, t4, t5, t6, t7, t8 := arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm()
+            assume att.attackerKnows(l.Snapshot(), t1) && att.attackerKnows(l.Snapshot(), t2) && att.attackerKnows(l.Snapshot(), t3) && att.attackerKnows(l.Snapshot(), t4) && att.attackerKnows(l.Snapshot(), t5) && att.attackerKnows(l.Snapshot(), t6) && att.attackerKnows(l.Snapshot(), t7) && att.attackerKnows(l.Snapshot(), t8)
+            ExtendKnowledge(l, t1, t2, t3, t4, t5, t6, t7, t8)
         } else if nonDeterministicChoice == 5 {
+            // we take an arbitrary term from the attacker knowledge that we'll deconstruct within
+            // `ExtendKnowledgeByDeconstruction`:
+            t := arb.GetArbTerm()
+            assume att.attackerKnows(l.Snapshot(), t)
+            ExtendKnowledgeByDeconstruction(l, t)
+        } else if nonDeterministicChoice == 6 {
             arbPrincipal := arb.GetArbPrincipal()
             CorruptParticipant(l, arbPrincipal)
-        } else if nonDeterministicChoice == 6 {
+        } else if nonDeterministicChoice == 7 {
             arbSession := arb.GetArbId()
             CorruptSession(l, arbSession)
-        } else if nonDeterministicChoice == 7 {
+        } else if nonDeterministicChoice == 8 {
             arbSender := arb.GetArbPrincipal()
             arbReceiver := arb.GetArbPrincipal()
             arbMsg := arb.GetArbTerm()
             // we pick an arbitrary message that has been previously sent:
             assume l.Snapshot().messageOccurs(arbSender, arbReceiver, arbMsg)
             DropMessage(l, arbSender, arbReceiver, arbMsg)
-        } else if nonDeterministicChoice == 8 {
+        } else if nonDeterministicChoice == 9 {
             arbSender := arb.GetArbPrincipal()
             arbReceiver := arb.GetArbPrincipal()
             Recv(l, arbSender, arbReceiver)
@@ -127,10 +133,11 @@ requires att.attackerKnows(l.Snapshot(), t4)
 requires att.attackerKnows(l.Snapshot(), t5)
 requires att.attackerKnows(l.Snapshot(), t6)
 requires att.attackerKnows(l.Snapshot(), t7)
+requires att.attackerKnows(l.Snapshot(), t8)
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  err == nil ==> att.attackerKnows(l.Snapshot(), res)
-func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7 tm.Term) (res tm.Term, err error) {
+func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7, t8 tm.Term) (res tm.Term, err error) {
     l.AttackerOnlyKnowsPublishableValues(t1)
     l.AttackerOnlyKnowsPublishableValues(t2)
     l.AttackerOnlyKnowsPublishableValues(t3)
@@ -138,6 +145,7 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7 tm.Term) (
     l.AttackerOnlyKnowsPublishableValues(t5)
     l.AttackerOnlyKnowsPublishableValues(t6)
     l.AttackerOnlyKnowsPublishableValues(t7)
+    l.AttackerOnlyKnowsPublishableValues(t8)
     
     // we do a non-deterministic choice over which operation to apply / term to construct,
     // which shows that the attacker can perform all of them while maintaining the trace invariant.
@@ -199,16 +207,39 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7 tm.Term) (
         res = tm.kdf3(t1)
         l.Publish(res)
     } else if nonDeterministicChoice == 10 {
-        // create pk
-        l.LabelCtx().createPk(l.Snapshot(), t1, label.Public())
-        res = tm.createPk(t1)
-        l.Publish(res)
+        nonDeterministicPkChoice := arb.GetArbInt()
+        assume 0 <= nonDeterministicPkChoice && nonDeterministicPkChoice < 3
+        
+        if nonDeterministicPkChoice == 0 {
+            // create pk
+            l.LabelCtx().createPk(l.Snapshot(), t1, label.Public())
+            res = tm.createPk(t1)
+            l.Publish(res)
+        } else if nonDeterministicPkChoice == 1 {
+            arbUsageString := arb.GetArbString()
+            res, err = GeneratePkeKey(l, arbUsageString)
+        } else {
+            arbUsageString := arb.GetArbString()
+            res, err = GenerateDHKey(l, arbUsageString)
+        }
     } else if nonDeterministicChoice == 11 {
-        // create encrypt
-        res, err = Enc(l, t1, t2)
+        shouldEncrypt := arb.GetArbBool()
+        if shouldEncrypt {
+            // create encrypt
+            res, err = Enc(l, t1, t2)
+        } else {
+            // we also show that decryption is possible:
+            res, err = Dec(l, t3, t4)
+        }
     } else if nonDeterministicChoice == 12 {
-        // create aead
+        shouldEncrypt := arb.GetArbBool()
+        if shouldEncrypt {
+            // create aead
         res, err = AeadEnc(l, t1, t2, t3, t4)
+        } else {
+            // we also show that decryption is possible:
+            res, err = AeadDec(l, t5, t6, t7, t8)
+        }
     } else if nonDeterministicChoice == 13 {
         // create const1
         l.LabelCtx().const1(l.Snapshot(), label.Public())
@@ -439,7 +470,74 @@ func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Ter
     l.Publish(plaintext)
 }
 
-// operation 5: participant corruption
+// operation 5: deconstruct term in the attacker knowledge
+ghost
+requires l.Mem()
+requires att.attackerKnows(l.Snapshot(), t)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+func ExtendKnowledgeByDeconstruction(l *ll.LabeledLibrary, t tm.Term) {
+    l.AttackerOnlyKnowsPublishableValues(t)
+    
+    // we get a non-deterministic term `t` as input.
+    // we case split over all terms that can be deconstructed according to our
+    // perfect cryptography assumptions and show that all resulting terms can be
+    // added to the attacker knowledge while maintaining the trace invariant.
+
+    t1, t2, t3, t4, t5, t6, t7 := arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm(), arb.GetArbTerm()
+    snap := l.Snapshot()
+
+    // random cannot be deconstructed further
+    if t == tm.tuple2(t1, t2) {
+        l.LabelCtx().untuple2(snap, t1, t2, label.Public())
+        MultiPublish(l, seq[tm.Term]{ t1, t2 })
+    } else if t == tm.tuple3(t1, t2, t3) {
+        l.LabelCtx().untuple3(snap, t1, t2, t3, label.Public())
+        MultiPublish(l, seq[tm.Term]{ t1, t2, t3 })
+    } else if t == tm.tuple4(t1, t2, t3, t4) {
+        l.LabelCtx().untuple4(snap, t1, t2, t3, t4, label.Public())
+        MultiPublish(l, seq[tm.Term]{ t1, t2, t3, t4 })
+    } else if t == tm.tuple5(t1, t2, t3, t4, t5) {
+        l.LabelCtx().untuple5(snap, t1, t2, t3, t4, t5, label.Public())
+        MultiPublish(l, seq[tm.Term]{ t1, t2, t3, t4, t5 })
+    } else if t == tm.tuple7(t1, t2, t3, t4, t5, t6, t7) {
+        l.LabelCtx().untuple7(snap, t1, t2, t3, t4, t5, t6, t7, label.Public())
+        MultiPublish(l, seq[tm.Term]{ t1, t2, t3, t4, t5, t6, t7 })
+    }
+
+    // we assume hash, kdf1, kdf2, kdf3, and createPk cannot be deconstructed
+    // due to our perfect cryptography assumption.
+    
+    // we already check the deconstruction of encrypt and aead (if decryption succeeds)
+    // as part of `ExtendKnowledge` above
+
+    // const1, stringTerm, zeroString, integer64, integer32, infoTerm, prologueTerm, and generator cannot be further deconstructed to other terms.
+
+    // we assume for mult and exp (which are used for Diffie-Hellman exponentiation) that these cannot be deconstructed either.
+}
+
+ghost
+requires l.Mem()
+requires forall i uint :: { terms[i] } 0 <= i && i < len(terms) ==> l.LabelCtx().IsPublishable(l.Snapshot(), terms[i])
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+func MultiPublish(l *ll.LabeledLibrary, terms seq[tm.Term]) {
+    snap := l.Snapshot()
+
+    invariant 0 <= i && i <= len(terms)
+    invariant l.Mem()
+    invariant forall j uint :: { terms[j] } i <= j && j < len(terms) ==> l.LabelCtx().IsPublishable(snap, terms[j])
+    invariant snap.isSuffix(l.Snapshot())
+    invariant l.ImmutableState() == old(l.ImmutableState())
+    for i := 0; i < len(terms); i++ {
+        snap1 := l.Snapshot()
+        l.LabelCtx().IsPublishableMonotonic(snap, snap1, terms[i])
+        l.Publish(terms[i])
+        snap.isSuffixTransitive(snap1, l.Snapshot())
+    }
+}
+
+// operation 6: participant corruption
 ghost
 requires l.Mem()
 ensures  l.Mem()
@@ -467,7 +565,7 @@ func CorruptParticipant(l *ll.LabeledLibrary, principal p.Principal) (arbTerm tm
     s1.getCorruptIdsMonotonic(l.Snapshot())
 }
 
-// operation 6: session corruption
+// operation 7: session corruption
 ghost
 requires l.Mem()
 ensures  l.Mem()
@@ -494,7 +592,7 @@ func CorruptSession(l *ll.LabeledLibrary, sessionId p.Id) (arbTerm tm.Term) {
     s1.getCorruptIdsMonotonic(l.Snapshot())
 }
 
-// operation 7: drop message
+// operation 8: drop message
 ghost
 requires l.Mem()
 requires l.Snapshot().messageOccurs(idSender, idReceiver, msg) // only previously sent message can be dropped
