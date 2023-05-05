@@ -1,0 +1,313 @@
+package labeling
+
+import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
+import "github.com/ModularVerification/ReusableVerificationLibrary/label"
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+
+// in this file, we demonstrate that any derived term can be
+// read by a participant given that the participant can read all
+// inputs
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, t1, l)
+requires ctx.IsMsg(t, t2, l)
+ensures  ctx.IsMsg(t, tm.tuple2(t1, t2), l)
+func (ctx LabelingContext) tuple2(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleCreate(t, tm.tuple2(t1, t2), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, t1, l)
+requires ctx.IsMsg(t, t2, l)
+requires ctx.IsMsg(t, t3, l)
+ensures  ctx.IsMsg(t, tm.tuple3(t1, t2, t3), l)
+func (ctx LabelingContext) tuple3(t tr.TraceEntry, t1, t2, t3 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleCreate(t, tm.tuple3(t1, t2, t3), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, t1, l)
+requires ctx.IsMsg(t, t2, l)
+requires ctx.IsMsg(t, t3, l)
+requires ctx.IsMsg(t, t4, l)
+ensures  ctx.IsMsg(t, tm.tuple4(t1, t2, t3, t4), l)
+func (ctx LabelingContext) tuple4(t tr.TraceEntry, t1, t2, t3, t4 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleCreate(t, tm.tuple4(t1, t2, t3, t4), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, t1, l)
+requires ctx.IsMsg(t, t2, l)
+requires ctx.IsMsg(t, t3, l)
+requires ctx.IsMsg(t, t4, l)
+requires ctx.IsMsg(t, t5, l)
+ensures  ctx.IsMsg(t, tm.tuple5(t1, t2, t3, t4, t5), l)
+func (ctx LabelingContext) tuple5(t tr.TraceEntry, t1, t2, t3, t4, t5 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleCreate(t, tm.tuple5(t1, t2, t3, t4, t5), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, t1, l)
+requires ctx.IsMsg(t, t2, l)
+requires ctx.IsMsg(t, t3, l)
+requires ctx.IsMsg(t, t4, l)
+requires ctx.IsMsg(t, t5, l)
+requires ctx.IsMsg(t, t6, l)
+requires ctx.IsMsg(t, t7, l)
+ensures  ctx.IsMsg(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
+func (ctx LabelingContext) tuple7(t tr.TraceEntry, t1, t2, t3, t4, t5, t6, t7 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleCreate(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, input, l)
+ensures  ctx.IsMsg(t, tm.hash(input), l)
+func (ctx LabelingContext) hash(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, input, l)
+ensures  ctx.IsMsg(t, tm.kdf1(input), l)
+ensures  ctx.IsMsg(t, tm.kdf2(input), l)
+ensures  ctx.IsMsg(t, tm.kdf3(input), l)
+func (ctx LabelingContext) kdf(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, input, l)
+ensures  ctx.IsMsg(t, tm.createPk(input), l)
+func (ctx LabelingContext) createPk(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, pk, l)
+requires ctx.IsMsg(t, plaintext, l)
+// requires that pk and plaintext can be encrypted:
+requires ctx.IsValid(t, tm.encrypt(plaintext, pk))
+ensures  ctx.IsMsg(t, tm.encrypt(plaintext, pk), l)
+func (ctx LabelingContext) encrypt(t tr.TraceEntry, pk, plaintext tm.Term, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, key, l)
+requires ctx.IsMsg(t, nonce, l)
+requires ctx.IsMsg(t, plaintext, l)
+requires ctx.IsMsg(t, auth, l)
+// requires that key, nonce, plaintext, and auth can be encrypted:
+requires ctx.IsValid(t, tm.aead(key, nonce, plaintext, auth))
+ensures  ctx.IsMsg(t, tm.aead(key, nonce, plaintext, auth), l)
+func (ctx LabelingContext) aead(t tr.TraceEntry, key, nonce, plaintext, auth tm.Term, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+ensures  ctx.IsMsg(t, tm.const1(), l)
+func (ctx LabelingContext) const1(t tr.TraceEntry, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, t1, l)
+requires ctx.IsMsg(t, t2, l)
+ensures  ctx.IsMsg(t, tm.exp(t1, t2), l)
+func (ctx LabelingContext) exp(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel) {
+    if t1 == tm.generator() {
+        if exists e1, e2 tm.Term :: t2 == tm.mult(e1, e2) {
+            // get witness:
+            e1 := arb.GetArbTerm()
+            e2 := arb.GetArbTerm()
+            assume t2 == tm.mult(e1, e2)
+            assert ctx.GetLabel(tm.exp(t1, t2)) == label.Join(ctx.GetLabel(e1), ctx.GetLabel(e2))
+        } else {
+            if t2.IsRandom() {
+                assert ctx.GetLabel(tm.exp(t1, t2)) == label.Public()
+            } else {
+                assert ctx.GetLabel(tm.exp(t1, t2)) == ctx.GetLabel(t2)
+            }
+        }
+    } else {
+        assert t1 != tm.generator()
+        if exists e1 tm.Term :: { tm.exp(tm.generator(), e1) } t1 == tm.exp(tm.generator(), e1) {
+            // get witness:
+            e1 := arb.GetArbTerm()
+            assume t1 == tm.exp(tm.generator(), e1)
+            assert ctx.GetLabel(tm.exp(t1, t2)) == label.Join(ctx.GetLabel(e1), ctx.GetLabel(t2))
+            ctx.CanFlowCreateJoinLhs(t, ctx.GetLabel(e1), ctx.GetLabel(t2), l)
+        } else {
+            assert ctx.GetLabel(tm.exp(t1, t2)) == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2))
+            ctx.CanFlowCreateMeetLhs(t, ctx.GetLabel(t1), ctx.GetLabel(t2), l)
+        }
+    }
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, t1, l)
+requires ctx.IsMsg(t, t2, l)
+ensures  ctx.IsMsg(t, tm.mult(t1, t2), l)
+func (ctx LabelingContext) mult(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel) {
+    ctx.CanFlowCreateJoinLhs(t, ctx.GetLabel(t1), ctx.GetLabel(t2), l)
+}
+
+ghost
+requires ctx.Props()
+ensures  ctx.IsMsg(t, tm.stringTerm(s), l)
+func (ctx LabelingContext) stringTerm(t tr.TraceEntry, s string, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+ensures  ctx.IsMsg(t, tm.zeroString(n), l)
+func (ctx LabelingContext) zeroString(t tr.TraceEntry, n int, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+ensures  ctx.IsMsg(t, tm.integer64(n), l)
+func (ctx LabelingContext) integer64(t tr.TraceEntry, n uint64, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+ensures  ctx.IsMsg(t, tm.integer32(n), l)
+func (ctx LabelingContext) integer32(t tr.TraceEntry, n uint32, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+ensures  ctx.IsMsg(t, tm.infoTerm(), l)
+func (ctx LabelingContext) infoTerm(t tr.TraceEntry, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+ensures  ctx.IsMsg(t, tm.prologueTerm(), l)
+func (ctx LabelingContext) prologueTerm(t tr.TraceEntry, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+ensures  ctx.IsMsg(t, tm.generator(), l)
+func (ctx LabelingContext) generator(t tr.TraceEntry, l label.SecrecyLabel) {
+    // no body needed
+}
+
+
+// similarly to the constructor above, we show similar lemmas for deconstructors.
+// note however that we only show label preservation for deconstructors that match
+// an implementation. For example, we do not show label preservation for deconstructing
+// a hash since such a method does not exist in practice.
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, tm.tuple2(t1, t2), l)
+ensures  ctx.IsMsg(t, t1, l)
+ensures  ctx.IsMsg(t, t2, l)
+func (ctx LabelingContext) untuple2(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleResolve(t, tm.tuple2(t1, t2), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, tm.tuple3(t1, t2, t3), l)
+ensures  ctx.IsMsg(t, t1, l)
+ensures  ctx.IsMsg(t, t2, l)
+ensures  ctx.IsMsg(t, t3, l)
+func (ctx LabelingContext) untuple3(t tr.TraceEntry, t1, t2, t3 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleResolve(t, tm.tuple3(t1, t2, t3), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, tm.tuple4(t1, t2, t3, t4), l)
+ensures  ctx.IsMsg(t, t1, l)
+ensures  ctx.IsMsg(t, t2, l)
+ensures  ctx.IsMsg(t, t3, l)
+ensures  ctx.IsMsg(t, t4, l)
+func (ctx LabelingContext) untuple4(t tr.TraceEntry, t1, t2, t3, t4 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleResolve(t, tm.tuple4(t1, t2, t3, t4), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, tm.tuple5(t1, t2, t3, t4, t5), l)
+ensures  ctx.IsMsg(t, t1, l)
+ensures  ctx.IsMsg(t, t2, l)
+ensures  ctx.IsMsg(t, t3, l)
+ensures  ctx.IsMsg(t, t4, l)
+ensures  ctx.IsMsg(t, t5, l)
+func (ctx LabelingContext) untuple5(t tr.TraceEntry, t1, t2, t3, t4, t5 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleResolve(t, tm.tuple5(t1, t2, t3, t4, t5), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
+ensures  ctx.IsMsg(t, t1, l)
+ensures  ctx.IsMsg(t, t2, l)
+ensures  ctx.IsMsg(t, t3, l)
+ensures  ctx.IsMsg(t, t4, l)
+ensures  ctx.IsMsg(t, t5, l)
+ensures  ctx.IsMsg(t, t6, l)
+ensures  ctx.IsMsg(t, t7, l)
+func (ctx LabelingContext) untuple7(t tr.TraceEntry, t1, t2, t3, t4, t5, t6, t7 tm.Term, l label.SecrecyLabel) {
+    ctx.IsMsgTupleResolve(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, tm.encrypt(plaintext, tm.createPk(sk)), l)
+requires ctx.IsMsg(t, sk, l) // knowing the secret key is a requirement for decryption
+ensures  ctx.IsMsg(t, plaintext, l)
+func (ctx LabelingContext) decrypt(t tr.TraceEntry, plaintext, sk tm.Term, l label.SecrecyLabel) {
+    pk := tm.createPk(sk)
+	plaintextLabel := ctx.GetLabel(plaintext)
+	skLabel := ctx.GetLabel(sk)
+	// the following assertion is necessary to derive that `ctx.IsMsg(t, msg, skLabel)`
+	assert ctx.IsValidEncrypt(t, pk, plaintext, plaintextLabel)
+    ctx.CanFlowTransitive(t, plaintextLabel, skLabel, l)
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, tm.aead(key, nonce, plaintext, ad), l)
+requires ctx.IsMsg(t, key, l) // knowing the key is a requirement for decryption
+ensures  ctx.IsMsg(t, nonce, l)
+ensures  ctx.IsMsg(t, plaintext, l)
+ensures  ctx.IsMsg(t, ad, l)
+func (ctx LabelingContext) AeadDecrypt(t tr.TraceEntry, key, nonce, plaintext, ad tm.Term, l label.SecrecyLabel) {
+    keyL := ctx.GetLabel(key)
+    plaintextL := ctx.GetLabel(plaintext)
+	assert ctx.IsValidAead(t, key, nonce, plaintext, plaintextL, ad)
+    ctx.FlowsToPublicCanFlow(t, ctx.GetLabel(nonce), l)
+    ctx.FlowsToPublicCanFlow(t, ctx.GetLabel(ad), l)
+    if ctx.CanFlow(t, plaintextL, label.Public()) &&
+        ctx.CanFlow(t, keyL, label.Public()) {
+        ctx.FlowsToPublicCanFlow(t, plaintextL, l)
+        ctx.FlowsToPublicCanFlow(t, keyL, l)
+    } else {
+        ctx.CanFlowTransitive(t, plaintextL, keyL, l)
+    }
+}

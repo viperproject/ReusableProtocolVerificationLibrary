@@ -1,0 +1,37 @@
+package labeling
+
+type KeyType domain {
+    // constructors
+    // type 0
+    func KeyTypePke() KeyType
+    // type 1
+    func KeyTypeDHPk() KeyType
+
+    // deconstructors
+
+    // WARNING: adapt first axiom if another Term is added!
+    func getKeyTypeType(KeyType) int
+
+    axiom { // every key type belongs to a known type
+        forall t KeyType :: { getKeyTypeType(t) } 0 <= getKeyTypeType(t) && getKeyTypeType(t) <= 1
+    }
+
+    axiom {
+        getKeyTypeType(KeyTypePke()) == 0
+    }
+    axiom { // KeyTypePke implies its constructions
+        forall t KeyType :: { getKeyTypeType(t) } getKeyTypeType(t) == 0 ==>
+            t == KeyTypePke()
+    }
+
+    axiom {
+        getKeyTypeType(KeyTypeDHPk()) == 1
+    }
+    axiom { // KeyTypeDHPk implies its constructions
+        forall t KeyType :: { getKeyTypeType(t) } getKeyTypeType(t) == 1 ==>
+            t == KeyTypeDHPk()
+    }
+}
+
+decreases
+func GetArbKeyType() KeyType

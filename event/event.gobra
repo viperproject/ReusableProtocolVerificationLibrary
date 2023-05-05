@@ -1,0 +1,21 @@
+package event
+
+
+// we model events by a type and some parameters.
+// a protocol implementation will specify the event types relevant
+// for the protocol and the concrete parameters for each event type.
+type EventParams interface {}
+
+type EventType int
+type Event struct {
+    typ EventType
+    params EventParams
+}
+
+ghost
+decreases
+requires isComparable(params)
+ensures  res.typ == typ && res.params == params
+pure func NewEvent(typ EventType, params EventParams) (res Event) {
+    return Event{ typ, params }
+}

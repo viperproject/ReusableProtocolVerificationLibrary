@@ -1,0 +1,114 @@
+package tracemanager
+
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+
+
+type PublishedTermSearcher struct {
+    ctx tri.TraceContext
+    term tm.Term
+}
+PublishedTermSearcher implements TraceSearcher
+
+ghost
+decreases
+pure func (ps PublishedTermSearcher) Props() bool {
+    return ps.ctx != nil && ps.ctx.Props()
+}
+
+ghost
+decreases
+requires ps.Props()
+ensures  res != nil && res.Props()
+pure func (ps PublishedTermSearcher) Ctx() (res tri.TraceContext) {
+    return ps.ctx
+}
+
+ghost
+decreases
+pure func (ps PublishedTermSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isPublic() && ps.term == tr.getPayload(entry)
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ps.Matches(entry)
+pure func (ps PublishedTermSearcher) MatchProperties(snapshot, entry tr.TraceEntry) bool {
+    return true
+}
+
+ghost
+decreases
+pure func (ps PublishedTermSearcher) Occurs(entry tr.TraceEntry) bool {
+    return ps.term in entry.getTermsMadePublic()
+}
+
+ghost
+decreases
+requires ps.Props()
+pure func (ps PublishedTermSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return tri.madePublicInv(ps.ctx, ps.term, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ps.Matches(entry)
+ensures  ps.MatchProperties(entry, entry)
+func (ps PublishedTermSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ps.Matches(entry)
+requires !ps.Matches(snapshot)
+requires ps.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  ps.MatchProperties(snapshot, entry)
+func (ps PublishedTermSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires ps.Occurs(entry)
+ensures  (!entry.isRoot() && ps.Occurs(tr.getPrev(entry))) || ps.Matches(entry)
+func (ps PublishedTermSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires ps.Props()
+requires ps.Matches(entry)
+requires acc(tri.validTrace(ps.Ctx(), entry), p)
+ensures  ps.PureEntryInv(entry)
+ensures  acc(tri.validTrace(ps.Ctx(), entry), p)
+func (ps PublishedTermSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    assert unfolding acc(tri.validTrace(ps.Ctx(), entry), p) in true
+}
+// end of PublishedTermSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires snap.isSuffix(m.Snapshot(ctx, owner))
+requires term in snap.getTermsMadePublic()
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(snap)
+ensures  prev.isSuffix(m.Snapshot(ctx, owner))
+ensures  prev.isPublic()
+ensures  tri.madePublicInv(m.Ctx(ctx, owner), term, tr.getPrev(prev))
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) PublishedTermImpliesMadePublicInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
+    searcher := PublishedTermSearcher{ ctx, term }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
+    prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
+    prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))
+}

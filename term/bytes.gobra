@@ -1,0 +1,123 @@
+package term
+
+type Bytes domain {
+
+    // constructors
+    func tuple2B(Bytes, Bytes) Bytes
+    func tuple3B(Bytes, Bytes, Bytes) Bytes
+    func tuple4B(Bytes, Bytes, Bytes, Bytes) Bytes
+    func tuple5B(Bytes, Bytes, Bytes, Bytes, Bytes) Bytes
+    func tuple7B(Bytes, Bytes, Bytes, Bytes, Bytes, Bytes, Bytes) Bytes
+    func hashB(Bytes) Bytes
+    func kdf1B(Bytes) Bytes
+    func kdf2B(Bytes) Bytes
+    func kdf3B(Bytes) Bytes
+    func createPkB(Bytes) Bytes
+    func encryptB(Bytes, Bytes) Bytes
+    func aeadB(Bytes, Bytes, Bytes, Bytes) Bytes
+    func const1B() Bytes
+    func expB(Bytes, Bytes) Bytes
+    func multB(Bytes, Bytes) Bytes
+
+    func stringB(string) Bytes
+    func zeroStringB(int) Bytes
+    func integer64B(uint64) Bytes
+    func integer32B(uint32) Bytes
+    func infoBytesB() Bytes
+    func prologueBytesB() Bytes
+    func generatorB() Bytes
+    
+
+    // deconstructors
+    func getTupleElemB(Bytes, int) Bytes
+    func decryptB(Bytes, Bytes) Bytes
+    func aeadDecryptB(Bytes, Bytes, Bytes) Bytes
+    func invB(Bytes) Bytes
+
+
+    // tuple2B deconstructors
+    axiom {
+        forall t1, t2 Bytes :: { tuple2B(t1, t2) } getTupleElemB(tuple2B(t1, t2), 0) == t1 &&
+            getTupleElemB(tuple2B(t1, t2), 1) == t2
+    }
+
+    // tuple3B deconstructors
+    axiom {
+        forall t1, t2, t3 Bytes :: { tuple3B(t1, t2, t3) } getTupleElemB(tuple3B(t1, t2, t3), 0) == t1 &&
+            getTupleElemB(tuple3B(t1, t2, t3), 1) == t2 &&
+            getTupleElemB(tuple3B(t1, t2, t3), 2) == t3
+    }
+
+    // tuple4B deconstructors
+    axiom {
+        forall t1, t2, t3, t4 Bytes :: { tuple4B(t1, t2, t3, t4) } getTupleElemB(tuple4B(t1, t2, t3, t4), 0) == t1 &&
+            getTupleElemB(tuple4B(t1, t2, t3, t4), 1) == t2 &&
+            getTupleElemB(tuple4B(t1, t2, t3, t4), 2) == t3 &&
+            getTupleElemB(tuple4B(t1, t2, t3, t4), 3) == t4
+    }
+
+    // tuple5B deconstructors
+    axiom {
+        forall t1, t2, t3, t4, t5 Bytes :: { tuple5B(t1, t2, t3, t4, t5) } getTupleElemB(tuple5B(t1, t2, t3, t4, t5), 0) == t1 &&
+            getTupleElemB(tuple5B(t1, t2, t3, t4, t5), 1) == t2 &&
+            getTupleElemB(tuple5B(t1, t2, t3, t4, t5), 2) == t3 &&
+            getTupleElemB(tuple5B(t1, t2, t3, t4, t5), 3) == t4 &&
+            getTupleElemB(tuple5B(t1, t2, t3, t4, t5), 4) == t5
+    }
+
+    // tuple7B deconstructors
+    axiom {
+        forall t1, t2, t3, t4, t5, t6, t7 Bytes :: { tuple7B(t1, t2, t3, t4, t5, t6, t7) } getTupleElemB(tuple7B(t1, t2, t3, t4, t5, t6, t7), 0) == t1 &&
+            getTupleElemB(tuple7B(t1, t2, t3, t4, t5, t6, t7), 1) == t2 &&
+            getTupleElemB(tuple7B(t1, t2, t3, t4, t5, t6, t7), 2) == t3 &&
+            getTupleElemB(tuple7B(t1, t2, t3, t4, t5, t6, t7), 3) == t4 &&
+            getTupleElemB(tuple7B(t1, t2, t3, t4, t5, t6, t7), 4) == t5 &&
+            getTupleElemB(tuple7B(t1, t2, t3, t4, t5, t6, t7), 5) == t6 &&
+            getTupleElemB(tuple7B(t1, t2, t3, t4, t5, t6, t7), 6) == t7
+    }
+
+    // decryptB encryptB with matching key
+    axiom {
+        forall plaintext, secretKey Bytes :: { decryptB(encryptB(plaintext, createPkB(secretKey)), secretKey) } decryptB(encryptB(plaintext, createPkB(secretKey)), secretKey) == plaintext
+    }
+
+    // aeadDecryptB aeadB with same key and nonce
+    axiom {
+        forall key, nonce, plaintext, additionalData Bytes :: { aeadDecryptB(key, nonce, aeadB(key, nonce, plaintext, additionalData)) } aeadDecryptB(key, nonce, aeadB(key, nonce, plaintext, additionalData)) == plaintext
+    }
+}
+
+type Gamma domain {
+  func gamma(Term) Bytes
+
+  func oneTerm(Bytes) Term
+
+  axiom { // totality
+    forall b Bytes :: {oneTerm(b)} gamma(oneTerm(b)) == b
+  }
+
+  axiom { // homomorphism
+    (forall t1, t2 Term :: {gamma(tuple2(t1,t2))} gamma(tuple2(t1,t2)) == tuple2B(gamma(t1), gamma(t2))) &&
+    (forall t1, t2, t3 Term :: {gamma(tuple3(t1,t2,t3))} gamma(tuple3(t1,t2,t3)) == tuple3B(gamma(t1), gamma(t2), gamma(t3))) &&
+    (forall t1, t2, t3, t4 Term :: {gamma(tuple4(t1,t2,t3,t4))} gamma(tuple4(t1,t2,t3,t4)) == tuple4B(gamma(t1), gamma(t2), gamma(t3), gamma(t4))) &&
+    (forall t1, t2, t3, t4, t5 Term :: {gamma(tuple5(t1,t2,t3,t4,t5))} gamma(tuple5(t1,t2,t3,t4,t5)) == tuple5B(gamma(t1), gamma(t2), gamma(t3), gamma(t4), gamma(t5))) &&
+    (forall t1, t2, t3, t4, t5, t6, t7 Term :: {gamma(tuple7(t1,t2,t3,t4,t5,t6,t7))} gamma(tuple7(t1,t2,t3,t4,t5,t6,t7)) == tuple7B(gamma(t1), gamma(t2), gamma(t3), gamma(t4), gamma(t5), gamma(t6), gamma(t7))) &&
+    (forall b Term :: {gamma(hash(b))} gamma(hash(b)) == hashB(gamma(b))) &&
+    (forall b Term :: {gamma(kdf1(b))} gamma(kdf1(b)) == kdf1B(gamma(b))) &&
+    (forall b Term :: {gamma(kdf2(b))} gamma(kdf2(b)) == kdf2B(gamma(b))) &&
+    (forall b Term :: {gamma(kdf3(b))} gamma(kdf3(b)) == kdf3B(gamma(b))) &&
+    (forall sk Term :: {gamma(createPk(sk))} gamma(createPk(sk)) == createPkB(gamma(sk))) &&
+    (forall p, pk Term :: {gamma(encrypt(p,pk))} gamma(encrypt(p,pk)) == encryptB(gamma(p), gamma(pk))) &&
+    (forall k, n, p, a Term :: {gamma(aead(k,n,p,a))} gamma(aead(k,n,p,a)) == aeadB(gamma(k), gamma(n), gamma(p), gamma(a))) &&
+    (gamma(const1()) == const1B()) &&
+    (forall l, r Term :: {gamma(exp(l,r))} gamma(exp(l,r)) == expB(gamma(l), gamma(r))) &&
+    (forall l, r Term :: {gamma(mult(l,r))} gamma(mult(l,r)) == multB(gamma(l), gamma(r))) &&
+    (forall s string :: {gamma(stringTerm(s))} gamma(stringTerm(s)) == stringB(s)) &&
+    (forall l int :: {gamma(zeroString(l))} gamma(zeroString(l)) == zeroStringB(l)) &&
+    (forall i uint64 :: {gamma(integer64(i))} gamma(integer64(i)) == integer64B(i)) &&
+    (forall i uint32 :: {gamma(integer32(i))} gamma(integer32(i)) == integer32B(i)) &&
+    (gamma(infoTerm()) == infoBytesB()) &&
+    (gamma(prologueTerm()) == prologueBytesB()) &&
+    (gamma(generator()) == generatorB())
+  }
+}

@@ -1,0 +1,113 @@
+package tracemanager
+
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+
+
+type NonceSearcher struct {
+    ctx tri.TraceContext
+    nonce tm.Term
+}
+NonceSearcher implements TraceSearcher
+
+ghost
+decreases
+pure func (ns NonceSearcher) Props() bool {
+    return ns.ctx != nil && ns.ctx.Props()
+}
+
+ghost
+decreases
+requires ns.Props()
+ensures  res != nil && res.Props()
+pure func (ns NonceSearcher) Ctx() (res tri.TraceContext) {
+    return ns.ctx
+}
+
+ghost
+decreases
+pure func (ns NonceSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isNonceAt(ns.nonce)
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ns.Matches(entry)
+pure func (ns NonceSearcher) MatchProperties(snapshot, entry tr.TraceEntry) bool {
+    return true
+}
+
+ghost
+decreases
+pure func (ns NonceSearcher) Occurs(entry tr.TraceEntry) bool {
+    return entry.OnlyNonceOccurs(ns.nonce)
+}
+
+ghost
+decreases
+requires ns.Props()
+pure func (ns NonceSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return tri.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ns.Matches(entry)
+ensures  ns.MatchProperties(entry, entry)
+func (ns NonceSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ns.Matches(entry)
+requires !ns.Matches(snapshot)
+requires ns.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  ns.MatchProperties(snapshot, entry)
+func (ns NonceSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires ns.Occurs(entry)
+ensures  (!entry.isRoot() && ns.Occurs(tr.getPrev(entry))) || ns.Matches(entry)
+func (ns NonceSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires ns.Props()
+requires ns.Matches(entry)
+requires acc(tri.validTrace(ns.Ctx(), entry), p)
+ensures  ns.PureEntryInv(entry)
+ensures  acc(tri.validTrace(ns.Ctx(), entry), p)
+func (ns NonceSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    unfold acc(tri.validTrace(ns.Ctx(), entry), p)
+    assert unfolding acc(tri.randInv(ns.Ctx(), ns.nonce, tr.getPrev(entry)), p) in true
+    fold acc(tri.validTrace(ns.Ctx(), entry), p)
+}
+// end of NonceSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires (m.Snapshot(ctx, owner)).OnlyNonceOccurs(nonce)
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(m.Snapshot(ctx, owner)) && prev.isNonce()
+ensures  prev.isNonceAt(nonce)
+ensures  tri.pureRandInv(ctx, nonce, tr.getPrev(prev))
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) NonceOccursImpliesRandInv(ctx tri.TraceContext, owner Client, nonce tm.Term) (prev tr.TraceEntry) {
+    searcher := NonceSearcher{ ctx, nonce }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
+    prev = m.findEntryWithPureInv(searcher, owner)
+}

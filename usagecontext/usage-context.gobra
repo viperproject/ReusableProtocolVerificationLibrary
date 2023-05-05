@@ -1,0 +1,36 @@
+package usagecontext
+
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+
+
+type UsageOption = option[u.Usage]
+
+type UsageContext interface {
+    ghost
+    decreases
+    pure GetUsage(t tm.Term) UsageOption
+
+    ghost
+    decreases
+    pure PkePred(t tr.TraceEntry, usageString string, plaintext, pk tm.Term) bool
+
+    ghost
+    decreases
+    requires t1.isSuffix(t2)
+    requires PkePred(t1, usageString, plaintext, pk)
+    ensures  PkePred(t2, usageString, plaintext, pk)
+    PkePredMonotonic(t1, t2 tr.TraceEntry, usageString string, plaintext, pk tm.Term)
+
+    ghost
+    decreases
+    pure AeadPred(t tr.TraceEntry, usageString string, key, nonce, plaintext, authtext tm.Term) bool
+
+    ghost
+    decreases
+    requires t1.isSuffix(t2)
+    requires AeadPred(t1, usageString, key, nonce, plaintext, authtext)
+    ensures  AeadPred(t2, usageString, key, nonce, plaintext, authtext)
+    AeadPredMonotonic(t1, t2 tr.TraceEntry, usageString string, key, nonce, plaintext, authtext tm.Term)
+}

@@ -1,0 +1,339 @@
+package tracemanager
+
+// uses concurrent datastructure to establish the invariant that any older trace is a suffix of the current one
+
+import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+import "github.com/ModularVerification/ReusableVerificationLibrary/label"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+import ts "github.com/ModularVerification/ReusableVerificationLibrary/concurrentdatastructure"
+
+
+type TraceManager struct {
+    nClients int
+    mutex *ts.ClientHistoryMutex
+}
+
+type Client = p.Id
+// currently necessary because Gobra does apparently not support a dot expression as map key type
+type MapKey = p.Id
+
+decreases
+requires ctx != nil && isComparable(ctx) && ctx.Props()
+requires len(clients) > 0
+requires tri.validTrace(ctx, root)
+requires noPerm < p && p <= writePerm
+requires forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
+requires forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
+ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
+ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
+ensures  acc(ms)
+ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> ms[clients[j]].Mem(ctx, clients[j])
+ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < len(clients) && 0 <= k && k < len(clients) ==>
+            ms[clients[j]].ImmutableState(ctx, clients[j]) == ms[clients[k]].ImmutableState(ctx, clients[k])
+func NewTraceManager(ctx tri.TraceContext, clients []Client, root tr.TraceEntry, ghost p perm) (ms map[MapKey]*TraceManager) {
+    ms = make(map[MapKey]*TraceManager)
+
+    // forall quantification complains if `inv` is of type ManagerInv instead of ClientHistoryInv:
+    var inv ts.ClientHistoryInv
+    inv = ManagerInv{ ctx }
+    mutex := ts.NewClientHistoryMutex()
+    fold inv.CurrentValueInv(root)
+    mutex.SetInv(inv, clients, root, p/2)
+    
+    // we allocate a slice of trace managers such that we know that the pointers are pairwise distinct:
+    managers := make([]TraceManager, len(clients))
+
+    invariant 0 <= i && i <= len(clients)
+    invariant forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
+    invariant forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
+    invariant forall j int :: { clients[j] } i <= j && j < len(clients) ==> mutex.ClientHistoryMutexState(inv, clients[j])
+    invariant len(clients) == len(managers)
+    invariant forall j int :: { managers[j] } i <= j && j < len(managers) ==> acc(&managers[j])
+    invariant forall j, k int :: { managers[j], managers[k] } 0 <= j && j < k && k < len(managers) ==> &managers[j] != &managers[k]
+    invariant acc(ms)
+    invariant forall j int :: { clients[j], managers[j] } 0 <= j && j < i ==> ms[clients[j]] == &managers[j]
+    invariant forall j int :: { managers[j] } 0 <= j && j < i ==> (&managers[j]).Mem(ctx, clients[j])
+    invariant forall j int :: { clients[j] } 0 <= j && j < i ==>
+                ((ms[clients[j]].ImmutableState(ctx, clients[j])).mutex == mutex)
+    decreases len(clients) - i
+    for i := 0; i < len(clients); i++ {
+        client := clients[i]
+        m := &managers[i]
+        m.nClients = len(clients)
+        m.mutex = mutex
+        ms[client] = m
+        fold m.Mem(ctx, client)
+    }
+}
+
+pred (m *TraceManager) Mem(ctx tri.TraceContext, owner Client) {
+    acc(m) && 0 < m.nClients &&
+    ctx != nil && isComparable(ctx) && ctx.Props() &&
+    m.mutex.ClientHistoryMutexState(ManagerInv{ ctx }, owner)
+}
+
+ghost
+decreases
+requires acc(m.Mem(ctx, owner), _)
+ensures  ctx != nil && ctx.Props()
+// indirection to learn that `ctx != nil`
+pure func (m *TraceManager) Ctx(ctx tri.TraceContext, owner Client) tri.TraceContext {
+    return unfolding acc(m.Mem(ctx, owner), _) in ctx
+}
+
+ghost
+decreases
+requires acc(m.Mem(ctx, owner), _)
+pure func (m *TraceManager) Snapshot(ctx tri.TraceContext, owner Client) tr.TraceEntry {
+    return unfolding acc(m.Mem(ctx, owner), _) in m.mutex.LastSeenValue(ManagerInv{ ctx }, owner)
+}
+
+// abstract over all memory that remains unchanged after manager initialization
+// TODO should be ghost
+type ImmutableState struct {
+    mutex *ts.ClientHistoryMutex
+    // clients do not need to be included as they follow from pointer equality on the mutex and the `ClientsAreIdentical` lemma
+}
+
+ghost
+decreases
+requires acc(m.Mem(ctx, owner), _)
+pure func (m *TraceManager) ImmutableState(ctx tri.TraceContext, owner Client) ImmutableState {
+    return unfolding acc(m.Mem(ctx, owner), _) in ImmutableState{ m.mutex }
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+ensures  m.Mem(ctx, owner)
+ensures  trace == m.Snapshot(ctx, owner)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(trace)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+// this method simply updates the local snapshot to the global trace and returns
+// the updated snapshot for convenience reasons
+func (m *TraceManager) Sync(ctx tri.TraceContext, owner Client) (trace tr.TraceEntry) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    trace = m.mutex.Lock(inv, owner)
+    // we have obtained the global trace `trace` and immediately release the lock again:
+    m.mutex.Unlock(inv, owner, trace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires destManager.Mem(ctx, destOwner)
+requires acc(origManager.Mem(ctx, origOwner), 1/8)
+requires destManager.ImmutableState(ctx, destOwner) == origManager.ImmutableState(ctx, origOwner)
+ensures  destManager.Mem(ctx, destOwner)
+ensures  acc(origManager.Mem(ctx, origOwner), 1/8)
+ensures  (destManager.Snapshot(ctx, destOwner)) == (origManager.Snapshot(ctx, origOwner))
+ensures  destManager.ImmutableState(ctx, destOwner) == old(destManager.ImmutableState(ctx, destOwner))
+func (destManager *TraceManager) SetSnapshot(origManager *TraceManager, ctx tri.TraceContext, destOwner, origOwner Client) {
+	inv := ManagerInv{ ctx }
+    lastSeenTrace := destManager.Snapshot(ctx, destOwner)
+    unfold destManager.Mem(ctx, destOwner)
+    trace := destManager.mutex.Lock(inv, destOwner)
+    // leave trace unchanged and only update snapshot
+    // because destManager and origManager share the same immutable state, we can derive
+    // that both owners have to be included in the snapshots map:
+    unfold acc(origManager.Mem(ctx, origOwner), 1/8)
+    destManager.mutex.ClientsAreIdenticalLocked1(inv, destOwner, origOwner, trace)
+    unfold destManager.mutex.ClientHistoryMutexStateLocked(inv, destOwner, trace)
+    // unfold the origManager's clientHistoryMutexState predicate to derive that we are talking about the right snapshot
+    unfold acc(origManager.mutex.ClientHistoryMutexState(inv, origOwner), 1/8)
+    snapshot := *(destManager.mutex.snapshots)[origOwner]
+    
+    // the following assert stmt is not necessary but would hold:
+    // assert snapshot == *(origManager.mutex.snapshots)[origOwner]
+    fold acc(origManager.mutex.ClientHistoryMutexState(inv, origOwner), 1/8)
+    fold acc(origManager.Mem(ctx, origOwner), 1/8)
+    
+    *(destManager.mutex.snapshots)[destOwner] = snapshot
+    fold destManager.mutex.ClientHistoryMutexStateLocked(inv, destOwner, trace)
+    destManager.mutex.UnlockWithSnapshot(inv, destOwner, trace, trace, snapshot)
+    fold destManager.Mem(ctx, destOwner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires ctx.eventInv(owner.getPrincipal(), event, m.Snapshot(ctx, owner))
+ensures  m.Mem(ctx, owner)
+// note that we do not specify here that the event occurs at the most recent trace entry because this property
+// would not hold since the trace might have been extended by another participant or the attacker after
+// releasing the lock. However, the event occurs at the most recent trace entry from this participant's
+// snapshot of the trace.
+ensures  (m.Snapshot(ctx, owner)).isEventAt(owner.getPrincipal(), event)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogEvent(ctx tri.TraceContext, owner Client, event ev.Event) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makeEvent(prevTrace, owner.getPrincipal(), event)
+    ctx.eventInvMonotonic(owner.getPrincipal(), event, lastSeenTrace, prevTrace)
+    fold tri.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires tri.messageInv(m.Ctx(ctx, owner), sender, receiver, message, m.Snapshot(ctx, owner))
+ensures  m.Mem(ctx, owner)
+ensures  (m.Snapshot(ctx, owner)).isMessageAt(sender, receiver, message)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogSend(ctx tri.TraceContext, owner Client, sender, receiver p.Principal, message tm.Term) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makeMessage(prevTrace, sender, receiver, message)
+    tri.messageInvTransitive(ctx, sender, receiver, message, lastSeenTrace, prevTrace)
+    fold tri.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires tri.messageInv(m.Ctx(ctx, owner), sender, receiver, message, m.Snapshot(ctx, owner))
+ensures  m.Mem(ctx, owner)
+ensures  (m.Snapshot(ctx, owner)).isMessageDroppedAt(sender, receiver, message)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogMsgDrop(ctx tri.TraceContext, owner Client, sender, receiver p.Principal, message tm.Term) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makeDropMessage(prevTrace, sender, receiver, message)
+    tri.messageInvTransitive(ctx, sender, receiver, message, lastSeenTrace, prevTrace)
+    fold tri.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires tri.madePublicInv(m.Ctx(ctx, owner), term, m.Snapshot(ctx, owner))
+ensures  m.Mem(ctx, owner)
+ensures  (m.Snapshot(ctx, owner)).isPublic() && tr.getPayload(m.Snapshot(ctx, owner)) == term
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogPublish(ctx tri.TraceContext, owner Client, term tm.Term) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makePublic(prevTrace, term)
+    tri.madePublicInvTransitive(ctx, term, lastSeenTrace, prevTrace)
+    fold tri.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+ensures  m.Mem(ctx, owner)
+ensures  id in m.Snapshot(ctx, owner).getCorruptIds()
+ensures  tr.containsCorruptId(m.Snapshot(ctx, owner).getCorruptIds(), set[p.Id]{ id })
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogCorruption(ctx tri.TraceContext, owner Client, id p.Id) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makeCorrupt(prevTrace, id)
+    fold tri.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+    id.CoversReflexive()
+    assert tr.containsId(set[p.Id]{ id }, id)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires nonce.IsRandom()
+requires tri.GetLabeling(m.Ctx(ctx, owner)).NonceIsUnique(nonce)
+// the following precondition specifies that `owner` can read the nonce
+// i.e. this enforces for upper library layers that an owner cannot create nonces
+// or keys that it cannot read itself
+requires tri.GetLabeling(ctx).CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ owner }))
+ensures  m.Mem(ctx, owner)
+ensures  m.Snapshot(ctx, owner).isNonceAt(nonce)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogNonce(ctx tri.TraceContext, owner Client, nonce tm.Term) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makeNonce(prevTrace, nonce)
+    fold tri.randInv(ctx, nonce, prevTrace)
+    fold tri.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+type ManagerInv struct {
+    ctx tri.TraceContext
+}
+// the following clause is technically not necessary:
+ManagerInv implements ts.ClientHistoryInv
+
+pred (m ManagerInv) CurrentValueInv(t tr.TraceEntry) {
+    tri.validTrace(m.ctx, t)
+}
+
+ghost
+decreases
+pure func (m ManagerInv) TwoStepValueInv(oldValue, currentValue tr.TraceEntry) bool {
+    return oldValue.isSuffix(currentValue)
+}
+
+ghost
+decreases
+ensures m.TwoStepValueInv(value, value)
+func (m ManagerInv) TwoStepValueInvReflexive(value tr.TraceEntry) {
+    value.isSuffix(value)
+}
+
+ghost
+decreases
+requires m.TwoStepValueInv(val1, val2) && m.TwoStepValueInv(val2, val3)
+ensures  m.TwoStepValueInv(val1, val3)
+func (m ManagerInv) TwoStepValueInvTransitive(val1, val2, val3 tr.TraceEntry) {
+    val1.isSuffixTransitive(val2, val3)
+}

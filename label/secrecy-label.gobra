@@ -1,0 +1,109 @@
+package label
+
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+
+type SecrecyLabel domain {
+    // constructors
+    // type 0
+    func Public() SecrecyLabel
+    // type 1
+    func Readers(set[p.Id]) SecrecyLabel
+    // type 2
+    func Meet(SecrecyLabel, SecrecyLabel) SecrecyLabel // intersection of labels
+    // type 3
+    func Join(SecrecyLabel, SecrecyLabel) SecrecyLabel // union of labels
+
+    // WARNING: adapt first axiom if another SecrecyLabel is added!
+
+    // deconstructors
+    // TODO: get rid of `GetFirstLabel` and `GetSecondLabel` and express commutativity in the usual way
+    func GetType(SecrecyLabel) int
+    func GetHeight(SecrecyLabel) int
+    func GetReaders(SecrecyLabel) set[p.Id]
+    func GetFirstLabel(SecrecyLabel) SecrecyLabel
+    func GetSecondLabel(SecrecyLabel) SecrecyLabel
+
+    axiom { // all labels have a type
+        forall l SecrecyLabel :: { GetType(l) } 0 <= GetType(l) && GetType(l) <= 3
+    }
+    
+    axiom { // public has type 0
+        GetType(Public()) == 0 &&
+        GetHeight(Public()) == 0
+    }
+    axiom { // public type implies its construction
+        forall l SecrecyLabel :: { GetType(l) } GetType(l) == 0 ==> l == Public()
+    }
+
+    axiom { // readers is injective
+        forall scopes set[p.Id] :: { Readers(scopes) } GetType(Readers(scopes)) == 1 &&
+            GetHeight(Readers(scopes)) == 0 &&
+            GetReaders(Readers(scopes)) == scopes
+    }
+    axiom { // readers type implies its construction
+        forall l SecrecyLabel :: { GetType(l) } GetType(l) == 1 ==> l == Readers(GetReaders(l))
+    }
+
+    axiom { // meet is pseudo-injective, i.e. injective modulo commutativity
+        forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } GetType(Meet(l1, l2)) == 2 &&
+            GetHeight(Meet(l1, l2)) == 1 + (GetHeight(l1) >= GetHeight(l2) ? GetHeight(l1) : GetHeight(l2)) &&
+            ((
+                GetFirstLabel(Meet(l1, l2)) == l1 &&
+                GetSecondLabel(Meet(l1, l2)) == l2) ||
+            (
+                GetFirstLabel(Meet(l1, l2)) == l2 &&
+                GetSecondLabel(Meet(l1, l2)) == l1))
+    }
+    axiom { // meet is commutative
+        forall l1, l2 SecrecyLabel :: { Meet(l1, l2) } Meet(l1, l2) == Meet(l2, l1)
+    }
+    axiom { // meet type implies its construction
+        forall l SecrecyLabel :: { GetType(l) } GetType(l) == 2 ==> l == Meet(GetFirstLabel(l), GetSecondLabel(l))
+    }
+
+    axiom { // join is pseudo-injective, i.e. injective modulo commutativity
+        forall l1, l2 SecrecyLabel :: { Join(l1, l2) } GetType(Join(l1, l2)) == 3 &&
+            GetHeight(Join(l1, l2)) == 1 + (GetHeight(l1) >= GetHeight(l2) ? GetHeight(l1) : GetHeight(l2)) &&
+            ((
+                GetFirstLabel(Join(l1, l2)) == l1 &&
+                GetSecondLabel(Join(l1, l2)) == l2) ||
+            (
+                GetFirstLabel(Join(l1, l2)) == l2 &&
+                GetSecondLabel(Join(l1, l2)) == l1))
+    }
+    axiom { // join is commutative
+        forall l1, l2 SecrecyLabel :: { Join(l1, l2) } Join(l1, l2) == Join(l2, l1)
+    }
+    axiom { // join type implies its construction
+        forall l SecrecyLabel :: { GetType(l) } GetType(l) == 3 ==> l == Join(GetFirstLabel(l), GetSecondLabel(l))
+    }
+
+    // axioms for GetHeight:
+    axiom {
+        forall l SecrecyLabel :: { GetHeight(l) } 0 <= GetHeight(l)
+    }
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsPublic() bool {
+    return GetType(label) == 0
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsReaders() bool {
+    return GetType(label) == 1
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsMeet() bool {
+    return GetType(label) == 2
+}
+
+ghost
+decreases
+pure func (label SecrecyLabel) IsJoin() bool {
+    return GetType(label) == 3
+}

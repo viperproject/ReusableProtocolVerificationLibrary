@@ -1,0 +1,117 @@
+package tracemanager
+
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+
+
+type MessageSearcher struct {
+    ctx tri.TraceContext
+    sender p.Principal
+    receiver p.Principal
+    payload tm.Term
+}
+MessageSearcher implements TraceSearcher
+
+ghost
+decreases
+pure func (ms MessageSearcher) Props() bool {
+    return ms.ctx != nil && ms.ctx.Props()
+}
+
+ghost
+decreases
+requires ms.Props()
+ensures  res != nil && res.Props()
+pure func (ms MessageSearcher) Ctx() (res tri.TraceContext) {
+    return ms.ctx
+}
+
+ghost
+decreases
+pure func (ms MessageSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isMessageAt(ms.sender, ms.receiver, ms.payload)
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ms.Matches(entry)
+pure func (ms MessageSearcher) MatchProperties(snapshot, entry tr.TraceEntry) bool {
+    return true
+}
+
+ghost
+decreases
+pure func (ms MessageSearcher) Occurs(entry tr.TraceEntry) bool {
+    return entry.messageOccurs(ms.sender, ms.receiver, ms.payload)
+}
+
+ghost
+decreases
+requires ms.Props()
+pure func (ms MessageSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return tri.messageInv(ms.ctx, ms.sender, ms.receiver, ms.payload, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires ms.Matches(entry)
+ensures  ms.MatchProperties(entry, entry)
+func (ms MessageSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires ms.Matches(entry)
+requires !ms.Matches(snapshot)
+requires ms.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  ms.MatchProperties(snapshot, entry)
+func (ms MessageSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires ms.Occurs(entry)
+ensures  (!entry.isRoot() && ms.Occurs(tr.getPrev(entry))) || ms.Matches(entry)
+func (ms MessageSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires ms.Props()
+requires ms.Matches(entry)
+requires acc(tri.validTrace(ms.Ctx(), entry), p)
+ensures  ms.PureEntryInv(entry)
+ensures  acc(tri.validTrace(ms.Ctx(), entry), p)
+func (ms MessageSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    assert unfolding acc(tri.validTrace(ms.Ctx(), entry), p) in true
+}
+// end of MessageSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires snap.isSuffix(m.Snapshot(ctx, owner))
+requires snap.messageOccurs(sender, receiver, payload)
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(snap) && prev.isMessage()
+ensures  prev.isSuffix(m.Snapshot(ctx, owner))
+ensures  prev.isMessageAt(sender, receiver, payload)
+ensures  tri.messageInv(m.Ctx(ctx, owner), sender, receiver, payload, tr.getPrev(prev))
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
+    searcher := MessageSearcher{ ctx, sender, receiver, payload }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
+    prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
+    prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))
+}

@@ -1,0 +1,334 @@
+package tracemanager
+
+import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
+import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+
+
+/** search for latest matching event (irrespective of a particular trace index) */
+type EventSearcher struct {
+    ctx tri.TraceContext
+    principal p.Principal
+    event ev.Event
+}
+EventSearcher implements TraceSearcher
+
+ghost
+decreases
+pure func (es EventSearcher) Props() bool {
+    return es.ctx != nil && es.ctx.Props()
+}
+
+ghost
+decreases
+requires es.Props()
+ensures  res != nil && res.Props()
+pure func (es EventSearcher) Ctx() (res tri.TraceContext) {
+    return es.ctx
+}
+
+ghost
+decreases
+pure func (es EventSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isEventAt(es.principal, es.event)
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+pure func (es EventSearcher) MatchProperties(snapshot tr.TraceEntry, entry tr.TraceEntry) bool {
+    return snapshot.eventOccurs(es.principal, es.event) &&
+        entry == snapshot.eventOccursWitness(es.principal, es.event)
+}
+
+ghost
+decreases
+pure func (es EventSearcher) Occurs(entry tr.TraceEntry) bool {
+    return entry.eventOccurs(es.principal, es.event)
+}
+
+ghost
+decreases
+requires es.Props()
+pure func (es EventSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return es.Ctx().pureEventInv(es.principal, es.event, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires es.Matches(entry)
+ensures  es.MatchProperties(entry, entry)
+func (es EventSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+requires !es.Matches(snapshot)
+requires es.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  es.MatchProperties(snapshot, entry)
+func (es EventSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires es.Occurs(entry)
+ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(entry)
+func (es EventSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires es.Props()
+requires es.Matches(entry)
+requires acc(tri.validTrace(es.Ctx(), entry), p)
+ensures  es.PureEntryInv(entry)
+ensures  acc(tri.validTrace(es.Ctx(), entry), p)
+func (es EventSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    unfold acc(tri.validTrace(es.Ctx(), entry), p)
+    (es.Ctx()).getPureEventInv(es.principal, es.event, tr.getPrev(entry), p)
+    fold acc(tri.validTrace(es.Ctx(), entry), p)
+}
+// end of EventSearcher's implementation
+
+
+/** search for matching event taking the trace index into account */
+type EventIdxSearcher struct {
+    ctx tri.TraceContext
+    principal p.Principal
+    event ev.Event
+    idx int
+}
+EventIdxSearcher implements TraceSearcher
+
+ghost
+decreases
+pure func (es EventIdxSearcher) Props() bool {
+    return es.ctx != nil && es.ctx.Props()
+}
+
+ghost
+decreases
+requires es.Props()
+ensures  res != nil && res.Props()
+pure func (es EventIdxSearcher) Ctx() (res tri.TraceContext) {
+    return es.ctx
+}
+
+ghost
+decreases
+pure func (es EventIdxSearcher) Matches(entry tr.TraceEntry) bool {
+    return entry.isEventAt(es.principal, es.event) && es.idx == entry.traceLen() - 1
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+pure func (es EventIdxSearcher) MatchProperties(snapshot tr.TraceEntry, entry tr.TraceEntry) bool {
+    return snapshot.eventOccursAt(es.principal, es.event, es.idx) &&
+        es.idx == entry.traceLen() - 1
+}
+
+ghost
+decreases
+pure func (es EventIdxSearcher) Occurs(entry tr.TraceEntry) bool {
+    return entry.eventOccursAt(es.principal, es.event, es.idx)
+}
+
+ghost
+decreases
+requires es.Props()
+pure func (es EventIdxSearcher) PureEntryInv(entry tr.TraceEntry) bool {
+    return es.Ctx().pureEventInv(es.principal, es.event, tr.getPrev(entry))
+}
+
+ghost
+decreases
+requires es.Matches(entry)
+ensures  es.MatchProperties(entry, entry)
+func (es EventIdxSearcher) MatchPropertiesReflexive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires entry.isSuffix(snapshot)
+requires es.Matches(entry)
+requires !es.Matches(snapshot)
+requires es.MatchProperties(tr.getPrev(snapshot), entry)
+ensures  es.MatchProperties(snapshot, entry)
+func (es EventIdxSearcher) MatchPropertiesTransitive(snapshot, entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires es.Occurs(entry)
+ensures  (!entry.isRoot() && es.Occurs(tr.getPrev(entry))) || es.Matches(entry)
+func (es EventIdxSearcher) OccursImpliesAnEventualMatch(entry tr.TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires noPerm < p && p <= writePerm
+requires es.Props()
+requires es.Matches(entry)
+requires acc(tri.validTrace(es.Ctx(), entry), p)
+ensures  es.PureEntryInv(entry)
+ensures  acc(tri.validTrace(es.Ctx(), entry), p)
+func (es EventIdxSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
+    unfold acc(tri.validTrace(es.Ctx(), entry), p)
+    (es.Ctx()).getPureEventInv(es.principal, es.event, tr.getPrev(entry), p)
+    fold acc(tri.validTrace(es.Ctx(), entry), p)
+}
+// end of EventIdxSearcher's implementation
+
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires snap.isSuffix(m.Snapshot(ctx, owner))
+requires snap.eventOccurs(principal, event)
+ensures  m.Mem(ctx, owner)
+ensures  prev.isSuffix(snap) && prev.isEvent()
+ensures  prev.isSuffix(m.Snapshot(ctx, owner))
+ensures  prev.isEventAt(principal, event)
+ensures  snap.eventOccurs(principal, event)
+ensures  prev == snap.eventOccursWitness(principal, event)
+ensures  m.Ctx(ctx, owner).pureEventInv(principal, event, tr.getPrev(prev))
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) EventOccursImpliesEventInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, principal p.Principal, event ev.Event) (prev tr.TraceEntry) {
+    searcher := EventSearcher{ ctx, principal, event }
+    // the following assert stmt is necessary to derive that `ctx != nil`:
+    assert unfolding m.Mem(ctx, owner) in true
+    prev = m.findEntryWithPureInvWithSnap(searcher, owner, snap)
+    prev.isSuffixTransitive(snap, m.Snapshot(ctx, owner))
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires m.Snapshot(ctx, owner).eventOccursAt(principal1, event1, idx1)
+requires m.Snapshot(ctx, owner).eventOccursAt(principal2, event2, idx2)
+requires m.Ctx(ctx, owner).IsUnique(event1.typ)
+requires event1.typ == event2.typ
+requires ctx.EventConsistency(event1) && ctx.EventConsistency(event2)
+requires ctx.UniquenessWitness(event1) == ctx.UniquenessWitness(event2)
+ensures  m.Mem(ctx, owner)
+ensures  principal1 == principal2
+ensures  event1 == event2
+ensures  idx1 == idx2
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+ensures  m.Snapshot(ctx, owner) == old(m.Snapshot(ctx, owner))
+// this lemma is part of the manager as it requires the validTrace predicate
+func (m *TraceManager) UniqueEventsAreUniqueAt(ctx tri.TraceContext, owner Client, principal1, principal2 p.Principal, event1, event2 ev.Event, idx1, idx2 int) {
+    // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    trace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(trace)
+    lastSeenTrace.eventOccursAtMonotonic(trace, principal1, event1, idx1)
+    lastSeenTrace.eventOccursAtMonotonic(trace, principal2, event2, idx2)
+    s1, s2 := m.findEvents(ctx, trace, principal1, principal2, event1, event2, idx1, idx2)
+    if (s1 != s2) {
+        // derive contradiction
+        nonce1 := ctx.isUniqueImpliesUniqueResource(principal1, event1, tr.getPrev(s1))
+        nonce2 := ctx.isUniqueImpliesUniqueResource(principal2, event2, tr.getPrev(s2))
+        tri.GetLabeling(ctx).NonceForEventContradiction(nonce1, event1.typ)
+    }
+    // the following assertion would hold:
+    // assert s1 == s2
+    apply ctx.eventInv(principal1, event1, tr.getPrev(s1)) --* tri.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    // there is no need to update the snapshot
+    m.mutex.UnlockWithSnapshot(inv, owner, trace, trace, lastSeenTrace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires suffix.isSuffix(m.Snapshot(ctx, owner))
+requires suffix.eventOccurs(principal, event)
+requires m.Ctx(ctx, owner).IsUnique(event.typ)
+ensures  m.Mem(ctx, owner)
+ensures  m.Snapshot(ctx, owner).eventOccurs(principal, event)
+ensures  suffix.eventOccursWitness(principal, event) == m.Snapshot(ctx, owner).eventOccursWitness(principal, event)
+ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) UniqueEventsOccurOnlyOnce(ctx tri.TraceContext, owner Client, suffix tr.TraceEntry, principal p.Principal, event ev.Event) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    suffix.eventOccursMonotonic(lastSeenTrace, principal, event)
+
+    suffixWitness := suffix.eventOccursWitness(principal, event)
+    suffixWitness.isSuffixTransitive(suffix, lastSeenTrace)
+    traceWitness := lastSeenTrace.eventOccursWitness(principal, event)
+
+    unfold m.Mem(ctx, owner)
+    trace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(trace)
+    searcher1 := EntrySearcher{ ctx, suffixWitness }
+    searcher2 := EntrySearcher{ ctx, traceWitness }
+    suffixWitness.isSuffixTransitive(lastSeenTrace, trace)
+    traceWitness.isSuffixTransitive(lastSeenTrace, trace)
+    s1, s2 := m.findEntriesWithInv(searcher1, searcher2, trace)
+    if s1 == s2 {
+        apply localValidTrace(ctx, s1) --* tri.validTrace(ctx, trace)
+    } else {
+        // derive contradiction
+        unfold localValidTrace(ctx, s1)
+        unfold localValidTrace(ctx, s2)
+        nonce1 := ctx.isUniqueImpliesUniqueResource(principal, event, tr.getPrev(s1))
+        nonce2 := ctx.isUniqueImpliesUniqueResource(principal, event, tr.getPrev(s2))
+        tri.GetLabeling(ctx).NonceForEventContradiction(nonce1, event.typ)
+    }
+    fold inv.CurrentValueInv(trace)
+    // there is no need to update the snapshot
+    m.mutex.UnlockWithSnapshot(inv, owner, trace, trace, lastSeenTrace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires ctx != nil && isComparable(ctx) && ctx.Props()
+requires tri.validTrace(ctx, validTraceEntry)
+requires validTraceEntry.eventOccursAt(principal1, event1, idx1)
+requires validTraceEntry.eventOccursAt(principal2, event2, idx2)
+ensures  s1.isEventAt(principal1, event1)
+ensures  s2.isEventAt(principal2, event2)
+ensures  s1.traceLen() - 1 == idx1
+ensures  s2.traceLen() - 1 == idx2
+ensures  s1 == s2 ==>
+    principal1 == principal2 &&
+    event1 == event2 &&
+    ctx.eventInv(principal1, event1, tr.getPrev(s1)) &&
+    (ctx.eventInv(principal1, event1, tr.getPrev(s1)) --* tri.validTrace(ctx, validTraceEntry))
+ensures s1 != s2 ==>
+    ctx.eventInv(principal1, event1, tr.getPrev(s1)) &&
+    ctx.eventInv(principal2, event2, tr.getPrev(s2))
+func (m *TraceManager) findEvents(ctx tri.TraceContext, validTraceEntry tr.TraceEntry, principal1, principal2 p.Principal, event1, event2 ev.Event, idx1, idx2 int) (s1, s2 tr.TraceEntry) {
+    searcher1 := EventIdxSearcher{ ctx, principal1, event1, idx1 }
+    searcher2 := EventIdxSearcher{ ctx, principal2, event2, idx2 }
+    s1, s2 = m.findEntriesWithInv(searcher1, searcher2, validTraceEntry)
+    unfold localValidTrace(ctx, s1)
+    if s1 == s2 {
+        package ctx.eventInv(principal1, event1, tr.getPrev(s1)) --* tri.validTrace(ctx, validTraceEntry) {
+            fold localValidTrace(ctx, s1)
+            apply localValidTrace(ctx, s1) --* tri.validTrace(ctx, validTraceEntry)
+        }
+    } else {
+        unfold localValidTrace(ctx, s2) 
+    }
+}
