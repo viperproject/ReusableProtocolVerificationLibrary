@@ -13,7 +13,13 @@ import (
 )
 
 //@ requires l.Mem()
-//@ requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
+// versionPerm == 0 ==> the nonce is not versioned
+//@ requires versionPerm >= 0
+// If the nonce is versioned, consume a partial permission to the guard and verify that it is readable by the owner at the current version (but not owner in general)
+// TODO_ the last part commented expressed that (Alice) or (Alice, i) should not be a valid secrecy label for a versioned nonce, but it was too complicated to verify. Currently, we can create a versioned nonce with secrecy label (Alice) and we will need to delete or convert it before the next bump.
+//@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), 1/versionPerm) && p.getIdType(l.Owner()) == 1 && tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.OwnerWithVersion() })) //&& !tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
+// If the nonce is unversioned, just verify that it is readable by the owner
+//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
@@ -21,14 +27,17 @@ import (
 //@ ensures  err == nil ==> lib.Abs(nonce) == tm.gamma(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> (l.LabelCtx()).NonceForEventIsUnique(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
-func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce lib.ByteString, err error) {
+// Return the same amount of receipt permission
+//@ ensures  err == nil ==> versionPerm > 0 ==> acc(lib.receipt(nonce, l.Version()), 1/versionPerm)
+// CreateNonce takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a versioned nonce. If versionPerm is set to 0, the nonce is not versioned.
+func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, ghost versionPerm int, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce lib.ByteString, err error) {
 	//@ unfold l.Mem()
-	nonce, err = l.s.CreateNonce(/*@ tri.GetLabeling(l.ctx), nonceLabel, usageString, eventTypes @*/)
+	nonce, err = l.s.CreateNonce(/*@ tri.GetLabeling(l.ctx), nonceLabel, versionPerm, l.version, usageString, eventTypes @*/)
 	// store nonce on trace
 	/*@
 	ghost if err == nil {
 		nonceT := tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString))
-		l.manager.LogNonce(l.ctx, l.owner, nonceT)
+		l.manager.LogNonceV(l.ctx, l.owner, l.version, versionPerm>0, nonceT)
 	}
 	@*/
 	//@ fold l.Mem()

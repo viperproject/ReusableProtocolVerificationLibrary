@@ -279,6 +279,7 @@ func (m *TraceManager) LogCorruption(ctx tri.TraceContext, owner Client, id p.Id
     assert tr.containsId(set[p.Id]{ id }, id)
 }
 
+// TODO_ remove this method, and update all its calls to use the new one
 ghost
 decreases
 requires m.Mem(ctx, owner)
@@ -293,6 +294,33 @@ ensures  m.Snapshot(ctx, owner).isNonceAt(nonce)
 ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) LogNonce(ctx tri.TraceContext, owner Client, nonce tm.Term) {
+    inv := ManagerInv{ ctx }
+    lastSeenTrace := m.Snapshot(ctx, owner)
+    unfold m.Mem(ctx, owner)
+    prevTrace := m.mutex.Lock(inv, owner)
+    unfold inv.CurrentValueInv(prevTrace)
+    // extend trace
+    trace := tr.makeNonce(prevTrace, nonce)
+    fold tri.randInv(ctx, nonce, prevTrace)
+    fold tri.validTrace(ctx, trace)
+    fold inv.CurrentValueInv(trace)
+    m.mutex.Unlock(inv, owner, prevTrace, trace)
+    fold m.Mem(ctx, owner)
+}
+
+ghost
+decreases
+requires m.Mem(ctx, owner)
+requires nonce.IsRandom()
+requires tri.GetLabeling(m.Ctx(ctx, owner)).NonceIsUnique(nonce)
+// The following two preconditions specify that `owner` can read the nonce
+requires isVersioned ==> p.getIdType(owner) == 1 && tri.GetLabeling(ctx).CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(owner), p.getIdSession(owner), version) }))
+requires !isVersioned ==> tri.GetLabeling(ctx).CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ owner }))
+ensures  m.Mem(ctx, owner)
+ensures  m.Snapshot(ctx, owner).isNonceAt(nonce)
+ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
+ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
+func (m *TraceManager) LogNonceV(ctx tri.TraceContext, owner Client, version uint32, isVersioned bool, nonce tm.Term) { // TODO_ rename to LogNonce
     inv := ManagerInv{ ctx }
     lastSeenTrace := m.Snapshot(ctx, owner)
     unfold m.Mem(ctx, owner)

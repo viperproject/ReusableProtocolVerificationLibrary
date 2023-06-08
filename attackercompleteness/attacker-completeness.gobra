@@ -88,7 +88,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), nonce)
 func CreateNonce(l *ll.LabeledLibrary, usageString string) (nonce tm.Term, err error) {
     unfold l.Mem()
     var nonceB lib.ByteString
-    nonceB, err = l.s.CreateNonce(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
+    nonceB, err = l.s.CreateNonce(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
     if err == nil {
         nonce = tm.random(lib.Abs(nonceB), label.Public(), u.Nonce(usageString))
         l.manager.LogNonce(l.ctx, l.owner, nonce)

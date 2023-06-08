@@ -65,6 +65,17 @@ requires b != nil ==> acc(Mem(b), _)
 ensures  b != nil ? res == Abs(b) : res == tm.zeroStringB(l)
 pure func SafeAbs(b ByteString, l int) (res tm.Bytes)
 
+// Predicate partially consumed on creation of versioned nonces
+pred guard(v uint32)
+
+// Predicate partially obtained on creation of versioned nonces
+pred receipt(key ByteString, v uint32)
+
+ensures guard(0)
+ensures guard(1)
+// Method to initially give guard predicates
+func ObtainInitialGuard() // TODO_ How to prevent this from being called multiple times?
+
 // abstract resource to mark nonces as such
 pred IsNonce(b tm.Bytes)
 @*/
@@ -121,12 +132,16 @@ func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, gho
 
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)
+//@ requires versionPerm >= 0
+//@ requires versionPerm > 0 ==> acc(guard(version), 1/versionPerm)
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(nonce) && Size(nonce) == NonceLength
 //@ ensures  err == nil ==> Abs(nonce) == tm.gamma(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
-func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost nonceLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce ByteString, err error) {
+//@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(nonce, version), 1/versionPerm)
+// CreateNonce takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a nonce with version `version`. If versionPerm is set to 0, the nonce is not versioned, and the value of `version` is ignored.
+func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost nonceLabel label.SecrecyLabel, ghost versionPerm int, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce ByteString, err error) {
 	var nonceArr [NonceLength]byte
 	nonce = nonceArr[:]
 	io.ReadFull(rand.Reader, nonce)
