@@ -88,6 +88,8 @@ func Size(b ByteString) (res int) {
 
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)
+//@ requires versionPerm >= 0
+//@ requires versionPerm > 0 ==> acc(guard(version), 1/versionPerm)
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(pk)
 //@ ensures  err == nil ==> Mem(sk)
@@ -95,7 +97,9 @@ func Size(b ByteString) (res int) {
 //@ ensures  err == nil ==> Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
-func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
+//@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(sk, version), 1/versionPerm)
+// GeneratePkeKey takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored.
+func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm int, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return
