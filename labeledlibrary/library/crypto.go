@@ -65,6 +65,17 @@ requires b != nil ==> acc(Mem(b), _)
 ensures  b != nil ? res == Abs(b) : res == tm.zeroStringB(l)
 pure func SafeAbs(b ByteString, l int) (res tm.Bytes)
 
+// Predicate partially consumed on creation of versioned nonces
+pred guard(v uint32)
+
+// Predicate partially obtained on creation of versioned nonces
+pred receipt(key ByteString, v uint32)
+
+ensures guard(0)
+ensures guard(1) // TODO_ not necessary with convert
+// Method to initially give guard predicates
+func ObtainInitialGuard() // TODO_ How to prevent this from being called multiple times?
+
 // abstract resource to mark nonces as such
 pred IsNonce(b tm.Bytes)
 @*/

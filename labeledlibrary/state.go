@@ -85,12 +85,15 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ requires com != nil && isComparable(com)
 //@ requires manager.Mem(ctx, owner)
 //@ requires ctx != nil && isComparable(ctx) && ctx.Props()
+//@ requires p.getIdType(owner) != 2 // owner is not a version Id (TODO_ use a wrapper method on ID: owner.isSession())
 //@ ensures  res.Mem()
 //@ ensures  res.Ctx() == ctx
 //@ ensures  res.Manager() == manager
 //@ ensures  res.Owner() == owner
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Snapshot(ctx, owner))
+//@ ensures lib.guard(0) // TODO_ add this only if owner is a session
+//@ ensures lib.guard(1) // TODO_ not necessary with convert
 // TODO manager, ctx, owner should be ghost
 func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tri.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
 	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
