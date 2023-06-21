@@ -13,7 +13,12 @@ import (
 )
 
 //@ requires l.Mem()
-//@ requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
+// versionPerm == 0 ==> the nonce is not versioned
+//@ requires versionPerm >= 0
+// If the nonce is versioned, consume a partial permission to the guard and verify that it is readable by the owner at the current version (or the owner in general)
+//@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), 1/versionPerm) && l.Owner().IsSession() && tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.OwnerWithVersion() }))
+// If the nonce is unversioned, just verify that it is readable by the owner
+//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())

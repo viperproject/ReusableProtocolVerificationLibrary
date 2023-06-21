@@ -69,6 +69,20 @@ pure func (l *LabeledLibrary) Owner() p.Id {
 
 ghost
 requires acc(l.Mem(), _)
+pure func (l *LabeledLibrary) Version() uint32 {
+	return unfolding acc(l.Mem(), _) in l.version
+}
+
+ghost
+requires acc(l.Mem(), _)
+requires l.Owner().IsSession() // owner is a session Id
+ensures  res == p.versionId(p.getIdPrincipal(l.Owner()), p.getIdSession(l.Owner()), l.Version())
+pure func (l *LabeledLibrary) OwnerWithVersion() (res p.Id) {
+	return unfolding acc(l.Mem(), _) in p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.version)
+}
+
+ghost
+requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) LabelCtx() labeling.LabelingContext {
 	return tri.GetLabeling(l.Ctx())
 }
@@ -85,15 +99,14 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ requires com != nil && isComparable(com)
 //@ requires manager.Mem(ctx, owner)
 //@ requires ctx != nil && isComparable(ctx) && ctx.Props()
-//@ requires p.getIdType(owner) != 2 // owner is not a version Id (TODO_ use a wrapper method on ID: owner.isSession())
+//@ requires !owner.IsVersion() // owner is not a version Id
 //@ ensures  res.Mem()
 //@ ensures  res.Ctx() == ctx
 //@ ensures  res.Manager() == manager
 //@ ensures  res.Owner() == owner
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Snapshot(ctx, owner))
-//@ ensures lib.guard(0) // TODO_ add this only if owner is a session
-//@ ensures lib.guard(1) // TODO_ not necessary with convert
+//@ ensures  owner.IsSession() ==> lib.guard(0)
 // TODO manager, ctx, owner should be ghost
 func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tri.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
 	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
