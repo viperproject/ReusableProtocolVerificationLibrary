@@ -115,12 +115,16 @@ func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, gh
 
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)
+//@ requires versionPerm >= 0
+//@ requires versionPerm > 0 ==> acc(guard(version), 1/versionPerm)
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(key) && Size(key) == 32
 //@ ensures  err == nil ==> Abs(key) == tm.gamma(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
-func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key ByteString, err error) {
+//@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(key, version), 1/versionPerm)
+// GenerateDHKey takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored.
+func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm int, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key ByteString, err error) {
 	var keyBuf [32]byte
 	key = keyBuf[:]
 	_, err = rand.Read(key)
