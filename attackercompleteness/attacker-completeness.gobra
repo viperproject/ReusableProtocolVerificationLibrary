@@ -338,7 +338,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
 func GenerateDHKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
     unfold l.Mem()
     var skB lib.ByteString
-    skB, err = l.s.GenerateDHKey(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
+    skB, err = l.s.GenerateDHKey(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.DhKey(usageString))
         l.manager.LogNonce(l.ctx, l.owner, sk)
