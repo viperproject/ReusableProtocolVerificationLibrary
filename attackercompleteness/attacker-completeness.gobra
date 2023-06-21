@@ -79,6 +79,8 @@ func Attacker(l *ll.LabeledLibrary) {
     }
 }
 
+// TODO_ In the functions below, I have just adapted them quickly to comply with the new signatures of the library functions. But I'm not sure if it gives complete control to the attacker.
+
 // operation 1: create nonce
 ghost
 requires l.Mem()
@@ -317,7 +319,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
 func GeneratePkeKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
     unfold l.Mem()
     var skB lib.ByteString
-    _, skB, err = l.s.GeneratePkeKey(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
+    _, skB, err = l.s.GeneratePkeKey(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.PkeKey(usageString))
         l.manager.LogNonce(l.ctx, l.owner, sk)
