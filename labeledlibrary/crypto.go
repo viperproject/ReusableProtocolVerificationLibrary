@@ -15,9 +15,8 @@ import (
 //@ requires l.Mem()
 // versionPerm == 0 ==> the nonce is not versioned
 //@ requires versionPerm >= 0
-// If the nonce is versioned, consume a partial permission to the guard and verify that it is readable by the owner at the current version (but not owner in general)
-// TODO_ the last part commented expressed that (Alice) or (Alice, i) should not be a valid secrecy label for a versioned nonce, but it was too complicated to verify. Currently, we can create a versioned nonce with secrecy label (Alice) and we will need to delete or convert it before the next bump.
-//@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), 1/versionPerm) && p.getIdType(l.Owner()) == 1 && tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.OwnerWithVersion() })) //&& !tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
+// If the nonce is versioned, consume a partial permission to the guard and verify that it is readable by the owner at the current version (or the owner in general)
+//@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), 1/versionPerm) && l.Owner().IsSession() && tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.OwnerWithVersion() }))
 // If the nonce is unversioned, just verify that it is readable by the owner
 //@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
 //@ ensures  l.Mem()
