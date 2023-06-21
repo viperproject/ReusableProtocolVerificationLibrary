@@ -72,7 +72,7 @@ pred guard(v uint32)
 pred receipt(key ByteString, v uint32)
 
 ensures guard(0)
-ensures guard(1)
+ensures guard(1) // TODO_ not necessary with convert
 // Method to initially give guard predicates
 func ObtainInitialGuard() // TODO_ How to prevent this from being called multiple times?
 

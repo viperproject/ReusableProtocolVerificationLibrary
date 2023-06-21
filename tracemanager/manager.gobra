@@ -14,6 +14,7 @@ import ts "github.com/ModularVerification/ReusableVerificationLibrary/concurrent
 type TraceManager struct {
     nClients int
     mutex *ts.ClientHistoryMutex
+    // TODO_ move version here + helper caller function
 }
 
 type Client = p.Id
