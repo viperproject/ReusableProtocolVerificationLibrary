@@ -108,7 +108,7 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ ensures  res.Version() == 0
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Snapshot(ctx, owner))
-//@ ensures  owner.IsSession() ==> lib.guard(0)
+//@ ensures  owner.IsSession() ==> lib.guard(0) // TODO_ depending on the chosen solution to the encryption problem, the participant may need to access the guard even if the owner is just a participant ID, in order to later call the decrypt function
 // TODO manager, ctx, owner should be ghost
 func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tri.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
 	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner, 0 @*/ }
