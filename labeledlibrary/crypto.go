@@ -141,6 +141,11 @@ func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, gho
 //@ requires acc(lib.Mem(sk), 1/8)
 //@ requires lib.Abs(sk) == tm.gamma(skT)
 //@ requires l.LabelCtx().CanDecrypt(l.Snapshot(), ciphertextT, skT, skOwner)
+// //@ requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(skT), label.Readers(set[p.Id]{ l.Owner() })) ==> versionPerm == 0
+// //@ requires !tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(skT), label.Readers(set[p.Id]{ l.Owner() })) ==> versionPerm > 0 && acc(lib.guard(l.Version()), 1/versionPerm) && l.Owner().IsSession()
+//@ requires versionPerm >= 0
+//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(skT), label.Readers(set[p.Id]{ l.Owner() }))
+//@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), 1/versionPerm) && l.Owner().IsSession()
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot())
@@ -149,12 +154,19 @@ func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, gho
 //@ ensures  err == nil ==> lib.Mem(msg)
 //@ ensures  err == nil ==> lib.Abs(ciphertext) == tm.encryptB(lib.Abs(msg), tm.createPkB(lib.Abs(sk)))
 //@ ensures  err == nil ==> (forall msgT tm.Term :: { tm.encrypt(msgT, tm.createPk(skT)) } ciphertextT == tm.encrypt(msgT, tm.createPk(skT)) ==>
-//@		l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner))
-func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost ciphertextT tm.Term, ghost skT tm.Term, ghost skOwner p.Id @*/) (msg lib.ByteString, err error) {
+//@		l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner) &&
+//@		(versionPerm>0 && tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(msgT), label.Readers(set[p.Id]{ l.Owner() })) ==> acc(lib.guard(l.Version()), 1/versionPerm)) &&
+//@		(versionPerm>0 && !tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(msgT), label.Readers(set[p.Id]{ l.Owner() })) ==> acc(lib.receipt(msg, l.Version()), 1/versionPerm)))
+// Dec takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when decrypting a value that is encrypted with a versioned key.
+func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost versionPerm int, ghost ciphertextT tm.Term, ghost skT tm.Term, ghost skOwner p.Id @*/) (msg lib.ByteString, err error) {
 	//@ unfold l.Mem()
 	msg, err = l.s.Dec(ciphertext, sk)
-	//@ fold l.Mem()
 	/*@
+	ghost if versionPerm>0 {
+		inhale acc(lib.receipt(msg, l.version), 1/versionPerm) // TODO_ How to obtain this permission without an inhale?
+	}
+	fold l.Mem()
+
 	ghost if err == nil {
 		pkT := tm.createPk(skT)
 

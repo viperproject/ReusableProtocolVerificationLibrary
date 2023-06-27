@@ -382,7 +382,7 @@ func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err e
     l.AttackerOnlyKnowsPublishableValues(sk)
     skOwner := arb.GetArbId()
     l.LabelCtx().CanDecryptWithPublicSk(l.Snapshot(), ciphertext, sk, skOwner)
-    _, err = l.Dec(ciphertextBytes, skBytes, ciphertext, sk, skOwner)
+    _, err = l.Dec(ciphertextBytes, skBytes, 0, ciphertext, sk, skOwner)
     if err != nil {
         return
     }
