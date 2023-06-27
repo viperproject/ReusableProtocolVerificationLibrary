@@ -153,18 +153,14 @@ func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, gho
 //@ ensures  err == nil ==> lib.Abs(ciphertext) == tm.encryptB(lib.Abs(msg), tm.createPkB(lib.Abs(sk)))
 //@ ensures  err == nil ==> (forall msgT tm.Term :: { tm.encrypt(msgT, tm.createPk(skT)) } ciphertextT == tm.encrypt(msgT, tm.createPk(skT)) ==>
 //@		l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner))
-//@ ensures versionPerm > 0 ==> acc(lib.receipt(msg, l.Version()), 1/versionPerm)
+//@ ensures err == nil && versionPerm > 0 ==> acc(lib.receipt(msg, l.Version()), 1/versionPerm)
 // Dec takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when decrypting a value that is encrypted with a versioned key.
 // Dec always consume the given guard permission, and returns a receipt, even if the decrypted message is not versioned. TODO_ we need a function that transforms this receipt back into a guard for unversioned variables. 
 func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost versionPerm int, ghost ciphertextT tm.Term, ghost skT tm.Term, ghost skOwner p.Id @*/) (msg lib.ByteString, err error) {
 	//@ unfold l.Mem()
-	msg, err = l.s.Dec(ciphertext, sk)
+	msg, err = l.s.Dec(ciphertext, sk /*@, versionPerm, l.version @*/)
+	//@ fold l.Mem()
 	/*@
-	ghost if versionPerm>0 {
-		inhale acc(lib.receipt(msg, l.version), 1/versionPerm) // TODO_ How to obtain this permission without an inhale?
-	}
-	fold l.Mem()
-
 	ghost if err == nil {
 		pkT := tm.createPk(skT)
 

@@ -192,12 +192,17 @@ func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error
 //@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(ciphertext), 1/16)
 //@ requires acc(Mem(sk), 1/16)
+//@ requires versionPerm >= 0
+//@ requires versionPerm > 0 ==> acc(guard(version), 1/versionPerm)
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(ciphertext), 1/16)
 //@ ensures  acc(Mem(sk), 1/16)
 //@ ensures  err == nil ==> Mem(msg)
 //@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), tm.createPkB(Abs(sk)))
-func (l *LibraryState) Dec(ciphertext, sk ByteString) (msg ByteString, err error) {
+//@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(msg, version), 1/versionPerm)
+// TODO_ having `version` as an argument here is not safe
+// TODO_ here, there is no check when versionPerm==0 that sk is unversioned, which is not safe
+func (l *LibraryState) Dec(ciphertext, sk ByteString /*@, ghost versionPerm int, ghost version uint32 @*/) (msg ByteString, err error) {
 	// unmarshal sk:
 	privateKey, err := x509.ParsePKCS1PrivateKey(sk)
 	if err != nil {
