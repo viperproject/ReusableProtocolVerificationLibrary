@@ -111,7 +111,7 @@ pred validTrace(ctx TraceContext, t TraceEntry) {
     (t.isEvent() ==> ctx.eventInv(getPrincipal(t), getEvent(t), getPrev(t))) &&
     (t.isMessage() ==> messageInv(ctx, getSender(t), getReceiver(t), getPayload(t), getPrev(t))) &&
     (t.isDropMessage() ==> messageInv(ctx, getSender(t), getReceiver(t), getPayload(t), getPrev(t))) &&
-    (t.isNonce() ==> randInv(ctx, getNonce(t), getPrev(t))) &&
+    (t.isNonce() ==> randInv(ctx, getNonce(t), getCreator(t), getPrev(t))) &&
     (t.isPublic() ==> madePublicInv(ctx, getPayload(t), getPrev(t)))
 }
 
@@ -140,17 +140,22 @@ func messageInvTransitive(ctx TraceContext, sender, receiver p.Principal, payloa
     GetLabeling(ctx).IsPublishableMonotonic(t1, t2, payload)
 }
 
-pred randInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) {
+pred randInv(ctx TraceContext, nonce tm.Term, creator p.Id, prev TraceEntry) {
     ctx != nil && ctx.Props() &&
-    pureRandInv(ctx, nonce, prev) &&
-    GetLabeling(ctx).NonceIsUnique(nonce)
+    pureRandInv(ctx, nonce, creator, prev) &&
+    GetLabeling(ctx).CanFlow(prev, tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ creator })) &&
+    (!is_rng_compromised(creator) ==> GetLabeling(ctx).NonceIsUnique(nonce))
 }
 
 ghost
 decreases
-pure func pureRandInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) bool {
+pure func pureRandInv(ctx TraceContext, nonce tm.Term, creator p.Id, prev TraceEntry) bool {
     return nonce.IsRandom()
 }
+
+ghost
+decreases
+pure func is_rng_compromised(id p.Id) bool
 
 ghost
 decreases

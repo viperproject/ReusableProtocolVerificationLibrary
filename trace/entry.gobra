@@ -17,7 +17,7 @@ type TraceEntry domain {
     // type 3
     func makeDropMessage(TraceEntry, p.Principal, p.Principal, tm.Term) TraceEntry
     // type 4
-    func makeNonce(TraceEntry, tm.Term) TraceEntry
+    func makeNonce(TraceEntry, tm.Term, p.Id) TraceEntry
     // type 5
     func makePublic(TraceEntry, tm.Term) TraceEntry
     // type 6
@@ -34,6 +34,7 @@ type TraceEntry domain {
     func getReceiver(TraceEntry) p.Principal
     func getPayload(TraceEntry) tm.Term
     func getNonce(TraceEntry) tm.Term
+    func getCreator(TraceEntry) p.Id
     func getId(TraceEntry) p.Id
 
     // each entry has a unique type
@@ -72,9 +73,10 @@ type TraceEntry domain {
     }
 
     axiom { // nonce entry is injective
-        forall prev TraceEntry, nonce tm.Term :: { makeNonce(prev, nonce) } getType(makeNonce(prev, nonce)) == 4 &&
-            getPrev(makeNonce(prev, nonce)) == prev &&
-            getNonce(makeNonce(prev, nonce)) == nonce
+        forall prev TraceEntry, nonce tm.Term, creator p.Id :: { makeNonce(prev, nonce, creator) } getType(makeNonce(prev, nonce, creator)) == 4 &&
+            getPrev(makeNonce(prev, nonce, creator)) == prev &&
+            getNonce(makeNonce(prev, nonce, creator)) == nonce &&
+            getCreator(makeNonce(prev, nonce, creator)) == creator
     }
 
     axiom { // public entry is injective

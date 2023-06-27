@@ -283,7 +283,7 @@ ghost
 decreases
 requires m.Mem(ctx, owner)
 requires nonce.IsRandom()
-requires tri.GetLabeling(m.Ctx(ctx, owner)).NonceIsUnique(nonce)
+requires !tri.is_rng_compromised(owner) ==> tri.GetLabeling(m.Ctx(ctx, owner)).NonceIsUnique(nonce)
 // the following precondition specifies that `owner` can read the nonce
 // i.e. this enforces for upper library layers that an owner cannot create nonces
 // or keys that it cannot read itself
@@ -299,8 +299,8 @@ func (m *TraceManager) LogNonce(ctx tri.TraceContext, owner Client, nonce tm.Ter
     prevTrace := m.mutex.Lock(inv, owner)
     unfold inv.CurrentValueInv(prevTrace)
     // extend trace
-    trace := tr.makeNonce(prevTrace, nonce)
-    fold tri.randInv(ctx, nonce, prevTrace)
+    trace := tr.makeNonce(prevTrace, nonce, owner)
+    fold tri.randInv(ctx, nonce, owner, prevTrace)
     fold tri.validTrace(ctx, trace)
     fold inv.CurrentValueInv(trace)
     m.mutex.Unlock(inv, owner, prevTrace, trace)

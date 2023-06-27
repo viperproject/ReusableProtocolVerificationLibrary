@@ -76,6 +76,16 @@ func Size(b ByteString) (res int) {
 	return len(b)
 }
 
+// we define an abstract getter to model the possibility of a compromised random number generator (RNG),
+// i.e., a generator returning deterministic outputs that we do not assume to be pairwise distinct.
+// This method depends on the library state such that we distinguish random number generator compromise
+// per protocol participant or session.
+/*@
+decreases
+requires acc(l.Mem(), 1/16)
+pure func (l *LibraryState) is_rng_compromised() bool
+@*/
+
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)
 //@ ensures  acc(l.Mem(), 1/16)
@@ -83,8 +93,8 @@ func Size(b ByteString) (res int) {
 //@ ensures  err == nil ==> Mem(sk)
 //@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk))
 //@ ensures  err == nil ==> Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
-//@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
+//@ ensures  err == nil && !l.is_rng_compromised() ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
+//@ ensures  err == nil && !l.is_rng_compromised() ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -104,8 +114,8 @@ func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, gh
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(key) && Size(key) == 32
 //@ ensures  err == nil ==> Abs(key) == tm.gamma(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
-//@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
+//@ ensures  err == nil && !l.is_rng_compromised() ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
+//@ ensures  err == nil && !l.is_rng_compromised() ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
 func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key ByteString, err error) {
 	var keyBuf [32]byte
 	key = keyBuf[:]
@@ -124,8 +134,8 @@ func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, gho
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(nonce) && Size(nonce) == NonceLength
 //@ ensures  err == nil ==> Abs(nonce) == tm.gamma(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
-//@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
+//@ ensures  err == nil && !l.is_rng_compromised() ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
+//@ ensures  err == nil && !l.is_rng_compromised() ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost nonceLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce ByteString, err error) {
 	var nonceArr [NonceLength]byte
 	nonce = nonceArr[:]

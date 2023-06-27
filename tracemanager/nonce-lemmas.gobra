@@ -49,7 +49,7 @@ ghost
 decreases
 requires ns.Props()
 pure func (ns NonceSearcher) PureEntryInv(entry tr.TraceEntry) bool {
-    return tri.pureRandInv(ns.ctx, ns.nonce, tr.getPrev(entry))
+    return tri.pureRandInv(ns.ctx, ns.nonce, tr.getCreator(entry), tr.getPrev(entry))
 }
 
 ghost
@@ -89,7 +89,7 @@ ensures  ns.PureEntryInv(entry)
 ensures  acc(tri.validTrace(ns.Ctx(), entry), p)
 func (ns NonceSearcher) ExtractPureEntryInv(entry tr.TraceEntry, p perm) {
     unfold acc(tri.validTrace(ns.Ctx(), entry), p)
-    assert unfolding acc(tri.randInv(ns.Ctx(), ns.nonce, tr.getPrev(entry)), p) in true
+    assert unfolding acc(tri.randInv(ns.Ctx(), ns.nonce, tr.getCreator(entry), tr.getPrev(entry)), p) in true
     fold acc(tri.validTrace(ns.Ctx(), entry), p)
 }
 // end of NonceSearcher's implementation
@@ -102,7 +102,7 @@ requires (m.Snapshot(ctx, owner)).OnlyNonceOccurs(nonce)
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(m.Snapshot(ctx, owner)) && prev.isNonce()
 ensures  prev.isNonceAt(nonce)
-ensures  tri.pureRandInv(ctx, nonce, tr.getPrev(prev))
+ensures  tri.pureRandInv(ctx, nonce, tr.getCreator(prev), tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
 func (m *TraceManager) NonceOccursImpliesRandInv(ctx tri.TraceContext, owner Client, nonce tm.Term) (prev tr.TraceEntry) {

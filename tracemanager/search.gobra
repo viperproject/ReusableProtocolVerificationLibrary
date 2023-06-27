@@ -227,7 +227,7 @@ pred localValidTrace(ctx tri.TraceContext, t tr.TraceEntry) {
     (t.isEvent() ==> ctx.eventInv(tr.getPrincipal(t), tr.getEvent(t), tr.getPrev(t))) &&
     (t.isMessage() ==> tri.messageInv(ctx, tr.getSender(t), tr.getReceiver(t), tr.getPayload(t), tr.getPrev(t))) &&
     (t.isDropMessage() ==> tri.messageInv(ctx, tr.getSender(t), tr.getReceiver(t), tr.getPayload(t), tr.getPrev(t))) &&
-    (t.isNonce() ==> tri.randInv(ctx, tr.getNonce(t), tr.getPrev(t))) &&
+    (t.isNonce() ==> tri.randInv(ctx, tr.getNonce(t), tr.getCreator(t), tr.getPrev(t))) &&
     (t.isPublic() ==> tri.madePublicInv(ctx, tr.getPayload(t), tr.getPrev(t)))
 }
 

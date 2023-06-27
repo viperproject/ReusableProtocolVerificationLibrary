@@ -74,7 +74,7 @@ pure func (l *LabeledLibrary) EventIsUnique(principal p.Principal, event ev.Even
 ghost
 decreases
 requires l.Mem()
-requires len(readers) > 0
+// requires len(readers) > 0
 requires l.LabelCtx().IsLabeled(l.Snapshot(), term, label.Readers(readers)) ||
 	tr.containsCorruptId(l.Snapshot().getCorruptIds(), readers)
 ensures  l.Mem()

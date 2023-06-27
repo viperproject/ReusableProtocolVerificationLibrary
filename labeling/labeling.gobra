@@ -1884,6 +1884,8 @@ func (ctx LabelingContext) CiphertextIsPublishable(t tr.TraceEntry, msg, pk tm.T
     msgLabel := ctx.GetLabel(msg)
     if ctx.IsPublishable(t, msg) {
         ctx.FlowsToPublicCanFlow(t, msgLabel, ctx.GetSkLabel(pk))
+    } else {
+        assert ctx.IsPublicEncKeyExistential(t, pk, ctx.GetSkLabel(pk), u.GetUsageString(get(ctx.GetUsage(tm.getSk(pk)))));
     }
     // the following assert stmt is necessary:
 	assert ctx.IsValidEncrypt(t, pk, msg, msgLabel)
