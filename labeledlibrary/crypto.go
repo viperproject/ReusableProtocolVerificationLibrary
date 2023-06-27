@@ -117,12 +117,32 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm int, ghost usageStr
 //@ requires versionPerm > 0 && acc(lib.receipt(value, version), 1/versionPerm)
 //@ requires lib.Mem(value)
 //@ ensures  l.Mem()
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  l.Snapshot() == old(l.Snapshot()) // TODO_ once I log the value deletion on the trace, this should be changed
 //@ ensures  err == nil ==> acc(lib.guard(version), 1/versionPerm)
-func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, version uint32, versionPerm int @*/) (err error) {
+// TODO_ It has a `version` parameter, which is not strictly necessary. We could use `l.Version()` instead, but this would prevent the (rare) case where we want to delete a value with a future version (from `ConvertToNextVersion`)
+func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost version uint32, ghost versionPerm int @*/) (err error) {
 	//@ unfold l.Mem()
 	err = l.s.DeleteSafely(value /*@, version, versionPerm @*/)
+	// TODO_ log the value deletion on the trace
 	//@ fold l.Mem()
 }
+
+//@ ghost
+//@ requires l.Mem()
+//@ requires acc(lib.Mem(value), 1/8)
+//@ requires lib.Abs(value) == tm.gamma(valueT)
+//@ requires l.Owner().IsSession()
+//@ requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
+//@ requires acc(lib.guard(l.Version() + 1), 1/versionPerm)
+//@ requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(valueT), label.Readers(set[p.Id]{ l.OwnerWithNextVersion() }))
+//@ ensures  l.Mem()
+//@ ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ If convert should be logged onto the trace, then this should be changed
+//@ ensures  l.Snapshot() == old(l.Snapshot())
+//@ ensures acc(lib.Mem(value), 1/8)
+//@ ensures  acc(lib.guard(l.Version()), 1/versionPerm)
+//@ ensures  acc(lib.receipt(value, l.Version() + 1), 1/versionPerm)
+//@ func (l* LabeledLibrary) ConvertToNextVersion(value lib.ByteString, valueT tm.Term, versionPerm int)
 
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(msg), 1/8)

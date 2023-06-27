@@ -83,6 +83,14 @@ pure func (l *LabeledLibrary) OwnerWithVersion() (res p.Id) {
 
 ghost
 requires acc(l.Mem(), _)
+requires l.Owner().IsSession() // owner is a session Id
+ensures  res == p.versionId(p.getIdPrincipal(l.Owner()), p.getIdSession(l.Owner()), l.Version()+1)
+pure func (l *LabeledLibrary) OwnerWithNextVersion() (res p.Id) {
+	return unfolding acc(l.Mem(), _) in p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.version+1)
+}
+
+ghost
+requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) LabelCtx() labeling.LabelingContext {
 	return tri.GetLabeling(l.Ctx())
 }
