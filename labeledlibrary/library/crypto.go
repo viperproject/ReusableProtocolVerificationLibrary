@@ -158,6 +158,15 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost
 }
 
 //@ trusted
+//@ requires Mem(value)
+//@ requires versionPerm > 0 && acc(receipt(value, version), 1/versionPerm)
+//@ ensures err == nil ==> acc(guard(version), 1/versionPerm)
+// TODO_ having `version` as an argument here is not safe
+func (l* LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, ghost versionPerm int @*/) (err error) {
+	// TODO_ add an actual implementation of memory deletion
+}
+
+//@ trusted
 //@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(msg), 1/16)
 //@ requires acc(Mem(pk), 1/16)

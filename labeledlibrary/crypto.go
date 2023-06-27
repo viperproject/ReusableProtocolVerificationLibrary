@@ -114,6 +114,17 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm int, ghost usageStr
 }
 
 //@ requires l.Mem()
+//@ requires versionPerm > 0 && acc(lib.receipt(value, version), 1/versionPerm)
+//@ requires lib.Mem(value)
+//@ ensures  l.Mem()
+//@ ensures  err == nil ==> acc(lib.guard(version), 1/versionPerm)
+func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, version uint32, versionPerm int @*/) (err error) {
+	//@ unfold l.Mem()
+	err = l.s.DeleteSafely(value /*@, version, versionPerm @*/)
+	//@ fold l.Mem()
+}
+
+//@ requires l.Mem()
 //@ requires acc(lib.Mem(msg), 1/8)
 //@ requires lib.Abs(msg) == tm.gamma(msgT)
 //@ requires acc(lib.Mem(pk), 1/8)
