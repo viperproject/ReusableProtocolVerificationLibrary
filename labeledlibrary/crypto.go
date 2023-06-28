@@ -114,16 +114,15 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm int, ghost usageStr
 }
 
 //@ requires l.Mem()
-//@ requires versionPerm > 0 && acc(lib.receipt(value, version), 1/versionPerm)
+//@ requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
 //@ requires lib.Mem(value)
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot()) // TODO_ once I log the value deletion on the trace, this should be changed
-//@ ensures  err == nil ==> acc(lib.guard(version), 1/versionPerm)
-// TODO_ It has a `version` parameter, which is not strictly necessary. We could use `l.Version()` instead, but this would prevent the (rare) case where we want to delete a value with a future version (from `ConvertToNextVersion`)
-func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost version uint32, ghost versionPerm int @*/) (err error) {
+//@ ensures  err == nil ==> acc(lib.guard(l.Version()), 1/versionPerm)
+func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost versionPerm int @*/) (err error) {
 	//@ unfold l.Mem()
-	err = l.s.DeleteSafely(value /*@, version, versionPerm @*/)
+	err = l.s.DeleteSafely(value /*@, l.version, versionPerm @*/)
 	// TODO_ log the value deletion on the trace
 	//@ fold l.Mem()
 }
