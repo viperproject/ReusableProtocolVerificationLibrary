@@ -128,21 +128,36 @@ func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost version ui
 	//@ fold l.Mem()
 }
 
-//@ ghost
-//@ requires l.Mem()
-//@ requires acc(lib.Mem(value), 1/8)
-//@ requires lib.Abs(value) == tm.gamma(valueT)
-//@ requires l.Owner().IsSession()
-//@ requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
-//@ requires acc(lib.guard(l.Version() + 1), 1/versionPerm)
-//@ requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(valueT), label.Readers(set[p.Id]{ l.OwnerWithNextVersion() }))
-//@ ensures  l.Mem()
-//@ ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ If convert should be logged onto the trace, then this should be changed
-//@ ensures  l.Snapshot() == old(l.Snapshot())
-//@ ensures acc(lib.Mem(value), 1/8)
-//@ ensures  acc(lib.guard(l.Version()), 1/versionPerm)
-//@ ensures  acc(lib.receipt(value, l.Version() + 1), 1/versionPerm)
-//@ func (l* LabeledLibrary) ConvertToNextVersion(value lib.ByteString, valueT tm.Term, versionPerm int)
+/*@
+ghost
+requires l.Mem()
+requires acc(lib.Mem(value), 1/8)
+requires lib.Abs(value) == tm.gamma(valueT)
+requires l.Owner().IsSession()
+requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
+requires acc(lib.guard(l.Version() + 1), 1/versionPerm)
+requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(valueT), label.Readers(set[p.Id]{ l.OwnerWithNextVersion() }))
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ If ConvertToNextVersion should be logged onto the trace, then this should be changed
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  acc(lib.Mem(value), 1/8)
+ensures  acc(lib.guard(l.Version()), 1/versionPerm)
+ensures  acc(lib.receipt(value, l.Version() + 1), 1/versionPerm)
+func (l* LabeledLibrary) ConvertToNextVersion(value lib.ByteString, valueT tm.Term, versionPerm int)
+
+ghost
+requires l.Mem()
+requires acc(lib.Mem(value), 1/8)
+requires lib.Abs(value) == tm.gamma(valueT)
+requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
+requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(valueT), label.Readers(set[p.Id]{ l.Owner() }))
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ If GuardFromReceiptUnversioned should be logged onto the trace, then this should be changed
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  acc(lib.Mem(value), 1/8)
+ensures  acc(lib.guard(l.Version()), 1/versionPerm)
+func (l* LabeledLibrary) GuardFromReceiptUnversioned(value lib.ByteString, valueT tm.Term, versionPerm int)
+@*/
 
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(msg), 1/8)
