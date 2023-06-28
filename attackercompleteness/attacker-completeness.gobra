@@ -382,7 +382,7 @@ func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err e
     l.AttackerOnlyKnowsPublishableValues(sk)
     skOwner := arb.GetArbId()
     l.LabelCtx().CanDecryptWithPublicSk(l.Snapshot(), ciphertext, sk, skOwner)
-    inhale l.LabelCtx().CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(sk), label.Readers(set[p.Id]{ l.Owner() })) // Cas where sk is unversioned. TODO_ change attacker functions to consider both cases and remove the inhale
+    inhale l.LabelCtx().CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(sk), label.Readers(set[p.Id]{ l.Owner() })) // Case where sk is unversioned. TODO_ change attacker functions to consider both cases and remove the inhale
     _, err = l.Dec(ciphertextBytes, skBytes, 0, ciphertext, sk, skOwner)
     if err != nil {
         return

@@ -200,7 +200,7 @@ func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, gho
 //@		l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner))
 //@ ensures err == nil && versionPerm > 0 ==> acc(lib.receipt(msg, l.Version()), 1/versionPerm)
 // Dec takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when decrypting a value that is encrypted with a versioned key.
-// Dec always consume the given guard permission, and returns a receipt, even if the decrypted message is not versioned. TODO_ we need a function that transforms this receipt back into a guard for unversioned variables. 
+// Dec always consume the given guard permission, and returns a receipt, even if the decrypted message is not versioned. In this case, the receipt can then be converted back into a guard with `GuardFromReceiptUnversioned`.
 func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost versionPerm int, ghost ciphertextT tm.Term, ghost skT tm.Term, ghost skOwner p.Id @*/) (msg lib.ByteString, err error) {
 	//@ unfold l.Mem()
 	msg, err = l.s.Dec(ciphertext, sk /*@, versionPerm, l.version @*/)
