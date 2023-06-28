@@ -13,7 +13,7 @@ import (
 )
 
 //@ requires l.Mem()
-//@ requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
+//@ requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.OwnerWoThread() }))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
@@ -43,11 +43,12 @@ func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, gh
 //@ ensures  err == nil ==> lib.Mem(sk)
 //@ ensures  err == nil ==> lib.Abs(sk) == tm.gamma(skT) && lib.Abs(pk) == tm.createPkB(lib.Abs(sk))
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
-//@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.Owner() }), u.PkeKey(usageString))
+//@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.OwnerWoThread() }), u.PkeKey(usageString))
 // TODO make skT ghost
 func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost usageString string @*/) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
+	//@ ownerWoThread := l.OwnerWoThread()
 	//@ unfold l.Mem()
-	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
+	//@ keyLabel := label.Readers(set[p.Id]{ ownerWoThread })
 	pk, sk, err = l.s.GeneratePkeKey(/*@ tri.GetLabeling(l.ctx), keyLabel, usageString, set[ev.EventType]{} @*/)
 	// store sk on trace
 	/*@
@@ -67,12 +68,13 @@ func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost usageString string @*/) (pk, s
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
 //@ ensures  err == nil ==> lib.Mem(key) && lib.Size(key) == 32
 //@ ensures  err == nil ==> lib.Abs(key) == tm.gamma(skT)
-//@ ensures  err == nil ==> skT == tm.random(lib.Abs(key), label.Readers(set[p.Id]{ l.Owner() }), u.DhKey(usageString))
+//@ ensures  err == nil ==> skT == tm.random(lib.Abs(key), label.Readers(set[p.Id]{ l.OwnerWoThread() }), u.DhKey(usageString))
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> l.LabelCtx().NonceForEventIsUnique(skT, eventType)
 func (l *LabeledLibrary) GenerateDHKey(/*@ ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
+	//@ ownerWoThread := l.OwnerWoThread()
 	//@ unfold l.Mem()
-	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
+	//@ keyLabel := label.Readers(set[p.Id]{ ownerWoThread })
 	key, err = l.s.GenerateDHKey(/*@ tri.GetLabeling(l.ctx), keyLabel, usageString, eventTypes @*/)
 	// store key on trace
 	/*@

@@ -69,6 +69,12 @@ pure func (l *LabeledLibrary) Owner() p.Id {
 
 ghost
 requires acc(l.Mem(), _)
+pure func (l *LabeledLibrary) OwnerWoThread() p.Id {
+	return unfolding acc(l.Mem(), _) in l.owner.IsSessionThread() ? p.sessionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner)) : l.owner
+}
+
+ghost
+requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) LabelCtx() labeling.LabelingContext {
 	return tri.GetLabeling(l.Ctx())
 }
