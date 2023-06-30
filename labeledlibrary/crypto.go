@@ -114,9 +114,10 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm int, ghost usageStr
 }
 
 //@ requires l.Mem()
-//@ requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
+//@ requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm) && acc(lib.guard(l.Version()), 1/versionPerm)
 //@ requires lib.Mem(value)
 //@ ensures  l.Mem()
+//@ ensures  acc(lib.guard(l.Version()), 1/versionPerm)
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot()) // TODO_ once I log the value deletion on the trace, this should be changed
 //@ ensures  err == nil ==> acc(lib.guard(l.Version()), 1/versionPerm)
@@ -134,7 +135,7 @@ requires acc(lib.Mem(value), 1/8)
 requires lib.Abs(value) == tm.gamma(valueT)
 requires l.Owner().IsSession()
 requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
-requires acc(lib.guard(l.Version() + 1), 1/versionPerm)
+requires acc(lib.guardNext(l.Version() + 1), 1/versionPerm)
 requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(valueT), label.Readers(set[p.Id]{ l.OwnerWithNextVersion() }))
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ If ConvertToNextVersion should be logged onto the trace, then this should be changed
@@ -203,6 +204,12 @@ func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, gho
 // Dec always consume the given guard permission, and returns a receipt, even if the decrypted message is not versioned. In this case, the receipt can then be converted back into a guard with `GuardFromReceiptUnversioned`.
 func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost versionPerm int, ghost ciphertextT tm.Term, ghost skT tm.Term, ghost skOwner p.Id @*/) (msg lib.ByteString, err error) {
 	//@ unfold l.Mem()
+	/*@
+	ghost if versionPerm == 0 {
+		// In this case, the precondition has proved that `sk` is unversioned. We can inhale this predicate to use it to call the underlying Dec implementation.
+		inhale lib.IsUnversioned(sk)
+	}
+	@*/
 	msg, err = l.s.Dec(ciphertext, sk /*@, versionPerm, l.version @*/)
 	//@ fold l.Mem()
 	/*@
