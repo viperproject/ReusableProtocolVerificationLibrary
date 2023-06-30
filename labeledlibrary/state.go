@@ -23,7 +23,6 @@ type LabeledLibrary struct {
 	//@ ctx tri.TraceContext
 	//@ manager *tman.TraceManager
 	//@ owner p.Id
-	//@ version uint32
 }
 
 /*@
@@ -70,8 +69,8 @@ pure func (l *LabeledLibrary) Owner() p.Id {
 
 ghost
 requires acc(l.Mem(), _)
-pure func (l *LabeledLibrary) Version() uint32 {
-	return unfolding acc(l.Mem(), _) in l.version
+pure func (l *LabeledLibrary) Version() (res uint32) {
+	return unfolding acc(l.Mem(), _) in l.manager.Version(l.ctx, l.owner)
 }
 
 ghost
@@ -79,7 +78,7 @@ requires acc(l.Mem(), _)
 requires l.Owner().IsSession() // owner is a session Id
 ensures  res == p.versionId(p.getIdPrincipal(l.Owner()), p.getIdSession(l.Owner()), l.Version())
 pure func (l *LabeledLibrary) OwnerWithVersion() (res p.Id) {
-	return unfolding acc(l.Mem(), _) in p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.version)
+	return unfolding acc(l.Mem(), _) in p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.manager.Version(l.ctx, l.owner))
 }
 
 ghost
@@ -87,7 +86,7 @@ requires acc(l.Mem(), _)
 requires l.Owner().IsSession() // owner is a session Id
 ensures  res == p.versionId(p.getIdPrincipal(l.Owner()), p.getIdSession(l.Owner()), l.Version()+1)
 pure func (l *LabeledLibrary) OwnerWithNextVersion() (res p.Id) {
-	return unfolding acc(l.Mem(), _) in p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.version+1)
+	return unfolding acc(l.Mem(), _) in p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.manager.Version(l.ctx, l.owner)+1)
 }
 
 ghost
@@ -113,13 +112,12 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ ensures  res.Ctx() == ctx
 //@ ensures  res.Manager() == manager
 //@ ensures  res.Owner() == owner
-//@ ensures  res.Version() == 0
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Snapshot(ctx, owner))
 //@ ensures  owner.IsSession() ==> lib.guard(0) && lib.guardNext(1)
 // TODO manager, ctx, owner should be ghost
 func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tri.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
-	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner, 0 @*/ }
+	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
 	//@ fold res.Mem()
 	// The following inhales are allowed because it is assumed that NewLabeledLibrary is only called once, and give the initial guard permissions to the programmer, that are necessary for versioned operations. TODO_ the guard predicates should be stored elsewhere, possibly iny the Mem predicate of the manager
 	inhale lib.guard(0)
