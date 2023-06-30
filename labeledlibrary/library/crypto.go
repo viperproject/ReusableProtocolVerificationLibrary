@@ -67,13 +67,10 @@ pure func SafeAbs(b ByteString, l int) (res tm.Bytes)
 
 // Predicate partially consumed on creation of versioned nonces
 pred guard(v uint32)
+pred guardNext(v uint32) // Necessary for ratcheting
 
 // Predicate partially obtained on creation of versioned nonces
 pred receipt(key ByteString, v uint32)
-
-ensures guard(0)
-// Method to initially give guard predicates
-func ObtainInitialGuard() // TODO_ Change the mechanism to prevent this from being called multiple times
 
 // abstract resource to mark nonces as such
 pred IsNonce(b tm.Bytes)
@@ -98,7 +95,7 @@ func Size(b ByteString) (res int) {
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(sk, version), 1/versionPerm)
-// GeneratePkeKey takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored.
+// GeneratePkeKey takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
 func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm int, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -123,7 +120,7 @@ func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, gh
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(key, version), 1/versionPerm)
-// GenerateDHKey takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored.
+// GenerateDHKey takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
 func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm int, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key ByteString, err error) {
 	var keyBuf [32]byte
 	key = keyBuf[:]
@@ -145,8 +142,7 @@ func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, gho
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(nonce, version), 1/versionPerm)
-// CreateNonce takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a nonce with version `version`. If versionPerm is set to 0, the nonce is not versioned, and the value of `version` is ignored.
-// TODO_ having `version` as an argument here is not safe
+// CreateNonce takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a nonce with version `version`. If versionPerm is set to 0, the nonce is not versioned, and the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
 func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost nonceLabel label.SecrecyLabel, ghost versionPerm int, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce ByteString, err error) {
 	var nonceArr [NonceLength]byte
 	nonce = nonceArr[:]
@@ -158,8 +154,9 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost
 //@ trusted
 //@ requires Mem(value)
 //@ requires versionPerm > 0 && acc(receipt(value, version), 1/versionPerm)
+//@ requires acc(guard(version), 1/versionPerm) // This is to ensure that the version parameter corresponds to the current version // TODO_ is it good to require the same `versionPerm` amount as the one from the receipt?
+//@ ensures acc(guard(version), 1/versionPerm)
 //@ ensures err == nil ==> acc(guard(version), 1/versionPerm)
-// TODO_ having `version` as an argument here is not safe
 func (l* LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, ghost versionPerm int @*/) (err error) {
 	// TODO_ add an actual implementation of memory deletion
 }
@@ -195,11 +192,14 @@ func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error
 	return
 }
 
+//@ pred IsUnversioned (value ByteString) // Abstract predicate whose only purpose is to ensure a method that requires it that the value is unversioned, when the method cannot prove it itself. TODO_ maybe move elsewhere
+
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)
 //@ requires acc(Mem(ciphertext), 1/16)
 //@ requires acc(Mem(sk), 1/16)
 //@ requires versionPerm >= 0
+//@ requires versionPerm == 0 ==> IsUnversioned(sk)
 //@ requires versionPerm > 0 ==> acc(guard(version), 1/versionPerm)
 //@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(ciphertext), 1/16)
@@ -207,7 +207,7 @@ func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error
 //@ ensures  err == nil ==> Mem(msg)
 //@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), tm.createPkB(Abs(sk)))
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(msg, version), 1/versionPerm)
-// TODO_ having `version` as an argument here is not safe
+// Dec takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when decrypting a value that is encrypted with a versioned key with version `version`. If versionPerm is set to 0, the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
 // TODO_ here, there is no check when versionPerm==0 that sk is unversioned, which is not safe
 func (l *LibraryState) Dec(ciphertext, sk ByteString /*@, ghost versionPerm int, ghost version uint32 @*/) (msg ByteString, err error) {
 	// unmarshal sk:
