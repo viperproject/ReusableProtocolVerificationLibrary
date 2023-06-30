@@ -14,7 +14,7 @@ import ts "github.com/ModularVerification/ReusableVerificationLibrary/concurrent
 type TraceManager struct {
     nClients int
     mutex *ts.ClientHistoryMutex
-    // TODO_ move version here + helper caller function
+    version uint32
 }
 
 type Client = p.Id
@@ -34,6 +34,7 @@ ensures  acc(ms)
 ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> ms[clients[j]].Mem(ctx, clients[j])
 ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < len(clients) && 0 <= k && k < len(clients) ==>
             ms[clients[j]].ImmutableState(ctx, clients[j]) == ms[clients[k]].ImmutableState(ctx, clients[k])
+ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> ms[clients[j]].Version(ctx, clients[j]) == 0
 func NewTraceManager(ctx tri.TraceContext, clients []Client, root tr.TraceEntry, ghost p perm) (ms map[MapKey]*TraceManager) {
     ms = make(map[MapKey]*TraceManager)
 
@@ -59,12 +60,15 @@ func NewTraceManager(ctx tri.TraceContext, clients []Client, root tr.TraceEntry,
     invariant forall j int :: { managers[j] } 0 <= j && j < i ==> (&managers[j]).Mem(ctx, clients[j])
     invariant forall j int :: { clients[j] } 0 <= j && j < i ==>
                 ((ms[clients[j]].ImmutableState(ctx, clients[j])).mutex == mutex)
+    invariant forall j int :: { clients[j] } 0 <= j && j < i ==>
+                ms[clients[j]].Version(ctx, clients[j]) == 0
     decreases len(clients) - i
     for i := 0; i < len(clients); i++ {
         client := clients[i]
         m := &managers[i]
         m.nClients = len(clients)
         m.mutex = mutex
+        m.version = 0
         ms[client] = m
         fold m.Mem(ctx, client)
     }
@@ -74,6 +78,12 @@ pred (m *TraceManager) Mem(ctx tri.TraceContext, owner Client) {
     acc(m) && 0 < m.nClients &&
     ctx != nil && isComparable(ctx) && ctx.Props() &&
     m.mutex.ClientHistoryMutexState(ManagerInv{ ctx }, owner)
+}
+
+ghost
+requires acc(m.Mem(ctx, owner), _)
+pure func (m *TraceManager) Version(ctx tri.TraceContext, owner Client) uint32 {
+	return unfolding acc(m.Mem(ctx, owner), _) in m.version
 }
 
 ghost
@@ -96,6 +106,7 @@ pure func (m *TraceManager) Snapshot(ctx tri.TraceContext, owner Client) tr.Trac
 // TODO should be ghost
 type ImmutableState struct {
     mutex *ts.ClientHistoryMutex
+    version uint32 // `version` is not actually immutable, as it changes with `BumpVersion`. However, changes are rare and it is handy to put it into ImmutableState not to write immutability postconditions everywhere. TODO_ is it ok like this?
     // clients do not need to be included as they follow from pointer equality on the mutex and the `ClientsAreIdentical` lemma
 }
 
@@ -103,7 +114,7 @@ ghost
 decreases
 requires acc(m.Mem(ctx, owner), _)
 pure func (m *TraceManager) ImmutableState(ctx tri.TraceContext, owner Client) ImmutableState {
-    return unfolding acc(m.Mem(ctx, owner), _) in ImmutableState{ m.mutex }
+    return unfolding acc(m.Mem(ctx, owner), _) in ImmutableState{ m.mutex, m.version }
 }
 
 ghost
@@ -314,7 +325,7 @@ requires m.Mem(ctx, owner)
 requires nonce.IsRandom()
 requires tri.GetLabeling(m.Ctx(ctx, owner)).NonceIsUnique(nonce)
 // The following two preconditions specify that `owner` can read the nonce
-requires isVersioned ==> owner.IsSession() && tri.GetLabeling(ctx).CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(owner), p.getIdSession(owner), version) }))
+requires isVersioned ==> owner.IsSession() && tri.GetLabeling(ctx).CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(owner), p.getIdSession(owner), m.Version(ctx, owner)) }))
 requires !isVersioned ==> tri.GetLabeling(ctx).CanFlow(m.Snapshot(ctx, owner), tm.getRandomLabel(nonce), label.Readers(set[p.Id]{ owner }))
 ensures  m.Mem(ctx, owner)
 ensures  m.Snapshot(ctx, owner).isNonceAt(nonce)

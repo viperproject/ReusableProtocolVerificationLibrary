@@ -31,12 +31,12 @@ import (
 // CreateNonce takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when creating a versioned nonce. If versionPerm is set to 0, the nonce is not versioned.
 func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, ghost versionPerm int, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce lib.ByteString, err error) {
 	//@ unfold l.Mem()
-	nonce, err = l.s.CreateNonce(/*@ tri.GetLabeling(l.ctx), nonceLabel, usageString, eventTypes @*/)
+	nonce, err = l.s.CreateNonce(/*@ tri.GetLabeling(l.ctx), nonceLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, eventTypes @*/)
 	// store nonce on trace
 	/*@
 	ghost if err == nil {
 		nonceT := tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString))
-		l.manager.LogNonce(l.ctx, l.owner, nonceT)
+		l.manager.LogNonceV(l.ctx, l.owner, l.manager.Version(l.ctx, l.owner), versionPerm>0, nonceT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -64,15 +64,15 @@ func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost versionPerm int, ghost usageSt
 	//@ unfold l.Mem()
 	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
 	//@ ghost if versionPerm>0 {
-	//@ 	keyLabel = label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.version) }) // OwnerWithVersion label
+	//@ 	keyLabel = label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.manager.Version(l.ctx, l.owner)) }) // OwnerWithVersion label
 	//@ }
-	pk, sk, err = l.s.GeneratePkeKey(/*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.version, usageString, set[ev.EventType]{} @*/)
+	pk, sk, err = l.s.GeneratePkeKey(/*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, set[ev.EventType]{} @*/)
 	// store sk on trace
 	/*@
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(sk), keyLabel, u.PkeKey(usageString))
 		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
-		l.manager.LogNonceV(l.ctx, l.owner, l.version, versionPerm>0, skT)
+		l.manager.LogNonceV(l.ctx, l.owner, l.manager.Version(l.ctx, l.owner), versionPerm>0, skT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -98,15 +98,15 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm int, ghost usageStr
 	//@ unfold l.Mem()
 	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
 	//@ ghost if versionPerm>0 {
-	//@ 	keyLabel = label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.version) }) // OwnerWithVersion label
+	//@ 	keyLabel = label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.manager.Version(l.ctx, l.owner)) }) // OwnerWithVersion label
 	//@ }
-	key, err = l.s.GenerateDHKey(/*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.version, usageString, eventTypes @*/)
+	key, err = l.s.GenerateDHKey(/*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, eventTypes @*/)
 	// store key on trace
 	/*@
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString))
 		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
-		l.manager.LogNonceV(l.ctx, l.owner, l.version, versionPerm>0, skT)
+		l.manager.LogNonceV(l.ctx, l.owner, l.manager.Version(l.ctx, l.owner), versionPerm>0, skT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -123,7 +123,7 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm int, ghost usageStr
 //@ ensures  err == nil ==> acc(lib.guard(l.Version()), 1/versionPerm)
 func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost versionPerm int @*/) (err error) {
 	//@ unfold l.Mem()
-	err = l.s.DeleteSafely(value /*@, l.version, versionPerm @*/)
+	err = l.s.DeleteSafely(value /*@, l.manager.Version(l.ctx, l.owner), versionPerm @*/)
 	// TODO_ log the value deletion on the trace
 	//@ fold l.Mem()
 }
@@ -163,16 +163,18 @@ requires l.Mem()
 requires acc(lib.guard(l.Version()), 1/1)
 requires nextPermDenom > 0 && nextPermNum >= 0 && acc(lib.guardNext(l.Version() + 1), nextPermNum/nextPermDenom)
 ensures  l.Mem()
-// ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ uncomment once `version` is moved to the TraceManager
+// ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ treat this case separately (everything except `version` remains the same)
 ensures  l.Snapshot() == old(l.Snapshot())
 ensures  l.Version() == old(l.Version()) + 1
 ensures  acc(lib.guard(l.Version()), nextPermNum/nextPermDenom)
 ensures  acc(lib.guardNext(l.Version() + 1), 1/1)
 func (l* LabeledLibrary) BumpVersion(nextPermNum int, nextPermDenom int) {
 	unfold l.Mem()
-	l.version = l.version + 1
-	inhale acc(lib.guard(l.version), nextPermNum/nextPermDenom)
-	inhale acc(lib.guardNext(l.version + 1), 1/1)
+	unfold l.manager.Mem(l.ctx, l.owner)
+	l.manager.version = l.manager.version + 1
+	fold l.manager.Mem(l.ctx, l.owner)
+	inhale acc(lib.guard(l.manager.Version(l.ctx, l.owner)), nextPermNum/nextPermDenom)
+	inhale acc(lib.guardNext(l.manager.Version(l.ctx, l.owner) + 1), 1/1)
 	fold l.Mem()
 }
 @*/
@@ -228,7 +230,7 @@ func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost versionPer
 		inhale lib.IsUnversioned(sk)
 	}
 	@*/
-	msg, err = l.s.Dec(ciphertext, sk /*@, versionPerm, l.version @*/)
+	msg, err = l.s.Dec(ciphertext, sk /*@, versionPerm, l.manager.Version(l.ctx, l.owner) @*/)
 	//@ fold l.Mem()
 	/*@
 	ghost if err == nil {
