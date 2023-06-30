@@ -138,7 +138,7 @@ requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
 requires acc(lib.guardNext(l.Version() + 1), 1/versionPerm)
 requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(valueT), label.Readers(set[p.Id]{ l.OwnerWithNextVersion() }))
 ensures  l.Mem()
-ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ If ConvertToNextVersion should be logged onto the trace, then this should be changed
+ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
 ensures  acc(lib.Mem(value), 1/8)
 ensures  acc(lib.guard(l.Version()), 1/versionPerm)
@@ -152,11 +152,29 @@ requires lib.Abs(value) == tm.gamma(valueT)
 requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), 1/versionPerm)
 requires tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(valueT), label.Readers(set[p.Id]{ l.Owner() }))
 ensures  l.Mem()
-ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ If GuardFromReceiptUnversioned should be logged onto the trace, then this should be changed
+ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
 ensures  acc(lib.Mem(value), 1/8)
 ensures  acc(lib.guard(l.Version()), 1/versionPerm)
 func (l* LabeledLibrary) GuardFromReceiptUnversioned(value lib.ByteString, valueT tm.Term, versionPerm int)
+
+ghost
+requires l.Mem()
+requires acc(lib.guard(l.Version()), 1/1)
+requires nextPermDenom > 0 && nextPermNum >= 0 && acc(lib.guardNext(l.Version() + 1), nextPermNum/nextPermDenom)
+ensures  l.Mem()
+// ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ uncomment once `version` is moved to the TraceManager
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  l.Version() == old(l.Version()) + 1
+ensures  acc(lib.guard(l.Version()), nextPermNum/nextPermDenom)
+ensures  acc(lib.guardNext(l.Version() + 1), 1/1)
+func (l* LabeledLibrary) BumpVersion(nextPermNum int, nextPermDenom int) {
+	unfold l.Mem()
+	l.version = l.version + 1
+	inhale acc(lib.guard(l.version), nextPermNum/nextPermDenom)
+	inhale acc(lib.guardNext(l.version + 1), 1/1)
+	fold l.Mem()
+}
 @*/
 
 //@ requires l.Mem()
