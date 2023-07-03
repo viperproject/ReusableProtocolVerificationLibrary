@@ -163,7 +163,7 @@ requires l.Mem()
 requires acc(lib.guard(l.Version()), 1/1)
 requires nextPermDenom > 0 && nextPermNum >= 0 && acc(lib.guardNext(l.Version() + 1), nextPermNum/nextPermDenom)
 ensures  l.Mem()
-// ensures  l.ImmutableState() == old(l.ImmutableState()) // TODO_ treat this case separately (everything except `version` remains the same)
+ensures  l.ImmutableStateExceptVersion() == old(l.ImmutableStateExceptVersion())
 ensures  l.Snapshot() == old(l.Snapshot())
 ensures  l.Version() == old(l.Version()) + 1
 ensures  acc(lib.guard(l.Version()), nextPermNum/nextPermDenom)

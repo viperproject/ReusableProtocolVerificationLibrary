@@ -119,6 +119,13 @@ pure func (m *TraceManager) ImmutableState(ctx tri.TraceContext, owner Client) I
 
 ghost
 decreases
+requires acc(m.Mem(ctx, owner), _)
+pure func (m *TraceManager) ImmutableStateExceptVersion(ctx tri.TraceContext, owner Client) ImmutableState {
+    return unfolding acc(m.Mem(ctx, owner), _) in ImmutableState{ m.mutex, 0 }
+}
+
+ghost
+decreases
 requires m.Mem(ctx, owner)
 ensures  m.Mem(ctx, owner)
 ensures  trace == m.Snapshot(ctx, owner)
