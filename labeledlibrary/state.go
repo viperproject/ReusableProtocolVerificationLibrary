@@ -50,6 +50,12 @@ pure func (l *LabeledLibrary) ImmutableState() ImmutableState {
 
 ghost
 requires acc(l.Mem(), _)
+pure func (l *LabeledLibrary) ImmutableStateExceptVersion() ImmutableState {
+	return unfolding acc(l.Mem(), _) in ImmutableState{ *l, l.manager.ImmutableStateExceptVersion(l.ctx, l.owner) }
+}
+
+ghost
+requires acc(l.Mem(), _)
 ensures  res != nil && isComparable(res) && res.Props()
 pure func (l *LabeledLibrary) Ctx() (res tri.TraceContext) {
 	return unfolding acc(l.Mem(), _) in l.ctx
