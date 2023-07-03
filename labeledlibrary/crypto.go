@@ -287,6 +287,9 @@ func (l *LabeledLibrary) AeadEnc(key, nonce, plaintext, additionalData lib.ByteS
 //@ requires lib.Abs(ciphertext) == tm.gamma(ciphertextT)
 //@ requires lib.SafeAbs(additionalData, 0) == tm.gamma(adT)
 //@ requires l.LabelCtx().CanAeadDecrypt(l.Snapshot(), keyT, nonceT, ciphertextT, adT, keyL)
+//@ requires versionPerm >= 0
+//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(keyT), label.Readers(set[p.Id]{ l.Owner() })) // If we give 0 permission to the guard, we have to prove that the key is not versioned, implying that the decrypted message is not versioned either
+//@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), 1/versionPerm) && l.Owner().IsSession()
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot())
@@ -296,9 +299,19 @@ func (l *LabeledLibrary) AeadEnc(key, nonce, plaintext, additionalData lib.ByteS
 //@ ensures  err == nil ==> lib.Abs(ciphertext) == tm.aeadB(lib.Abs(key), lib.Abs(nonce), lib.Abs(res), lib.SafeAbs(additionalData, 0))
 //@ ensures  err == nil ==> (forall msgT tm.Term :: { tm.aead(keyT, nonceT, msgT, adT) } ciphertextT == tm.aead(keyT, nonceT, msgT, adT) ==>
 //@		l.LabelCtx().WasAeadDecrypted(l.Snapshot(), keyT, nonceT, msgT, adT, keyL))
-func (l *LabeledLibrary) AeadDec(key, nonce, ciphertext, additionalData lib.ByteString /*@, ghost keyT tm.Term, ghost nonceT tm.Term, ghost ciphertextT tm.Term, ghost adT tm.Term, ghost keyL label.SecrecyLabel @*/) (res lib.ByteString, err error) {
+//@ ensures err == nil && versionPerm > 0 ==> acc(lib.receipt(res, l.Version()), 1/versionPerm)
+// AeadDec takes a versionPerm parameter, allowing the caller to specify how much (1/versionPerm) permission to take from the guard when decrypting a value that is encrypted with a versioned key.
+// AeadDec always consume the given guard permission, and returns a receipt, even if the decrypted message is not versioned. In this case, the receipt can then be converted back into a guard with `GuardFromReceiptUnversioned`.
+// TODO_ Test AeadEnc and AeadDec with an example
+func (l *LabeledLibrary) AeadDec(key, nonce, ciphertext, additionalData lib.ByteString /*@, ghost versionPerm int, ghost keyT tm.Term, ghost nonceT tm.Term, ghost ciphertextT tm.Term, ghost adT tm.Term, ghost keyL label.SecrecyLabel @*/) (res lib.ByteString, err error) {
 	//@ unfold l.Mem()
-	res, err = l.s.AeadDec(key, nonce, ciphertext, additionalData)
+	/*@
+	ghost if versionPerm == 0 {
+		// In this case, the precondition has proved that `key` is unversioned. We can inhale this predicate to use it to call the underlying AeadDec implementation.
+		inhale lib.IsUnversioned(key)
+	}
+	@*/
+	res, err = l.s.AeadDec(key, nonce, ciphertext, additionalData /*@, versionPerm, l.manager.Version(l.ctx, l.owner) @*/)
 	//@ fold l.Mem()
 	/*@
 	ghost if err == nil {
