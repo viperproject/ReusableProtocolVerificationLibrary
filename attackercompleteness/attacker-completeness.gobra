@@ -93,7 +93,7 @@ func CreateNonce(l *ll.LabeledLibrary, usageString string) (nonce tm.Term, err e
     nonceB, err = l.s.CreateNonce(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
     if err == nil {
         nonce = tm.random(lib.Abs(nonceB), label.Public(), u.Nonce(usageString))
-        l.manager.LogNonce(l.ctx, l.owner, nonce) // TODO_ change to LogNonceV
+        l.manager.LogNonce(l.ctx, l.owner, false, nonce) 
         fold l.Mem()
         l.Publish(nonce)
     } else {
@@ -322,7 +322,7 @@ func GeneratePkeKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err e
     _, skB, err = l.s.GeneratePkeKey(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.PkeKey(usageString))
-        l.manager.LogNonce(l.ctx, l.owner, sk) // TODO_ change to LogNonceV
+        l.manager.LogNonce(l.ctx, l.owner, false, sk) 
         fold l.Mem()
         l.Publish(sk)
     } else {
@@ -341,7 +341,7 @@ func GenerateDHKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err er
     skB, err = l.s.GenerateDHKey(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.DhKey(usageString))
-        l.manager.LogNonce(l.ctx, l.owner, sk) // TODO_ change to LogNonceV
+        l.manager.LogNonce(l.ctx, l.owner, false, sk) 
         fold l.Mem()
         l.Publish(sk)
     } else {
