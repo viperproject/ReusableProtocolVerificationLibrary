@@ -36,7 +36,7 @@ func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, gh
 	/*@
 	ghost if err == nil {
 		nonceT := tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString))
-		l.manager.LogNonceV(l.ctx, l.owner, l.manager.Version(l.ctx, l.owner), versionPerm>0, nonceT)
+		l.manager.LogNonce(l.ctx, l.owner, versionPerm>0, nonceT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -72,7 +72,7 @@ func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost versionPerm int, ghost usageSt
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(sk), keyLabel, u.PkeKey(usageString))
 		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
-		l.manager.LogNonceV(l.ctx, l.owner, l.manager.Version(l.ctx, l.owner), versionPerm>0, skT)
+		l.manager.LogNonce(l.ctx, l.owner, versionPerm>0, skT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -106,7 +106,7 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm int, ghost usageStr
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString))
 		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
-		l.manager.LogNonceV(l.ctx, l.owner, l.manager.Version(l.ctx, l.owner), versionPerm>0, skT)
+		l.manager.LogNonce(l.ctx, l.owner, versionPerm>0, skT)
 	}
 	@*/
 	//@ fold l.Mem()
