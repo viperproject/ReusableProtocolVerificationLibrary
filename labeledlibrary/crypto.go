@@ -160,19 +160,19 @@ func (l* LabeledLibrary) GuardFromReceiptUnversioned(value lib.ByteString, value
 ghost
 requires l.Mem()
 requires acc(lib.guard(l.Version()), 1/1)
-requires nextPermDenom > 0 && nextPermNum >= 0 && acc(lib.guardNext(l.Version() + 1), nextPermNum/nextPermDenom)
+requires nextPerm >= 0 && acc(lib.guardNext(l.Version() + 1), nextPerm)
 ensures  l.Mem()
 ensures  l.ImmutableStateExceptVersion() == old(l.ImmutableStateExceptVersion())
 ensures  l.Snapshot() == old(l.Snapshot())
 ensures  l.Version() == old(l.Version()) + 1
-ensures  acc(lib.guard(l.Version()), nextPermNum/nextPermDenom)
+ensures  acc(lib.guard(l.Version()), nextPerm)
 ensures  acc(lib.guardNext(l.Version() + 1), 1/1)
-func (l* LabeledLibrary) BumpVersion(nextPermNum int, nextPermDenom int) {
+func (l* LabeledLibrary) BumpVersion(nextPerm perm) {
 	unfold l.Mem()
 	unfold l.manager.Mem(l.ctx, l.owner)
 	l.manager.version = l.manager.version + 1
 	fold l.manager.Mem(l.ctx, l.owner)
-	inhale acc(lib.guard(l.manager.Version(l.ctx, l.owner)), nextPermNum/nextPermDenom)
+	inhale acc(lib.guard(l.manager.Version(l.ctx, l.owner)), nextPerm)
 	inhale acc(lib.guardNext(l.manager.Version(l.ctx, l.owner) + 1), 1/1)
 	fold l.Mem()
 }
