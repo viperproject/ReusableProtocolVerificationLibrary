@@ -114,16 +114,16 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm perm, ghost usageSt
 }
 
 //@ requires l.Mem()
-//@ requires versionPerm > 0 && acc(lib.receipt(value, l.Version()), versionPerm) && acc(lib.guard(l.Version()), versionPerm)
+//@ requires versionPermReceipt > 0 && versionPermGuard > 0 && acc(lib.receipt(value, l.Version()), versionPermReceipt) && acc(lib.guard(l.Version()), versionPermGuard)
 //@ requires lib.Mem(value)
 //@ ensures  l.Mem()
-//@ ensures  acc(lib.guard(l.Version()), versionPerm)
+//@ ensures  acc(lib.guard(l.Version()), versionPermGuard)
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot())
-//@ ensures  err == nil ==> acc(lib.guard(l.Version()), versionPerm)
-func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost versionPerm perm @*/) (err error) {
+//@ ensures  err == nil ==> acc(lib.guard(l.Version()), versionPermReceipt)
+func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost versionPermReceipt perm, ghost versionPermGuard perm @*/) (err error) {
 	//@ unfold l.Mem()
-	err = l.s.DeleteSafely(value /*@, l.manager.Version(l.ctx, l.owner), versionPerm @*/)
+	err = l.s.DeleteSafely(value /*@, l.manager.Version(l.ctx, l.owner), versionPermReceipt, versionPermGuard @*/)
 	//@ fold l.Mem()
 }
 
