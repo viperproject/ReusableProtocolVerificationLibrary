@@ -121,7 +121,7 @@ ghost
 decreases
 requires acc(m.Mem(ctx, owner), _)
 pure func (m *TraceManager) ImmutableStateExceptVersion(ctx tri.TraceContext, owner Client) ImmutableState {
-    return unfolding acc(m.Mem(ctx, owner), _) in ImmutableState{ m.mutex, 0 }
+    return unfolding acc(m.Mem(ctx, owner), _) in ImmutableState{ m.mutex, 0 } // `ImmutableState{ m.mutex, 0 }` can be used with `old` to verify if `m.mutex` has changed, independently of the version
 }
 
 ghost

@@ -125,9 +125,6 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tri.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
 	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
 	//@ fold res.Mem()
-	// The following inhales are allowed because it is assumed that NewLabeledLibrary is only called once, and give the initial guard permissions to the programmer, that are necessary for versioned operations. TODO_ the guard predicates should be stored elsewhere, possibly iny the Mem predicate of the manager
-	inhale lib.guard(0)
-	inhale lib.guardNext(1)
 	return
 }
 

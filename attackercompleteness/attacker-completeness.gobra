@@ -79,8 +79,6 @@ func Attacker(l *ll.LabeledLibrary) {
     }
 }
 
-// TODO_ In the functions below, I have just adapted them quickly to comply with the new signatures of the library functions. But I'm not sure if it gives complete control to the attacker.
-
 // operation 1: create nonce
 ghost
 requires l.Mem()
@@ -382,7 +380,7 @@ func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err e
     l.AttackerOnlyKnowsPublishableValues(sk)
     skOwner := arb.GetArbId()
     l.LabelCtx().CanDecryptWithPublicSk(l.Snapshot(), ciphertext, sk, skOwner)
-    inhale l.LabelCtx().CanFlow(l.Snapshot(), l.LabelCtx().GetLabel(sk), label.Readers(set[p.Id]{ l.Owner() })) // Case where sk is unversioned. TODO_ change attacker functions to consider both cases and remove the inhale
+    l.LabelCtx().FlowsToPublicCanFlow(l.Snapshot(), l.LabelCtx().GetLabel(sk), label.Readers(set[p.Id]{ l.Owner() })) // If the attacker knows sk, then it is publishable, so it flows to the owner -> we are necessarily in the unversioned decryption case
     _, err = l.Dec(ciphertextBytes, skBytes, 0, ciphertext, sk, skOwner)
     if err != nil {
         return
@@ -454,7 +452,8 @@ func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Ter
         return
     }
     l.LabelCtx().CanAeadDecryptWithPublishableKey(l.Snapshot(), key, nonce, ciphertext, additionalData, label.Public())
-    _, err = l.AeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, key, nonce, ciphertext, additionalData, label.Public())
+    l.LabelCtx().FlowsToPublicCanFlow(l.Snapshot(), l.LabelCtx().GetLabel(key), label.Readers(set[p.Id]{ l.Owner() })) // If the attacker knows sk, then it is publishable, so it flows to the owner -> we are necessarily in the unversioned decryption case
+    _, err = l.AeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, 0, key, nonce, ciphertext, additionalData, label.Public())
     if err != nil {
         return
     }
