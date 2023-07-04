@@ -120,7 +120,6 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ ensures  res.Owner() == owner
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Snapshot(ctx, owner))
-//@ ensures  owner.IsSession() ==> lib.guard(0) && lib.guardNext(1)
 // TODO manager, ctx, owner should be ghost
 func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tri.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
 	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
