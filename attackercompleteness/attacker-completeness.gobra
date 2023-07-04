@@ -88,7 +88,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), nonce)
 func CreateNonce(l *ll.LabeledLibrary, usageString string) (nonce tm.Term, err error) {
     unfold l.Mem()
     var nonceB lib.ByteString
-    nonceB, err = l.s.CreateNonce(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
+    nonceB, err = l.s.CreateNonce(tri.GetLabeling(l.ctx), label.Public(), 0/1, 0, usageString, set[ev.EventType]{})
     if err == nil {
         nonce = tm.random(lib.Abs(nonceB), label.Public(), u.Nonce(usageString))
         l.manager.LogNonce(l.ctx, l.owner, false, nonce) 
@@ -317,7 +317,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
 func GeneratePkeKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
     unfold l.Mem()
     var skB lib.ByteString
-    _, skB, err = l.s.GeneratePkeKey(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
+    _, skB, err = l.s.GeneratePkeKey(tri.GetLabeling(l.ctx), label.Public(), 0/1, 0, usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.PkeKey(usageString))
         l.manager.LogNonce(l.ctx, l.owner, false, sk) 
@@ -336,7 +336,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
 func GenerateDHKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
     unfold l.Mem()
     var skB lib.ByteString
-    skB, err = l.s.GenerateDHKey(tri.GetLabeling(l.ctx), label.Public(), 0, 0, usageString, set[ev.EventType]{})
+    skB, err = l.s.GenerateDHKey(tri.GetLabeling(l.ctx), label.Public(), 0/1, 0, usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.DhKey(usageString))
         l.manager.LogNonce(l.ctx, l.owner, false, sk) 
@@ -381,7 +381,7 @@ func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err e
     skOwner := arb.GetArbId()
     l.LabelCtx().CanDecryptWithPublicSk(l.Snapshot(), ciphertext, sk, skOwner)
     l.LabelCtx().FlowsToPublicCanFlow(l.Snapshot(), l.LabelCtx().GetLabel(sk), label.Readers(set[p.Id]{ l.Owner() })) // If the attacker knows sk, then it is publishable, so it flows to the owner -> we are necessarily in the unversioned decryption case
-    _, err = l.Dec(ciphertextBytes, skBytes, 0, ciphertext, sk, skOwner)
+    _, err = l.Dec(ciphertextBytes, skBytes, 0/1, ciphertext, sk, skOwner)
     if err != nil {
         return
     }
@@ -453,7 +453,7 @@ func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Ter
     }
     l.LabelCtx().CanAeadDecryptWithPublishableKey(l.Snapshot(), key, nonce, ciphertext, additionalData, label.Public())
     l.LabelCtx().FlowsToPublicCanFlow(l.Snapshot(), l.LabelCtx().GetLabel(key), label.Readers(set[p.Id]{ l.Owner() })) // If the attacker knows sk, then it is publishable, so it flows to the owner -> we are necessarily in the unversioned decryption case
-    _, err = l.AeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, 0, key, nonce, ciphertext, additionalData, label.Public())
+    _, err = l.AeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, 0/1, key, nonce, ciphertext, additionalData, label.Public())
     if err != nil {
         return
     }
