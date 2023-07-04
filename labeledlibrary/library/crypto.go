@@ -160,7 +160,14 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost
 //@ ensures acc(guard(version), versionPermGuard)
 //@ ensures err == nil ==> acc(guard(version), versionPermReceipt)
 func (l* LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, ghost versionPermReceipt perm, ghost versionPermGuard perm @*/) (err error) {
-	// TODO_ add an actual implementation of memory deletion
+	// TODO_ is it sufficient?
+	// overwrite the value with zeros
+	for i := range value {
+		value[i] = 0
+	}
+	// set the value to nil
+	value = nil
+	return
 }
 
 //@ trusted
@@ -194,7 +201,7 @@ func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error
 	return
 }
 
-//@ pred IsUnversioned (value ByteString) // Abstract predicate whose only purpose is to ensure a method that requires it that the value is unversioned, when the method cannot prove it itself. TODO_ maybe move elsewhere
+//@ pred IsUnversioned (value ByteString) // Abstract predicate whose only purpose is to ensure a method that requires it that the value is unversioned, when the method cannot prove it itself.
 
 //@ trusted
 //@ requires acc(l.Mem(), 1/16)

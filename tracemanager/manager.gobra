@@ -106,7 +106,7 @@ pure func (m *TraceManager) Snapshot(ctx tri.TraceContext, owner Client) tr.Trac
 // TODO should be ghost
 type ImmutableState struct {
     mutex *ts.ClientHistoryMutex
-    version uint32 // `version` is not actually immutable, as it changes with `BumpVersion`. However, changes are rare and it is handy to put it into ImmutableState not to write immutability postconditions everywhere. TODO_ is it ok like this?
+    version uint32 // `version` is not actually immutable, as it changes with `BumpVersion`. However, changes are rare and it is handy to put it into ImmutableState not to write immutability postconditions everywhere.
     // clients do not need to be included as they follow from pointer equality on the mutex and the `ClientsAreIdentical` lemma
 }
 
