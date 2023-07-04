@@ -154,7 +154,7 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost
 //@ trusted
 //@ requires Mem(value)
 //@ requires versionPerm > 0 && acc(receipt(value, version), 1/versionPerm)
-//@ requires acc(guard(version), 1/versionPerm) // This is to ensure that the version parameter corresponds to the current version // TODO_ is it good to require the same `versionPerm` amount as the one from the receipt?
+//@ requires acc(guard(version), 1/versionPerm) // This is to ensure that the version parameter corresponds to the current version // TODO_ Use two versionPerm here
 //@ ensures acc(guard(version), 1/versionPerm)
 //@ ensures err == nil ==> acc(guard(version), 1/versionPerm)
 func (l* LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, ghost versionPerm int @*/) (err error) {

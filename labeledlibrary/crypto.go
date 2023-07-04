@@ -119,12 +119,11 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost versionPerm int, ghost usageStr
 //@ ensures  l.Mem()
 //@ ensures  acc(lib.guard(l.Version()), 1/versionPerm)
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
-//@ ensures  l.Snapshot() == old(l.Snapshot()) // TODO_ once I log the value deletion on the trace, this should be changed
+//@ ensures  l.Snapshot() == old(l.Snapshot())
 //@ ensures  err == nil ==> acc(lib.guard(l.Version()), 1/versionPerm)
 func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost versionPerm int @*/) (err error) {
 	//@ unfold l.Mem()
 	err = l.s.DeleteSafely(value /*@, l.manager.Version(l.ctx, l.owner), versionPerm @*/)
-	// TODO_ log the value deletion on the trace
 	//@ fold l.Mem()
 }
 
