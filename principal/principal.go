@@ -10,13 +10,13 @@ type Id domain {
 	// type 1
 	func sessionId(Principal, uint32) Id
 	// type 2
-	func stepId(Principal, uint32, uint32) Id
+	func versionId(Principal, uint32, uint32) Id // Version
 
 	// deconstructors
 	func getIdType(Id) int
 	func getIdPrincipal(Id) Principal
 	func getIdSession(Id) uint32
-	func getIdStep(Id) uint32
+	func getIdVersion(Id) uint32
 
 	// WARNING: adapt first axiom if another Id is added!
 
@@ -43,15 +43,15 @@ type Id domain {
             id == sessionId(getIdPrincipal(id), getIdSession(id))
     }
 
-	axiom { // stepId is injective
-		forall principal Principal, session, step uint32 :: { stepId(principal, session, step) } getIdType(stepId(principal, session, step)) == 2 &&
-			getIdPrincipal(stepId(principal, session, step)) == principal &&
-			getIdSession(stepId(principal, session, step)) == session &&
-			getIdStep(stepId(principal, session, step)) == step
+	axiom { // versionId is injective
+		forall principal Principal, session, version uint32 :: { versionId(principal, session, version) } getIdType(versionId(principal, session, version)) == 2 &&
+			getIdPrincipal(versionId(principal, session, version)) == principal &&
+			getIdSession(versionId(principal, session, version)) == session &&
+			getIdVersion(versionId(principal, session, version)) == version
 	}
-	axiom { // stepId implies its constructions
+	axiom { // versionId implies its constructions
         forall id Id :: { getIdType(id) } getIdType(id) == 2 ==>
-            id == stepId(getIdPrincipal(id), getIdSession(id), getIdStep(id))
+            id == versionId(getIdPrincipal(id), getIdSession(id), getIdVersion(id))
     }
 }
 
@@ -59,6 +59,16 @@ type Id domain {
 decreases
 ensures res == principalId(principal)
 pure func NewPrincipalId(principal Principal) (res Id)
+
+// TODO this should be ghost
+decreases
+ensures res == sessionId(principal, session)
+pure func NewSessionId(principal Principal, session uint32) (res Id)
+
+// TODO this should be ghost
+decreases
+ensures res == versionId(principal, session, version)
+pure func NewVersionId(principal Principal, session uint32, version uint32) (res Id)
 
 ghost
 decreases
