@@ -33,4 +33,15 @@ type UsageContext interface {
     requires AeadPred(t1, usageString, key, nonce, plaintext, authtext)
     ensures  AeadPred(t2, usageString, key, nonce, plaintext, authtext)
     AeadPredMonotonic(t1, t2 tr.TraceEntry, usageString string, key, nonce, plaintext, authtext tm.Term)
+
+    ghost
+    decreases
+    pure SignPred(t tr.TraceEntry, usageString string, msg, sk tm.Term) bool
+
+    ghost
+    decreases
+    requires t1.isSuffix(t2)
+    requires SignPred(t1, usageString, msg, sk)
+    ensures  SignPred(t2, usageString, msg, sk)
+    SignPredMonotonic(t1, t2 tr.TraceEntry, usageString string, msg, sk tm.Term)
 }

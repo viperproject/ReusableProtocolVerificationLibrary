@@ -5,7 +5,9 @@ type KeyType domain {
     // type 0
     func KeyTypePke() KeyType
     // type 1
-    func KeyTypeDHPk() KeyType
+    func KeyTypeDh() KeyType
+    // type 2
+    func KeyTypeSigning() KeyType
 
     // deconstructors
 
@@ -13,7 +15,7 @@ type KeyType domain {
     func getKeyTypeType(KeyType) int
 
     axiom { // every key type belongs to a known type
-        forall t KeyType :: { getKeyTypeType(t) } 0 <= getKeyTypeType(t) && getKeyTypeType(t) <= 1
+        forall t KeyType :: { getKeyTypeType(t) } 0 <= getKeyTypeType(t) && getKeyTypeType(t) <= 2
     }
 
     axiom {
@@ -25,11 +27,19 @@ type KeyType domain {
     }
 
     axiom {
-        getKeyTypeType(KeyTypeDHPk()) == 1
+        getKeyTypeType(KeyTypeDh()) == 1
     }
-    axiom { // KeyTypeDHPk implies its constructions
+    axiom { // KeyTypeDh implies its constructions
         forall t KeyType :: { getKeyTypeType(t) } getKeyTypeType(t) == 1 ==>
-            t == KeyTypeDHPk()
+            t == KeyTypeDh()
+    }
+
+    axiom {
+        getKeyTypeType(KeyTypeSigning()) == 2
+    }
+    axiom { // KeyTypeDh implies its constructions
+        forall t KeyType :: { getKeyTypeType(t) } getKeyTypeType(t) == 2 ==>
+            t == KeyTypeSigning()
     }
 }
 

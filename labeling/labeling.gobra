@@ -144,7 +144,9 @@ pure func (ctx LabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bool {
             t.OnlyNonceOccurs(term)) &&
         (term.IsExp() ==> exists base, e tm.Term :: { tm.exp(base, e) } term == tm.exp(base, e) && ctx.IsValid(t, base) && ctx.IsValid(t, e)) &&
         ((term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> ctx.IsValid(t, tm.getInput(term))) &&
-        (term.IsTuple() ==> forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsValid(t, tm.getTupleElem(term, i)))
+        (term.IsTuple() ==> forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsValid(t, tm.getTupleElem(term, i))) &&
+        (term.IsSignature() ==>
+            ctx.IsValidSignatureInternal(t, tm.getPlaintext(term), tm.getSk(term), true))
 }
 
 ghost
@@ -215,8 +217,38 @@ pure func (ctx LabelingContext) IsValidAeadInternal(t tr.TraceEntry, key, nonce,
 ghost
 decreases
 requires ctx.Props()
+pure func (ctx LabelingContext) IsValidSignature(t tr.TraceEntry, msg, sk tm.Term) bool {
+    return ctx.IsValidSignatureInternal(t, msg, sk, true)
+}
+
+ghost
+decreases tm.getTermHeight(tm.sign(msg, sk)), mutualRecursionTrick
+requires ctx.Props()
+pure func (ctx LabelingContext) IsValidSignatureInternal(t tr.TraceEntry, msg, sk tm.Term, mutualRecursionTrick bool) bool {
+    return ctx.IsValid(t, msg) &&
+        ctx.IsValid(t, sk) &&
+        ctx.CanFlow(t, ctx.GetLabel(msg), label.Public()) && // since msg can be extracted from signature
+        (
+            // either the secret key is public ...
+            ctx.CanFlow(t, ctx.GetLabel(sk), label.Public()) ||
+            // ... or SignPred holds
+            (
+                ctx.IsSigningKey(sk) &&
+                ctx.usage.SignPred(t, u.GetUsageString(get(ctx.GetUsage(sk))), msg, sk)))
+}
+
+ghost
+decreases
+requires ctx.Props()
 pure func (ctx LabelingContext) IsAeadKey(t tr.TraceEntry, key tm.Term, keyL label.SecrecyLabel, usageString string) bool {
     return ctx.IsSecretRelaxed(t, key, keyL, u.AeadKey(usageString))
+}
+
+ghost
+decreases
+requires ctx.Props()
+pure func (ctx LabelingContext) IsSignKey(t tr.TraceEntry, key tm.Term, skOwner p.Id, usageString string) bool {
+    return ctx.IsSecretRelaxed(t, key, label.Readers(set[p.Id]{ skOwner }), u.SigningKey(usageString))
 }
 
 ghost
@@ -256,6 +288,10 @@ func (ctx LabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term) 
         for i := 0; i < term.GetTupleArity(); i++ {
             ctx.IsValidMonotonic(t1, t2, tm.getTupleElem(term, i))
         }
+    } else if term.IsSignature() {
+        sk := tm.getSk(term)
+        plaintext := tm.getPlaintext(term)
+        ctx.IsValidSignatureMonotonic(t1, t2, plaintext, sk, true)
     }
 }
 
@@ -300,6 +336,24 @@ func (ctx LabelingContext) IsValidAeadMonotonic(t1, t2 tr.TraceEntry, key, nonce
         ctx.CanFlowMonotonic(t1, t2, plaintextLabel, ctx.GetLabel(key))
         usageCtx := ctx.GetUsage(key)
         ctx.usage.AeadPredMonotonic(t1, t2, u.GetUsageString(get(usageCtx)), key, nonce, plaintext, authtext)
+    }
+}
+
+ghost
+decreases tm.getTermHeight(tm.sign(msg, sk)), mutualRecursionTrick
+requires ctx.Props()
+requires t1.isSuffix(t2)
+requires ctx.IsValidSignature(t1, msg, sk)
+ensures  ctx.IsValidSignature(t2, msg, sk)
+func (ctx LabelingContext) IsValidSignatureMonotonic(t1, t2 tr.TraceEntry, msg, sk tm.Term, mutualRecursionTrick bool) {
+    ctx.IsValidMonotonic(t1, t2, msg)
+    ctx.IsValidMonotonic(t1, t2, sk)
+    ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(msg), label.Public())
+    if ctx.CanFlow(t1, ctx.GetLabel(sk), label.Public()) {
+        ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(sk), label.Public())
+    } else {
+        usageCtx := ctx.GetUsage(sk)
+        ctx.usage.SignPredMonotonic(t1, t2, u.GetUsageString(get(usageCtx)), msg, sk)
     }
 }
 
@@ -445,6 +499,7 @@ ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) ==>
     (t1.IsGenerator() && t2.IsRandom() ? res == label.Public() :
         t1.IsGenerator() /* && !t2.IsRandom() */ ? res == ctx.GetLabel(t2) :
             !(exists e1 tm.Term :: { tm.exp(tm.generator(), e1) } t1 == tm.exp(tm.generator(), e1)) ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2)))
+ensures forall msg, sk tm.Term :: { tm.sign(msg, sk) } term == tm.sign(msg, sk) ==> res == ctx.GetLabel(msg)
 /**
   * WARNING:
   * 2 terms that are equal based on the equational theory must return the same label!
@@ -496,6 +551,14 @@ requires ctx.Props()
 /** wrapper to get and check usage of a term for convenience */
 pure func (ctx LabelingContext) IsPkeKey(sk tm.Term) bool {
     return (ctx.GetUsage(sk) != none[u.Usage]) && (get(ctx.GetUsage(sk))).IsPkeKey()
+}
+
+ghost
+decreases
+requires ctx.Props()
+/** wrapper to get and check usage of a term for convenience */
+pure func (ctx LabelingContext) IsSigningKey(sk tm.Term) bool {
+    return (ctx.GetUsage(sk) != none[u.Usage]) && (get(ctx.GetUsage(sk))).IsSigningKey()
 }
 
 ghost
@@ -1635,9 +1698,9 @@ ghost
 decreases
 requires ctx.Props()
 pure func (ctx LabelingContext) IsSecretKey(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
-    // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
     return (keyType == KeyTypePke() ==> ctx.IsPrivateDecKey(t, owner, sk, usage)) &&
-        (keyType == KeyTypeDHPk() ==> ctx.IsPrivateDhKey(t, owner, sk, usage))
+        (keyType == KeyTypeDh() ==> ctx.IsPrivateDhKey(t, owner, sk, usage)) &&
+        (keyType == KeyTypeSigning() ==> ctx.IsPrivateSigningKey(t, owner, sk, usage))
 }
 
 ghost
@@ -1649,8 +1712,10 @@ ensures  ctx.IsSecretKey(t2, owner, sk, keyType, usage)
 func (ctx LabelingContext) IsSecretKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) bool {
     if keyType == KeyTypePke() {
         ctx.IsPrivateDecKeyMonotonic(t1, t2, owner, sk, usage)
-    } else if keyType == KeyTypeDHPk() {
+    } else if keyType == KeyTypeDh() {
         ctx.IsPrivateDhKeyMonotonic(t1, t2, owner, sk, usage)
+    } else if keyType == KeyTypeSigning() {
+        ctx.IsPrivateSigningKeyMonotonic(t1, t2, owner, sk, usage)
     }
 }
 
@@ -1661,16 +1726,16 @@ requires ctx.IsSecretKey(t, owner, sk, keyType, usage)
 ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ owner }))
 func (ctx LabelingContext) IsSecretKeyLemma(t tr.TraceEntry, owner p.Id, sk tm.Term, keyType KeyType, usage string) {
     // the following assert stmt is needed for triggering reasons:
-    assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1
+    assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1 || getKeyTypeType(keyType) == 2
 }
 
 ghost
 decreases
 requires ctx.Props()
 pure func (ctx LabelingContext) IsPublicKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) bool {
-    // TODO case switch over all key types. We assume now that there is only KeyType `PKE`
     return (keyType == KeyTypePke() ==> ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
-        (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPk(t, skOwner, pk, sk, usage))
+        (keyType == KeyTypeDh() ==> ctx.IsPublicDhKey(t, skOwner, pk, sk, usage)) &&
+        (keyType == KeyTypeSigning() ==> ctx.IsPublicSigningKey(t, skOwner, pk, sk, usage))
 }
 
 ghost
@@ -1682,24 +1747,30 @@ ensures  ctx.IsPublicKey(t2, skOwner, pk, sk, keyType, usage)
 func (ctx LabelingContext) IsPublicKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
     if keyType == KeyTypePke() {
         ctx.IsPublicEncKeyMonotonic(t1, t2, skOwner, pk, sk, usage)
-    } else if keyType == KeyTypeDHPk() {
-        ctx.IsPublicDhPkMonotonic(t1, t2, skOwner, pk, sk, usage)
+    } else if keyType == KeyTypeDh() {
+        ctx.IsPublicDhKeyMonotonic(t1, t2, skOwner, pk, sk, usage)
+    } else if keyType == KeyTypeSigning() {
+        ctx.IsPublicSigningKeyMonotonic(t1, t2, skOwner, pk, sk, usage)
     }
 }
 
 ghost
 decreases
 requires ctx.Props()
-requires ctx.IsPublicKey(t, skOwner, pk, sk, keyType, usage)
+requires ctx.IsPublicKey(t, skOwner, pk, sk, keyType, usageString)
 ensures  ctx.IsLabeled(t, sk, label.Readers(set[p.Id]{ skOwner }))
-func (ctx LabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usage string) {
+func (ctx LabelingContext) IsPublicKeyLemma(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, keyType KeyType, usageString string) {
     // the following assert stmt is needed for triggering reasons:
-    assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1
+    assert getKeyTypeType(keyType) == 0 || getKeyTypeType(keyType) == 1 || getKeyTypeType(keyType) == 2
+    var usage u.Usage
     if keyType == KeyTypePke() {
-        assert ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), u.PkeKey(usage))
-    } else if keyType == KeyTypeDHPk() {
-        assert ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), u.DhKey(usage))
+        usage = u.PkeKey(usageString)
+    } else if keyType == KeyTypeDh() {
+        usage = u.DhKey(usageString)
+    } else if keyType == KeyTypeSigning() {
+        usage = u.SigningKey(usageString)
     }
+    assert ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ skOwner }), usage)
 }
 
 ghost
@@ -1707,7 +1778,8 @@ decreases
 requires ctx.Props()
 pure func (ctx LabelingContext) IsPublicKeyExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, keyType KeyType, usage string) bool {
     return (keyType == KeyTypePke() ==> exists sk tm.Term :: { ctx.IsPublicEncKey(t, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t, skOwner, pk, sk, usage)) &&
-        (keyType == KeyTypeDHPk() ==> ctx.IsPublicDhPkExistential(t, skOwner, pk, usage))
+        (keyType == KeyTypeDh() ==> ctx.IsPublicDhKeyExistential(t, skOwner, pk, usage)) &&
+        (keyType == KeyTypeSigning() ==> exists sk tm.Term :: { ctx.IsPublicSigningKey(t, skOwner, pk, sk, usage) } ctx.IsPublicSigningKey(t, skOwner, pk, sk, usage))
 }
 
 ghost
@@ -1722,11 +1794,15 @@ func (ctx LabelingContext) IsPublicKeyExistentialMonotonic(t1, t2 tr.TraceEntry,
 		assert exists sk tm.Term :: { ctx.IsPublicEncKey(t1, skOwner, pk, sk, usage) } ctx.IsPublicEncKey(t1, skOwner, pk, sk, usage)
 		// get witness
 		assume ctx.IsPublicEncKey(t1, skOwner, pk, skWitness, usage)
-	} else if keyType == KeyTypeDHPk() {
-		assert exists sk tm.Term :: { ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage) } ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage)
+	} else if keyType == KeyTypeDh() {
+		assert exists sk tm.Term :: { ctx.IsPublicDhKey(t1, skOwner, pk, sk, usage) } ctx.IsPublicDhKey(t1, skOwner, pk, sk, usage)
 		// get witness
-		assume ctx.IsPublicDhPk(t1, skOwner, pk, skWitness, usage)
-	}
+		assume ctx.IsPublicDhKey(t1, skOwner, pk, skWitness, usage)
+	} else if keyType == KeyTypeSigning() {
+        assert exists sk tm.Term :: { ctx.IsPublicSigningKey(t1, skOwner, pk, sk, usage) } ctx.IsPublicSigningKey(t1, skOwner, pk, sk, usage)
+		// get witness
+		assume ctx.IsPublicSigningKey(t1, skOwner, pk, skWitness, usage)
+    }
 	ctx.IsPublicKeyMonotonic(t1, t2, skOwner, pk, skWitness, keyType, usage)
 }
 
@@ -1801,7 +1877,26 @@ ghost
 decreases
 requires ctx.Props()
 // sk is the witness
-pure func (ctx LabelingContext) IsPublicDhPk(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
+pure func (ctx LabelingContext) IsPrivateSigningKey(t tr.TraceEntry, owner p.Id, sk tm.Term, usage string) bool {
+    return sk.IsRandom() &&
+        ctx.IsSecret(t, sk, label.Readers(set[p.Id]{ owner }), u.SigningKey(usage))
+}
+
+ghost
+decreases
+requires ctx.Props()
+requires t1.isSuffix(t2)
+requires ctx.IsPrivateSigningKey(t1, owner, sk, usage)
+ensures  ctx.IsPrivateSigningKey(t2, owner, sk, usage)
+func (ctx LabelingContext) IsPrivateSigningKeyMonotonic(t1, t2 tr.TraceEntry, owner p.Id, sk tm.Term, usage string) {
+    ctx.IsSecretMonotonic(t1, t2, sk, label.Readers(set[p.Id]{ owner }), u.SigningKey(usage))
+}
+
+ghost
+decreases
+requires ctx.Props()
+// sk is the witness
+pure func (ctx LabelingContext) IsPublicDhKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
     return ctx.IsPublishable(t, pk) &&
         pk == tm.exp(tm.generator(), sk) &&
         ctx.IsPrivateDhKey(t, skOwner, sk, usage)
@@ -1811,9 +1906,9 @@ ghost
 decreases
 requires ctx.Props()
 requires t1.isSuffix(t2)
-requires ctx.IsPublicDhPk(t1, skOwner, pk, sk, usage)
-ensures  ctx.IsPublicDhPk(t2, skOwner, pk, sk, usage)
-func (ctx LabelingContext) IsPublicDhPkMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
+requires ctx.IsPublicDhKey(t1, skOwner, pk, sk, usage)
+ensures  ctx.IsPublicDhKey(t2, skOwner, pk, sk, usage)
+func (ctx LabelingContext) IsPublicDhKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
     ctx.IsPublishableMonotonic(t1, t2, pk)
     ctx.IsPrivateDhKeyMonotonic(t1, t2, skOwner, sk, usage)
 }
@@ -1821,8 +1916,29 @@ func (ctx LabelingContext) IsPublicDhPkMonotonic(t1, t2 tr.TraceEntry, skOwner p
 ghost
 decreases
 requires ctx.Props()
-pure func (ctx LabelingContext) IsPublicDhPkExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, usage string) bool {
-    return exists sk tm.Term :: { ctx.IsPublicDhPk(t, skOwner, pk, sk, usage) } ctx.IsPublicDhPk(t, skOwner, pk, sk, usage)
+pure func (ctx LabelingContext) IsPublicDhKeyExistential(t tr.TraceEntry, skOwner p.Id, pk tm.Term, usage string) bool {
+    return exists sk tm.Term :: { ctx.IsPublicDhKey(t, skOwner, pk, sk, usage) } ctx.IsPublicDhKey(t, skOwner, pk, sk, usage)
+}
+
+ghost
+decreases
+requires ctx.Props()
+// sk is the witness
+pure func (ctx LabelingContext) IsPublicSigningKey(t tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) bool {
+    return ctx.IsPublishable(t, pk) &&
+        pk == tm.createPk(sk) &&
+        ctx.IsPrivateSigningKey(t, skOwner, sk, usage)
+}
+
+ghost
+decreases
+requires ctx.Props()
+requires t1.isSuffix(t2)
+requires ctx.IsPublicSigningKey(t1, skOwner, pk, sk, usage)
+ensures  ctx.IsPublicSigningKey(t2, skOwner, pk, sk, usage)
+func (ctx LabelingContext) IsPublicSigningKeyMonotonic(t1, t2 tr.TraceEntry, skOwner p.Id, pk, sk tm.Term, usage string) {
+    ctx.IsPublishableMonotonic(t1, t2, pk)
+    ctx.IsPrivateSigningKeyMonotonic(t1, t2, skOwner, sk, usage)
 }
 
 ghost
@@ -2047,6 +2163,92 @@ func (ctx LabelingContext) PlaintextIsPublishableForPublishableKey(t tr.TraceEnt
             ctx.CanFlowTransitive(t, msgL, ctx.GetLabel(key), label.Public())
         }
     }
+}
+
+ghost
+decreases
+requires ctx.Props()
+pure func (ctx LabelingContext) CanSign(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) bool {
+    return ctx.IsPublishable(t, msg) &&
+        ctx.IsLabeledRelaxed(t, sk, label.Readers(set[p.Id]{ skOwner })) &&
+        (ctx.IsPublishable(t, sk) || exists usageString string :: ctx.IsSignKey(t, sk, skOwner, usageString)) &&
+        (forall usageString string :: { ctx.usage.SignPred(t, usageString, msg, sk) } ctx.IsSignKey(t, sk, skOwner, usageString) ==>
+            ctx.usage.SignPred(t, usageString, msg, sk))
+}
+
+ghost
+decreases
+requires ctx.Props()
+requires ctx.CanSign(t, msg, sk, skOwner) || (ctx.IsPublishable(t, msg) && ctx.IsPublishable(t, sk))
+ensures  ctx.IsPublishable(t, tm.sign(msg, sk))
+func (ctx LabelingContext) SignedMessageIsPublishable(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
+    msgL := ctx.GetLabel(msg)
+    if !ctx.IsPublishable(t, sk) {
+        usageCtx := ctx.GetUsage(sk)
+        // the following assert stmt would not be necessary:
+        assert ctx.usage.SignPred(t, u.GetUsageString(get(usageCtx)), msg, sk)
+    }
+    // the following assert stmt is necessary:
+	assert ctx.IsValidSignature(t, msg, sk)
+}
+
+ghost
+decreases
+requires ctx.Props()
+pure func (ctx LabelingContext) CanOpen(t tr.TraceEntry, signedData, pk tm.Term, skOwner p.Id) bool {
+    // return ctx.IsPublishable(t, signedData) &&
+    //     (ctx.IsPublishable(t, sk) || exists usageString string :: ctx.IsSignKey(t, sk, skOwner, usageString))
+    return true
+}
+
+ghost
+decreases
+requires ctx.Props()
+pure func (ctx LabelingContext) WasOpened(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) bool {
+    /*
+    return ctx.IsLabeledRelaxed(t, sk, label.Readers(set[p.Id]{ skOwner })) ==>
+            (ctx.IsPublishable(t, msg) &&
+            (forall usageString string :: { ctx.IsSignKey(t, sk, skOwner, usageString) } ctx.IsSignKey(t, sk, skOwner, usageString) ==>
+                // either the attacker has signed or SignPred holds
+                ctx.IsPublishable(t, sk) || ctx.usage.SignPred(t, usageString, msg, sk)))
+    */
+    return ctx.IsValid(t, tm.sign(msg, sk)) ==>
+        (forall usageString string :: { ctx.IsSignKey(t, sk, skOwner, usageString) } ctx.IsSignKey(t, sk, skOwner, usageString) ==>
+            // either the attacker has signed ...
+            (ctx.IsPublishable(t, sk) && ctx.IsPublishable(t, msg)) ||
+                // ... or SignPred holds
+                ctx.usage.SignPred(t, usageString, msg, sk))
+}
+
+ghost
+decreases
+requires ctx.Props()
+requires ctx.IsPublishable(t, signedData) && ctx.IsPublishable(t, pk)
+ensures  ctx.CanOpen(t, signedData, pk, skOwner)
+func (ctx LabelingContext) CanOpenWithPublishableKey(t tr.TraceEntry, signedData, pk tm.Term, skOwner p.Id) {
+    // no body needed
+}
+
+ghost
+decreases
+requires ctx.Props()
+requires ctx.CanOpen(t, tm.sign(msg, sk), tm.createPk(sk), skOwner)
+ensures  ctx.WasOpened(t, msg, sk, skOwner)
+func (ctx LabelingContext) OpenSatisfiesInvariant(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) {
+    // the following assertion is necessary:
+    if ctx.IsValid(t, tm.sign(msg, sk)) {
+        assert ctx.IsValidSignature(t, msg, sk)
+    }
+}
+
+ghost
+decreases
+requires ctx.Props()
+requires ctx.IsPublishable(t, tm.sign(msg, sk))
+ensures  ctx.IsPublishable(t, msg)
+func (ctx LabelingContext) UnsignedDataIsPublishableIfSignatureIsPublishable(t tr.TraceEntry, msg, sk tm.Term) {
+    // the following assertion is necessary:
+	assert ctx.IsValidSignature(t, msg, sk)
 }
 
 ghost

@@ -26,6 +26,8 @@ type Bytes domain {
     func infoBytesB() Bytes
     func prologueBytesB() Bytes
     func generatorB() Bytes
+
+    func signB(Bytes, Bytes) Bytes
     
 
     // deconstructors
@@ -33,6 +35,8 @@ type Bytes domain {
     func decryptB(Bytes, Bytes) Bytes
     func aeadDecryptB(Bytes, Bytes, Bytes) Bytes
     func invB(Bytes) Bytes
+    func verifyB(Bytes, Bytes) bool
+    func getMsgB(Bytes) Bytes
 
 
     // tuple2B deconstructors
@@ -85,6 +89,11 @@ type Bytes domain {
     axiom {
         forall key, nonce, plaintext, additionalData Bytes :: { aeadDecryptB(key, nonce, aeadB(key, nonce, plaintext, additionalData)) } aeadDecryptB(key, nonce, aeadB(key, nonce, plaintext, additionalData)) == plaintext
     }
+
+    // signB deconstructors
+    axiom {
+        forall msg, sk Bytes :: { verifyB(signB(msg, sk), createPkB(sk)) } { getMsgB(signB(msg, sk)) } verifyB(signB(msg, sk), createPkB(sk)) && getMsgB(signB(msg, sk)) == msg
+    }
 }
 
 type Gamma domain {
@@ -118,6 +127,7 @@ type Gamma domain {
     (forall i uint32 :: {gamma(integer32(i))} gamma(integer32(i)) == integer32B(i)) &&
     (gamma(infoTerm()) == infoBytesB()) &&
     (gamma(prologueTerm()) == prologueBytesB()) &&
-    (gamma(generator()) == generatorB())
+    (gamma(generator()) == generatorB()) &&
+    (forall msg, sk Term :: {gamma(sign(msg, sk))} gamma(sign(msg, sk)) == signB(gamma(msg), gamma(sk)))
   }
 }

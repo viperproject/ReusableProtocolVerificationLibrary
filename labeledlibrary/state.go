@@ -220,18 +220,18 @@ func (l *LabeledLibrary) ApplyMonotonicityWithSnap(snap tr.TraceEntry) {
 			assert exists sk tm.Term :: { labelCtx.IsPublicEncKey(arbSnap, arbOwner, arbPk, sk, arbUsageString) } labelCtx.IsPublicEncKey(arbSnap, arbOwner, arbPk, sk, arbUsageString)
 			// get witness
 			assume labelCtx.IsPublicEncKey(arbSnap, arbOwner, arbPk, skWitness, arbUsageString)
-		} else if arbKeyType == labeling.KeyTypeDHPk() {
-			assert exists sk tm.Term :: { labelCtx.IsPublicDhPk(arbSnap, arbOwner, arbPk, sk, arbUsageString) } labelCtx.IsPublicDhPk(arbSnap, arbOwner, arbPk, sk, arbUsageString)
+		} else if arbKeyType == labeling.KeyTypeDh() {
+			assert exists sk tm.Term :: { labelCtx.IsPublicDhKey(arbSnap, arbOwner, arbPk, sk, arbUsageString) } labelCtx.IsPublicDhKey(arbSnap, arbOwner, arbPk, sk, arbUsageString)
 			// get witness
-			assume labelCtx.IsPublicDhPk(arbSnap, arbOwner, arbPk, skWitness, arbUsageString)
+			assume labelCtx.IsPublicDhKey(arbSnap, arbOwner, arbPk, skWitness, arbUsageString)
+		} else if arbKeyType == labeling.KeyTypeSigning() {
+			assert exists sk tm.Term :: { labelCtx.IsPublicSigningKey(arbSnap, arbOwner, arbPk, sk, arbUsageString) } labelCtx.IsPublicSigningKey(arbSnap, arbOwner, arbPk, sk, arbUsageString)
+			// get witness
+			assume labelCtx.IsPublicSigningKey(arbSnap, arbOwner, arbPk, skWitness, arbUsageString)
 		}
 		assert labelCtx.IsPublicKey(arbSnap, arbOwner, arbPk, skWitness, arbKeyType, arbUsageString)
 		assert labelCtx.IsPublicKey(snap, arbOwner, arbPk, skWitness, arbKeyType, arbUsageString)
-		if arbKeyType == labeling.KeyTypePke() {
-			assert labelCtx.IsPublicKeyExistential(snap, arbOwner, arbPk, arbKeyType, arbUsageString)
-		} else if arbKeyType == labeling.KeyTypeDHPk() {
-			assert labelCtx.IsPublicDhPkExistential(snap, arbOwner, arbPk, arbUsageString)
-		}
+		assert labelCtx.IsPublicKeyExistential(snap, arbOwner, arbPk, arbKeyType, arbUsageString)
 	}
 	assert arbSnap.isSuffix(snap) && labelCtx.IsPublicKeyExistential(arbSnap, arbOwner, arbPk, arbKeyType, arbUsageString) ==> labelCtx.IsPublicKeyExistential(snap, arbOwner, arbPk, arbKeyType, arbUsageString)
 	assume forall oldSnap tr.TraceEntry, owner p.Id, pk tm.Term, keyType labeling.KeyType, usage string :: { labelCtx.IsPublicKeyExistential(oldSnap, owner, pk, keyType, usage) } oldSnap.isSuffix(snap) && labelCtx.IsPublicKeyExistential(oldSnap, owner, pk, keyType, usage) ==> labelCtx.IsPublicKeyExistential(snap, owner, pk, keyType, usage)
@@ -328,10 +328,13 @@ ensures  l.Snapshot() == old(l.Snapshot())
 ensures  prev.isSuffix(l.Snapshot())
 ensures  prev.isNonceAt(nonce)
 ensures  tri.pureRandInv(l.Ctx(), nonce, tr.getPrev(prev))
+ensures  tri.pureRandInv(l.Ctx(), nonce, l.Snapshot())
 func (l *LabeledLibrary) NonceOccursImpliesRandInv(nonce tm.Term) (prev tr.TraceEntry) {
 	unfold l.Mem()
 	prev = l.manager.NonceOccursImpliesRandInv(l.ctx, l.owner, nonce)
 	fold l.Mem()
+	tr.getPrev(prev).isSuffixTransitive(prev, l.Snapshot())
+	tri.pureRandInvTransitive(l.Ctx(), nonce, tr.getPrev(prev), l.Snapshot())
 }
 
 ghost
