@@ -6,6 +6,7 @@ import (
 	x509 "crypto/x509"
 	sha256 "crypto/sha256"
 	"errors"
+	hex "encoding/hex"
 	big "math/big"
 	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
 	sign "golang.org/x/crypto/nacl/sign"
