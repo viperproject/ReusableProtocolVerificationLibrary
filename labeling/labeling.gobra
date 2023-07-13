@@ -2196,8 +2196,6 @@ ghost
 decreases
 requires ctx.Props()
 pure func (ctx LabelingContext) CanOpen(t tr.TraceEntry, signedData, pk tm.Term, skOwner p.Id) bool {
-    // return ctx.IsPublishable(t, signedData) &&
-    //     (ctx.IsPublishable(t, sk) || exists usageString string :: ctx.IsSignKey(t, sk, skOwner, usageString))
     return true
 }
 
@@ -2205,13 +2203,6 @@ ghost
 decreases
 requires ctx.Props()
 pure func (ctx LabelingContext) WasOpened(t tr.TraceEntry, msg, sk tm.Term, skOwner p.Id) bool {
-    /*
-    return ctx.IsLabeledRelaxed(t, sk, label.Readers(set[p.Id]{ skOwner })) ==>
-            (ctx.IsPublishable(t, msg) &&
-            (forall usageString string :: { ctx.IsSignKey(t, sk, skOwner, usageString) } ctx.IsSignKey(t, sk, skOwner, usageString) ==>
-                // either the attacker has signed or SignPred holds
-                ctx.IsPublishable(t, sk) || ctx.usage.SignPred(t, usageString, msg, sk)))
-    */
     return ctx.IsValid(t, tm.sign(msg, sk)) ==>
         (forall usageString string :: { ctx.IsSignKey(t, sk, skOwner, usageString) } ctx.IsSignKey(t, sk, skOwner, usageString) ==>
             // either the attacker has signed ...

@@ -619,7 +619,6 @@ func CorruptParticipant(l *ll.LabeledLibrary, principal p.Principal) (arbTerm tm
     // we show now that we can add an arbitrary term that `principal` can read (i.e. is possibly in its long-term state)
     // to the attacker knowledge after recording the corruption on the trace:
     arbTerm = arb.GetArbTerm()
-    // TODO: we would need to update Snapshot in case it's outdated
     assume labelCtx.IsMsg(l.Snapshot(), arbTerm, label.Readers(set[p.Id]{ principalId }))
 
     unfold l.Mem()

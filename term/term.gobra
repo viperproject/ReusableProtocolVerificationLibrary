@@ -10,18 +10,6 @@ import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
  * Note however that the axiomatisation of `getTermHeight` has to consider
  * equational theories. E.g. (g^x)^y == g^(x * y) == g^(y * x) == (g^y)^x
  * all have the same height.
- * The following examples might help in finding a suitable axiomatisation when
- * adding further equations:
- * 1. leaf terms (i.e. constructors not taking any term as argument):
- *      `getTermHeight(t) == 0`
- * 2. "ADT-like" constructors (i.e. constructors only with projection equations) (e.g. tuples)
- *      `getTermHeight(tuple2(t1, t2)) == 1 + max2(getTermHeight(t1), getTermHeight(t2))`
- *      i.e. the constructed term is higher than the highest subterm
- * 3. commutative terms (i.e. f(x, y) == f(y, x)) can be specified the same way as
- *      in case 2 because `max` is commutative as well.
- * 4. associative terms or e.g. DH as mentioned above:
- *      `getTermHeight(exp(t1, t2)) > max2(getTermHeight(t1), getTermHeight(t2))`
- *      i.e. specifying a "precise" height is not possible but 
  */
 
 type Term domain {
@@ -645,30 +633,3 @@ requires signature.IsSignature()
 pure func SignExtract(signature Term) Term {
     return getPlaintext(signature)
 }
-
-/*
-ghost
-decreases
-func termHeightSanityCheck(x, y, z Term) {
-    xHeight := getTermHeight(x)
-    yHeight := getTermHeight(y)
-    zHeight := getTermHeight(z)
-    xy := exp(x, y)
-    xyHeight := getTermHeight(xy)
-    assert xyHeight > xHeight
-    assert xyHeight > yHeight
-    xyz := exp(xy, z)
-    xyzHeight := getTermHeight(xyz)
-    assert xyzHeight > xyHeight
-    yMultz := mult(y, z)
-    yMultzHeight := getTermHeight(yMultz)
-    assert yMultzHeight > yHeight
-    assert yMultzHeight > zHeight
-    xyz2 := exp(x, yMultz)
-    xyz2Height := getTermHeight(xyz2)
-    assert xyz2Height > yMultzHeight
-    assert xyzHeight == xyz2Height
-    assert xyz == xyz2
-    assert false // smoke check
-}
-*/
