@@ -89,6 +89,33 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost usageString string, ghost event
 }
 
 //@ requires l.Mem()
+//@ ensures  l.Mem()
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
+//@ ensures  err == nil ==> lib.Mem(pk)
+//@ ensures  err == nil ==> lib.Mem(sk)
+//@ ensures  err == nil ==> lib.Abs(sk) == tm.gamma(skT) && lib.Abs(pk) == tm.createPkB(lib.Abs(sk))
+//@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
+//@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.OwnerWoThread() }), u.SigningKey(usageString))
+// TODO make skT ghost
+func (l *LabeledLibrary) GenerateSigningKey(/*@ ghost usageString string @*/) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
+	//@ ownerWoThread := l.OwnerWoThread()
+	//@ unfold l.Mem()
+	//@ keyLabel := label.Readers(set[p.Id]{ ownerWoThread })
+	pk, sk, err = l.s.GenerateSigningKey(/*@ tri.GetLabeling(l.ctx), keyLabel, usageString, set[ev.EventType]{} @*/)
+	// store sk on trace
+	/*@
+	ghost if err == nil {
+		skT = tm.random(lib.Abs(sk), keyLabel, u.SigningKey(usageString))
+		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
+		l.manager.LogNonce(l.ctx, l.owner, skT)
+	}
+	@*/
+	//@ fold l.Mem()
+	return
+}
+
+//@ requires l.Mem()
 //@ requires acc(lib.Mem(msg), 1/8)
 //@ requires lib.Abs(msg) == tm.gamma(msgT)
 //@ requires acc(lib.Mem(pk), 1/8)
@@ -134,14 +161,14 @@ func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost ciphertext
 		pkT := tm.createPk(skT)
 
 		// we choose an arbitrary msgT and then show that if we assume that it's the correct
-		// we can call `decHelper` which then gives us an implication with the given quantifier
+		// we can call `DecryptSatisfiesInvariant` which then gives us an implication with the given quantifier
 		arbMsgT := arb.GetArbTerm()
 		if ciphertextT == tm.encrypt(arbMsgT, pkT) {
 			l.LabelCtx().DecryptSatisfiesInvariant(l.Snapshot(), arbMsgT, skT, skOwner)
 		}
 		// forall introduction:
 		assert ciphertextT == tm.encrypt(arbMsgT, pkT) ==> l.LabelCtx().WasDecrypted(l.Snapshot(), arbMsgT, skT, skOwner)
-		assume forall msgT tm.Term :: { ciphertextT == tm.encrypt(msgT, pkT) } ciphertextT == tm.encrypt(msgT, pkT) ==> l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner)
+		assume forall msgT tm.Term :: { tm.encrypt(msgT, pkT) } ciphertextT == tm.encrypt(msgT, pkT) ==> l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner)
 	}
 	@*/
 	return
@@ -200,15 +227,107 @@ func (l *LabeledLibrary) AeadDec(key, nonce, ciphertext, additionalData lib.Byte
 	/*@
 	ghost if err == nil {
 		// we choose an arbitrary msgT and then show that if we assume that it's the correct
-		// we can call `decHelper` which then gives us an implication with the given quantifier
+		// we can call `AeadDecryptSatisfiesInvariant` which then gives us an implication with the given quantifier
 		arbMsgT := arb.GetArbTerm()
 		if ciphertextT == tm.aead(keyT, nonceT, arbMsgT, adT) {
 			l.LabelCtx().AeadDecryptSatisfiesInvariant(l.Snapshot(), keyT, nonceT, arbMsgT, adT, keyL)
 		}
 		// forall introduction:
 		assert ciphertextT == tm.aead(keyT, nonceT, arbMsgT, adT) ==> l.LabelCtx().WasAeadDecrypted(l.Snapshot(), keyT, nonceT, arbMsgT, adT, keyL)
-		assume forall msgT tm.Term :: { ciphertextT == tm.aead(keyT, nonceT, msgT, adT) } ciphertextT == tm.aead(keyT, nonceT, msgT, adT) ==> l.LabelCtx().WasAeadDecrypted(l.Snapshot(), keyT, nonceT, msgT, adT, keyL)
+		assume forall msgT tm.Term :: { tm.aead(keyT, nonceT, msgT, adT) } ciphertextT == tm.aead(keyT, nonceT, msgT, adT) ==> l.LabelCtx().WasAeadDecrypted(l.Snapshot(), keyT, nonceT, msgT, adT, keyL)
 	}
 	@*/
+	return
+}
+
+//@ requires l.Mem()
+//@ requires acc(lib.Mem(msg), 1/8)
+//@ requires lib.Abs(msg) == tm.gamma(msgT)
+//@ requires acc(lib.Mem(sk), 1/8)
+//@ requires lib.Abs(sk) == tm.gamma(skT)
+//@ requires l.LabelCtx().CanSign(l.Snapshot(), msgT, skT, skOwner) || (l.LabelCtx().IsPublishable(l.Snapshot(), msgT) && l.LabelCtx().IsPublishable(l.Snapshot(), skT))
+//@ ensures  l.Mem()
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  l.Snapshot() == old(l.Snapshot())
+//@ ensures  acc(lib.Mem(msg), 1/8)
+//@ ensures  acc(lib.Mem(sk), 1/8)
+//@ ensures  err == nil ==> lib.Mem(signedMsg)
+//@ ensures  err == nil ==> lib.Abs(signedMsg) == tm.signB(lib.Abs(msg), lib.Abs(sk))
+//@ ensures  err == nil ==> l.LabelCtx().IsPublishable(l.Snapshot(), tm.sign(msgT, skT))
+func (l *LabeledLibrary) Sign(msg, sk lib.ByteString /*@, ghost msgT tm.Term, ghost skT tm.Term, ghost skOwner p.Id @*/) (signedMsg lib.ByteString, err error) {
+	//@ unfold l.Mem()
+	signedMsg, err = l.s.Sign(msg, sk)
+	//@ fold l.Mem()
+	//@ l.LabelCtx().SignedMessageIsPublishable(l.Snapshot(), msgT, skT, skOwner)
+	return
+}
+
+//@ requires l.Mem()
+//@ requires acc(lib.Mem(signedMsg), 1/8)
+//@ requires lib.Abs(signedMsg) == tm.gamma(signedMsgT)
+//@ requires acc(lib.Mem(pk), 1/8)
+//@ requires lib.Abs(pk) == tm.gamma(tm.createPk(skT))
+//@ requires l.LabelCtx().CanOpen(l.Snapshot(), signedMsgT, tm.createPk(skT), skOwner)
+//@ ensures  l.Mem()
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  l.Snapshot() == old(l.Snapshot())
+//@ ensures  acc(lib.Mem(signedMsg), 1/8)
+//@ ensures  acc(lib.Mem(pk), 1/8)
+//@ ensures  err == nil ==> lib.Mem(msg)
+//@ ensures  err == nil ==> lib.Abs(signedMsg) == tm.signB(lib.Abs(msg), tm.gamma(skT))
+//@ ensures  err == nil ==> (forall msgT tm.Term :: { tm.sign(msgT, skT) } signedMsgT == tm.sign(msgT, skT) ==>
+//@		l.LabelCtx().WasOpened(l.Snapshot(), msgT, skT, skOwner))
+func (l *LabeledLibrary) Open(signedMsg, pk lib.ByteString /*@, ghost signedMsgT tm.Term, ghost skT tm.Term, ghost skOwner p.Id @*/) (msg lib.ByteString, err error) {
+	//@ unfold l.Mem()
+	msg, err = l.s.Open(signedMsg, pk /*@, skT @*/)
+	//@ fold l.Mem()
+	/*@
+	ghost if err == nil {
+		// we choose an arbitrary msgT and then show that if we assume that it's the correct
+		// we can call `OpenSatisfiesInvariant` which then gives us an implication with the given quantifier
+		arbMsgT := arb.GetArbTerm()
+		if signedMsgT == tm.sign(arbMsgT, skT) {
+			l.LabelCtx().OpenSatisfiesInvariant(l.Snapshot(), arbMsgT, skT, skOwner)
+		}
+		// forall introduction:
+		assert signedMsgT == tm.sign(arbMsgT, skT) ==> l.LabelCtx().WasOpened(l.Snapshot(), arbMsgT, skT, skOwner)
+		assume forall msgT tm.Term :: { tm.sign(msgT, skT) } signedMsgT == tm.sign(msgT, skT) ==> l.LabelCtx().WasOpened(l.Snapshot(), msgT, skT, skOwner)
+	}
+	@*/
+	return
+}
+
+//@ requires l.Mem()
+//@ requires acc(lib.Mem(exp), 1/16)
+//@ requires lib.Abs(exp) == tm.gamma(expT)
+//@ requires l.LabelCtx().IsValid(l.Snapshot(), expT) && expT.IsRandom()
+//@ ensures  l.Mem()
+//@ ensures  acc(lib.Mem(exp), 1/16)
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  l.Snapshot() == old(l.Snapshot())
+//@ ensures  l.LabelCtx().IsPublishable(l.Snapshot(), tm.exp(tm.generator(), expT))
+//@ ensures  err == nil ==> lib.Mem(res)
+//@ ensures  err == nil ==> lib.Abs(res) == tm.expB(tm.generatorB(), lib.Abs(exp))
+// arg is big-endian
+func (l *LabeledLibrary) DhExp(exp []byte /*@, ghost expT tm.Term @*/) (res []byte, err error) {
+	//@ unfold l.Mem()
+	res, err = l.s.DhExp(exp)
+	//@ fold l.Mem()
+	// the following assert stmt is necessary to derive publishability of `res`:
+	//@ assert l.LabelCtx().IsValid(l.Snapshot(), tm.generator())
+	return
+}
+
+//@ preserves l.Mem()
+//@ preserves acc(lib.Mem(dhSecret), 1/16) && acc(lib.Mem(dhHalfKey), 1/16)
+//@ ensures  l.ImmutableState() == old(l.ImmutableState())
+//@ ensures  l.Snapshot() == old(l.Snapshot())
+//@ ensures err == nil ==> lib.Mem(res)
+//@ ensures err == nil ==> lib.Abs(res) == tm.expB(lib.Abs(dhHalfKey), lib.Abs(dhSecret))
+// args are big-endian
+func (l *LabeledLibrary) DhSharedSecret(dhSecret, dhHalfKey []byte) (res []byte, err error) {
+	//@ unfold l.Mem()
+	res, err = l.s.DhSharedSecret(dhSecret, dhHalfKey)
+	//@ fold l.Mem()
 	return
 }

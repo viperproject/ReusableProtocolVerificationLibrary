@@ -155,6 +155,16 @@ pure func pureRandInv(ctx TraceContext, nonce tm.Term, prev TraceEntry) bool {
 ghost
 decreases
 requires ctx != nil && ctx.Props()
+requires t1.isSuffix(t2)
+requires pureRandInv(ctx, nonce, t1)
+ensures  pureRandInv(ctx, nonce, t2)
+func pureRandInvTransitive(ctx TraceContext, nonce tm.Term, t1, t2 TraceEntry) {
+    // no body needed
+}
+
+ghost
+decreases
+requires ctx != nil && ctx.Props()
 pure func madePublicInv(ctx TraceContext, term tm.Term, prev TraceEntry) bool {
     return GetLabeling(ctx).IsPublishable(prev, term)
 }
