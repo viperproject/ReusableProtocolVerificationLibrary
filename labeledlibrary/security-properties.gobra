@@ -19,7 +19,7 @@ requires acc(l.Mem(), _)
 // has been corrupted. Currently, this property is restricted to the `Readers` label
 // but could in principle be extended if necessary.
 pure func (l *LabeledLibrary) Secrecy(term tm.Term, honestIds set[p.Id]) bool {
-    return (l.LabelCtx().IsLabeled(l.Snapshot(), term, label.Readers(honestIds)) &&
+    return (l.LabelCtx().IsLabeledRelaxed(l.Snapshot(), term, label.Readers(honestIds)) &&
         att.isUnknownToAttacker(l.Snapshot(), term)) ||
             tr.containsCorruptId(l.Snapshot().getCorruptIds(), honestIds)
 }
@@ -75,7 +75,7 @@ ghost
 decreases
 requires l.Mem()
 requires len(readers) > 0
-requires l.LabelCtx().IsLabeled(l.Snapshot(), term, label.Readers(readers)) ||
+requires l.LabelCtx().IsLabeledRelaxed(l.Snapshot(), term, label.Readers(readers)) ||
 	tr.containsCorruptId(l.Snapshot().getCorruptIds(), readers)
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -109,7 +109,7 @@ func (l *LabeledLibrary) SecrecyLemma(term tm.Term, readers set[p.Id]) (optCorru
 ghost
 decreases
 requires l.Mem()
-requires l.LabelCtx().IsLabeled(l.Snapshot(), term, label.Readers(readers))
+requires l.LabelCtx().IsLabeledRelaxed(l.Snapshot(), term, label.Readers(readers))
 requires att.attackerKnows(l.Snapshot(), term)
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -125,13 +125,14 @@ func (l *LabeledLibrary) secrecyLemmaHelper(term tm.Term, readers set[p.Id]) (co
 		assume corruptedId in corruptedIds && tr.containsId(readers, corruptedId)
 	} else {
 		l.AttackerOnlyKnowsPublishableValues(term)
-		l.LabelCtx().PublishableRequiresCorruption(l.Snapshot(), term, label.Readers(readers))
+		l.LabelCtx().PublishableRequiresCorruptionWeakened(l.Snapshot(), term, label.Readers(readers))
 		// this branch is a contradiction:
 		// the preconditions state that `term` has a certain labeling and the
 		// branch condition states that no reader is corrupted.
 		// The lemma call's postcondition however expresses that `term` is publishable.
 		// This in turn implies that a reader must have been corrupted (based on `canFlowInternal`),
 		// which contradicts the branch condition.
+        assert false // contradiction -- as expected
 	}
 }
 

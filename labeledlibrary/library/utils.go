@@ -32,27 +32,3 @@ func NewError(desc string) (res error) {
 func Println(msg string) {
 	fmt.Println(msg)
 }
-
-//@ trusted
-//@ decreases
-//@ requires acc(Mem(na), 1/16)
-//@ requires acc(Mem(receivedNb), 1/16)
-//@ ensures  acc(Mem(na), 1/16)
-//@ ensures  acc(Mem(receivedNb), 1/16)
-func PrintInitiatorSuccess(na, receivedNb ByteString) {
-	fmt.Println("A has successfully finished the protocol run")
-	fmt.Println("A.na: ", na)
-	fmt.Println("A.nb: ", receivedNb)
-}
-
-//@ trusted
-//@ decreases
-//@ requires acc(Mem(receivedNa), 1/16)
-//@ requires acc(Mem(nb), 1/16)
-//@ ensures  acc(Mem(receivedNa), 1/16)
-//@ ensures  acc(Mem(nb), 1/16)
-func PrintResponderSuccess(receivedNa, nb ByteString) {
-	fmt.Println("B has successfully finished the protocol run")
-	fmt.Println("B.na: ", receivedNa)
-	fmt.Println("B.nb: ", nb)
-}

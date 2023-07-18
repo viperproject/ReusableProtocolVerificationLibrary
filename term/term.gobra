@@ -101,6 +101,9 @@ type Term domain {
     // type 22
     func generator() Term
 
+    // type 23
+    func sign(Term, Term) Term
+
     // WARNING: adapt first axiom if another Term is added!
 
     func getTermType(Term) int
@@ -112,7 +115,7 @@ type Term domain {
     func max7(int, int, int, int, int, int, int) int
 
     axiom { // every term belongs to a known type
-        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 22
+        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 23
     }
 
 
@@ -360,6 +363,17 @@ type Term domain {
         forall t Term :: { getTermType(t) } (getTermType(t) == 22) ==> t == generator()
     }
 
+    axiom { // sign is injective
+        forall plaintext Term, sk Term :: { sign(plaintext, sk) } getTermType(sign(plaintext, sk)) == 23 &&
+            getTermHeight(sign(plaintext, sk)) == 1 + max2(getTermHeight(plaintext), getTermHeight(sk)) &&
+            getPlaintext(sign(plaintext, sk)) == plaintext &&
+            getSk(sign(plaintext, sk)) == sk
+    }
+    axiom { // sign implies its constructions
+        forall t Term :: { getTermType(t) } getTermType(t) == 23 ==>
+            t == sign(getPlaintext(t), getSk(t))
+    }
+
     // axioms for getTermHeight and the max functions:
     axiom {
         forall t Term :: { getTermHeight(t) } 0 <= getTermHeight(t)
@@ -542,6 +556,12 @@ pure func (term Term) IsGenerator() bool {
     return getTermType(term) == 22
 }
 
+ghost
+decreases
+pure func (term Term) IsSignature() bool {
+    return getTermType(term) == 23
+}
+
 
 ghost
 decreases
@@ -594,4 +614,22 @@ decreases
 requires ciphertext.IsAead()
 pure func AeadExtract(ciphertext Term) Term {
     return getAuthtext(ciphertext)
+}
+
+ghost
+decreases
+pure func Open(signature, pk Term) option[Term] {
+    return signature.IsSignature() ?
+        (createPk(getSk(signature)) == pk ?
+            some(getPlaintext(signature)) :
+            // pk does not match
+            none[Term]) :
+        none[Term] // no a signature
+}
+
+ghost
+decreases
+requires signature.IsSignature()
+pure func SignExtract(signature Term) Term {
+    return getPlaintext(signature)
 }

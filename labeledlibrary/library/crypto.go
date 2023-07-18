@@ -6,7 +6,10 @@ import (
 	x509 "crypto/x509"
 	sha256 "crypto/sha256"
 	"errors"
+	hex "encoding/hex"
+	big "math/big"
 	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
+	sign "golang.org/x/crypto/nacl/sign"
 	io "io"
 	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
 	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
@@ -24,6 +27,11 @@ type ByteString []byte
 
 // number of bytes that should be used for nonces
 const NonceLength = 24
+
+// based on RFC 3526
+const GroupGenerator = 2
+const GroupSizeString = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF"
+const DHHalfKeyLength = 256
 
 
 type LibraryState struct {
@@ -84,14 +92,11 @@ func Size(b ByteString) (res int) {
 }
 
 //@ trusted
-//@ requires acc(l.Mem(), 1/16)
+//@ preserves acc(l.Mem(), 1/16)
 //@ requires versionPerm >= 0
 //@ requires versionPerm > 0 ==> acc(guard(version), versionPerm)
-//@ ensures  acc(l.Mem(), 1/16)
-//@ ensures  err == nil ==> Mem(pk)
-//@ ensures  err == nil ==> Mem(sk)
-//@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk))
-//@ ensures  err == nil ==> Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
+//@ ensures  err == nil ==> Mem(pk) && Mem(sk)
+//@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(sk, version), versionPerm)
@@ -111,10 +116,9 @@ func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, gh
 }
 
 //@ trusted
-//@ requires acc(l.Mem(), 1/16)
+//@ preserves acc(l.Mem(), 1/16)
 //@ requires versionPerm >= 0
 //@ requires versionPerm > 0 ==> acc(guard(version), versionPerm)
-//@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(key) && Size(key) == 32
 //@ ensures  err == nil ==> Abs(key) == tm.gamma(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
@@ -135,10 +139,26 @@ func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, gho
 }
 
 //@ trusted
-//@ requires acc(l.Mem(), 1/16)
+//@ preserves acc(l.Mem(), 1/16)
+//@ ensures  err == nil ==> Mem(pk) && Mem(sk)
+//@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)))
+//@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)))
+//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)), eventType)
+func (l *LibraryState) GenerateSigningKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
+	publicKey, privateKey, err := sign.GenerateKey(rand.Reader)
+	if err != nil {
+		return
+	}
+
+	pk = (*publicKey)[:]
+	sk = (*privateKey)[:]
+	return
+}
+
+//@ trusted
+//@ preserves acc(l.Mem(), 1/16)
 //@ requires versionPerm >= 0
 //@ requires versionPerm > 0 ==> acc(guard(version), versionPerm)
-//@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  err == nil ==> Mem(nonce) && Size(nonce) == NonceLength
 //@ ensures  err == nil ==> Abs(nonce) == tm.gamma(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
@@ -171,12 +191,9 @@ func (l* LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, 
 }
 
 //@ trusted
-//@ requires acc(l.Mem(), 1/16)
-//@ requires acc(Mem(msg), 1/16)
-//@ requires acc(Mem(pk), 1/16)
-//@ ensures  acc(l.Mem(), 1/16)
-//@ ensures  acc(Mem(msg), 1/16)
-//@ ensures  acc(Mem(pk), 1/16)
+//@ preserves acc(l.Mem(), 1/16)
+//@ preserves acc(Mem(msg), 1/16)
+//@ preserves acc(Mem(pk), 1/16)
 //@ ensures  err == nil ==> Mem(ciphertext)
 //@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), Abs(pk))
 func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error) {
@@ -204,15 +221,12 @@ func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error
 //@ pred IsUnversioned (value ByteString) // Abstract predicate whose only purpose is to ensure a method that requires it that the value is unversioned, when the method cannot prove it itself.
 
 //@ trusted
-//@ requires acc(l.Mem(), 1/16)
-//@ requires acc(Mem(ciphertext), 1/16)
-//@ requires acc(Mem(sk), 1/16)
+//@ preserves acc(l.Mem(), 1/16)
+//@ preserves acc(Mem(ciphertext), 1/16)
+//@ preserves acc(Mem(sk), 1/16)
 //@ requires versionPerm >= 0
 //@ requires versionPerm == 0 ==> IsUnversioned(sk)
 //@ requires versionPerm > 0 ==> acc(guard(version), versionPerm)
-//@ ensures  acc(l.Mem(), 1/16)
-//@ ensures  acc(Mem(ciphertext), 1/16)
-//@ ensures  acc(Mem(sk), 1/16)
 //@ ensures  err == nil ==> Mem(msg)
 //@ ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), tm.createPkB(Abs(sk)))
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(msg, version), versionPerm)
@@ -230,15 +244,12 @@ func (l *LibraryState) Dec(ciphertext, sk ByteString /*@, ghost versionPerm perm
 }
 
 //@ trusted
-//@ requires acc(l.Mem(), 1/16)
+//@ preserves acc(l.Mem(), 1/16)
 //@ requires acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
 //@ requires Size(key) == 32 && Size(nonce) == 12
-//@ requires plaintext != nil ==> acc(Mem(plaintext), 1/16)
-//@ requires additionalData != nil ==> acc(Mem(additionalData), 1/16)
-//@ ensures  acc(l.Mem(), 1/16)
+//@ preserves plaintext != nil ==> acc(Mem(plaintext), 1/16)
+//@ preserves additionalData != nil ==> acc(Mem(additionalData), 1/16)
 //@ ensures  acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
-//@ ensures  plaintext != nil ==> acc(Mem(plaintext), 1/16)
-//@ ensures  additionalData != nil ==> acc(Mem(additionalData), 1/16)
 //@ ensures  err == nil ==> Mem(ciphertext) && Size(ciphertext) == (plaintext == nil ? 0 : Size(plaintext)) + 16
 //@ ensures  err == nil ==> Abs(ciphertext) == tm.aeadB(Abs(key), Abs(nonce), SafeAbs(plaintext, 0), SafeAbs(additionalData, 0))
 func (l *LibraryState) AeadEnc(key, nonce, plaintext, additionalData ByteString) (ciphertext ByteString, err error) {
@@ -252,18 +263,15 @@ func (l *LibraryState) AeadEnc(key, nonce, plaintext, additionalData ByteString)
 }
 
 //@ trusted
-//@ requires acc(l.Mem(), 1/16)
+//@ preserves acc(l.Mem(), 1/16)
 //@ requires acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
 //@ requires Size(key) == 32 && Size(nonce) == 12
-//@ requires acc(Mem(ciphertext), 1/16)
-//@ requires additionalData != nil ==> acc(Mem(additionalData), 1/16)
+//@ preserves acc(Mem(ciphertext), 1/16)
+//@ preserves additionalData != nil ==> acc(Mem(additionalData), 1/16)
 //@ requires versionPerm >= 0
 //@ requires versionPerm == 0 ==> IsUnversioned(key)
 //@ requires versionPerm > 0 ==> acc(guard(version), versionPerm)
-//@ ensures  acc(l.Mem(), 1/16)
 //@ ensures  acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
-//@ ensures  acc(Mem(ciphertext), 1/16)
-//@ ensures  additionalData != nil ==> acc(Mem(additionalData), 1/16)
 //@ ensures  err == nil ==> Mem(res) && Size(res) == Size(ciphertext) - 16
 //@ ensures  err == nil ==> Abs(ciphertext) == tm.aeadB(Abs(key), Abs(nonce), Abs(res), SafeAbs(additionalData, 0))
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(res, version), versionPerm)
@@ -276,4 +284,106 @@ func (l *LibraryState) AeadDec(key, nonce, ciphertext, additionalData ByteString
 	res = make([]byte, len(ciphertext)-16)
 	_, err = aead.Open(res[:0], nonce, ciphertext, additionalData)
 	return
+}
+
+//@ trusted
+//@ preserves acc(l.Mem(), 1/16)
+//@ preserves acc(Mem(data), 1/16) && acc(Mem(sk), 1/16)
+//@ ensures err == nil ==> Mem(res)
+//@ ensures err == nil ==> Abs(res) == tm.signB(Abs(data), Abs(sk))
+func (l *LibraryState) Sign(data []byte, sk []byte) (res []byte, err error) {
+	if len(sk) != 64 {
+		return nil, errors.New("invalid secret key")
+	}
+	var skBuf [64]byte
+	copy(skBuf[:], sk)
+
+	var out []byte
+	// not that the (64 bytes) signature is prepended to the plaintext
+	return sign.Sign(out, data, &skBuf), nil
+}
+
+//@ trusted
+//@ preserves acc(l.Mem(), 1/16)
+//@ preserves acc(Mem(signedData), 1/16)
+//@ requires acc(Mem(pk), 1/16)
+//@ requires Abs(pk) == tm.gamma(tm.createPk(skT))
+//@ ensures  acc(Mem(pk), 1/16)
+//@ ensures err == nil ==> Mem(res)
+//@ ensures err == nil ==> Abs(signedData) == tm.signB(Abs(res), tm.gamma(skT))
+func (l *LibraryState) Open(signedData []byte, pk []byte /*@, ghost skT tm.Term @*/) (res []byte, err error) {
+	if len(pk) != 32 {
+		return nil, errors.New("invalid public key")
+	}
+	var pkBuf [32]byte
+	copy(pkBuf[:], pk)
+	
+	var out []byte
+	data, success := sign.Open(out, signedData, &pkBuf)
+	if success {
+		return data, nil
+	} else {
+		return nil, errors.New("signature check has failed")
+	}
+}
+
+//@ trusted
+//@ preserves acc(l.Mem(), 1/16)
+//@ preserves acc(Mem(exp), 1/16)
+//@ ensures err == nil ==> Mem(res)
+// arg is big-endian
+func (l *LibraryState) expModWithIntBase(base *big.Int, exp []byte) (res []byte, err error) {
+	// prepare mod argument:
+	groupSizeBytes, err := hex.DecodeString(GroupSizeString)
+	if err != nil {
+		return nil, err
+	}
+	mod := big.NewInt(0)
+	mod.SetBytes(groupSizeBytes)
+
+	// prepare exp argument:
+	expInt := big.NewInt(0)
+	expInt.SetBytes(exp)
+
+	// perform calculation:
+	r := big.NewInt(0)
+	r.Exp(base, expInt, mod)
+
+	// extract result:
+	var resBuf [DHHalfKeyLength]byte
+	r.FillBytes(resBuf[:])
+	return resBuf[:], nil
+}
+
+//@ trusted
+//@ preserves acc(l.Mem(), 1/16)
+//@ preserves acc(Mem(base), 1/16) && acc(Mem(exp), 1/16)
+//@ ensures err == nil ==> Mem(res)
+// args are big-endian
+func (l *LibraryState) expMod(base, exp []byte) (res []byte, err error) {
+	// prepare mod argument:
+	baseInt := big.NewInt(0)
+	baseInt.SetBytes(base)
+	return l.expModWithIntBase(baseInt, exp)
+}
+
+//@ trusted
+//@ preserves acc(l.Mem(), 1/16)
+//@ preserves acc(Mem(exp), 1/16)
+//@ ensures err == nil ==> Mem(res)
+//@ ensures err == nil ==> Abs(res) == tm.expB(tm.generatorB(), Abs(exp))
+// arg is big-endian
+func (l *LibraryState) DhExp(exp []byte) (res []byte, err error) {
+	g := big.NewInt(GroupGenerator)
+	return l.expModWithIntBase(g, exp)
+}
+
+//@ trusted
+//@ preserves acc(l.Mem(), 1/16)
+//@ preserves acc(Mem(dhSecret), 1/16) && acc(Mem(dhHalfKey), 1/16)
+//@ ensures err == nil ==> Mem(res)
+//@ ensures err == nil ==> Abs(res) == tm.expB(Abs(dhHalfKey), Abs(dhSecret))
+// args are big-endian
+func (l *LibraryState) DhSharedSecret(dhSecret, dhHalfKey []byte) (res []byte, err error) {
+	return l.expMod(dhHalfKey, dhSecret)
 }

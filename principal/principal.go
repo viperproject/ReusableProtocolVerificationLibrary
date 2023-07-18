@@ -21,7 +21,7 @@ type Id domain {
 	// WARNING: adapt first axiom if another Id is added!
 
     axiom { // every Id belongs to a known type
-        forall id Id :: { getIdType(id) } 0 <= getIdType(id) && getIdType(id) <= 2
+        forall id Id :: { getIdType(id) } 0 <= getIdType(id) && getIdType(id) <= 3
     }
 
 	axiom { // principalId is injective
@@ -85,7 +85,7 @@ pure func (id Id) IsSession() bool {
 ghost
 decreases
 pure func (id Id) IsVersion() bool {
-	return getIdType(id) == 2
+	return getIdType(id) == 3
 }
 
 ghost

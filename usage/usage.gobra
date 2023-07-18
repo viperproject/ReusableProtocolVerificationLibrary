@@ -14,6 +14,8 @@ type Usage domain {
     // type 4
     /** denotes that a key is meant as input to a KDF function */
     func KdfKey(string) Usage
+    // type 5
+    func SigningKey(string) Usage
 
     // WARNING: adapt first axiom if another Usage is added!
 
@@ -22,7 +24,7 @@ type Usage domain {
     func GetUsageString(Usage) string
 
     axiom { // every usage belongs to a known type
-        forall u Usage :: { GetUsageType(u) } 0 <= GetUsageType(u) && GetUsageType(u) <= 4
+        forall u Usage :: { GetUsageType(u) } 0 <= GetUsageType(u) && GetUsageType(u) <= 5
     }
 
     axiom { // PkeKey is injective
@@ -64,6 +66,14 @@ type Usage domain {
     axiom { // KdfKey implies its construction
         forall u Usage :: { GetUsageType(u) } GetUsageType(u) == 4 ==> u == KdfKey(GetUsageString(u))
     }
+
+    axiom { // SigningKey is injective
+        forall s string :: { SigningKey(s) } GetUsageType(SigningKey(s)) == 5 &&
+            GetUsageString(SigningKey(s)) == s
+    }
+    axiom { // SigningKey implies its construction
+        forall u Usage :: { GetUsageType(u) } GetUsageType(u) == 5 ==> u == SigningKey(GetUsageString(u))
+    }
 }
 
 ghost
@@ -94,4 +104,10 @@ ghost
 decreases
 pure func (u Usage) IsKdfKey() bool {
     return GetUsageType(u) == 4
+}
+
+ghost
+decreases
+pure func (u Usage) IsSigningKey() bool {
+    return GetUsageType(u) == 5
 }
