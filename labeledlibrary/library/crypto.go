@@ -160,13 +160,13 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost
 //@ ensures acc(guard(version), versionPermGuard)
 //@ ensures err == nil ==> acc(guard(version), versionPermReceipt)
 func (l* LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, ghost versionPermReceipt perm, ghost versionPermGuard perm @*/) (err error) {
-	// TODO_ is it sufficient?
-	// overwrite the value with zeros
-	for i := range value {
-		value[i] = 0
-	}
-	// set the value to nil
-	value = nil
+	// Implementation from: https://github.com/golang/go/issues/33325#issuecomment-515996402
+ 	// overwrite the value with zeros
+ 	for i := range value {
+ 		value[i] = 0
+ 	}
+ 	// prevent the compiler from optimizing out the entire function
+ 	runtime.KeepAlive(value)
 	return
 }
 

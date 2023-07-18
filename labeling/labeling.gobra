@@ -432,6 +432,8 @@ ensures term.IsRandom() ==> res == tm.getRandomLabel(term)
 // thus the secrecy lemma holds trivially
 ensures term.IsHash() ==> res == label.Public()
 ensures (term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabel(tm.getInput(term))
+// TODO_ define the alternative KDF label here, but do not use "len(getTupleSeq(...))" -> directly constrain it as a tuple of 2 elements 
+ // ensures term.IsKdf4() ==> tm.getInput(term).IsTuple() && len(getTupleSeq(tm.getInput(term))) == 2 && res == ctx.GetLabel(getTupleSeq(tm.getInput(term))[1])
 ensures term.IsTuple() ==> res == ctx.nestedMeetInternal(term, getTupleSeq(term), 0, true) // intersection of audience is allowed to read
 // DH exponentiation is special cased:
 // if a term is `(g^x)^y` or equivalently `g^(x*y)` it results in the join label of x and y
