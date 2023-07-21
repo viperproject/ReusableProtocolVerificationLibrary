@@ -79,6 +79,7 @@ requires ctx.IsMsg(t, input, l)
 ensures  ctx.IsMsg(t, tm.kdf1(input), l)
 ensures  ctx.IsMsg(t, tm.kdf2(input), l)
 ensures  ctx.IsMsg(t, tm.kdf3(input), l)
+ensures  ctx.IsMsg(t, tm.kdfRatchet(input), l)
 func (ctx LabelingContext) kdf(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel) {
     // no body needed
 }

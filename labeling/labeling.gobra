@@ -143,7 +143,7 @@ pure func (ctx LabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bool {
             // `nonceOccurs` saves us from writing yet another function to simply state that `term` is on the trace
             t.OnlyNonceOccurs(term)) &&
         (term.IsExp() ==> exists base, e tm.Term :: { tm.exp(base, e) } term == tm.exp(base, e) && ctx.IsValid(t, base) && ctx.IsValid(t, e)) &&
-        ((term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> ctx.IsValid(t, tm.getInput(term))) &&
+        ((term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3() || term.IsKdfRatchet()) ==> ctx.IsValid(t, tm.getInput(term))) &&
         (term.IsTuple() ==> forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsValid(t, tm.getTupleElem(term, i))) &&
         (term.IsSignature() ==>
             ctx.IsValidSignatureInternal(t, tm.getPlaintext(term), tm.getSk(term), true))
@@ -278,7 +278,7 @@ func (ctx LabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term) 
         assume term == tm.exp(base, e) && ctx.IsValid(t1, base) && ctx.IsValid(t1, e)
         ctx.IsValidMonotonic(t1, t2, base)
         ctx.IsValidMonotonic(t1, t2, e)
-    } else if (term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) {
+    } else if (term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3() || term.IsKdfRatchet()) {
         ctx.IsValidMonotonic(t1, t2, tm.getInput(term))
     } else if term.IsTuple() {
         invariant 0 <= i && i <= term.GetTupleArity()
@@ -477,7 +477,7 @@ ensures term.IsPk() ==> res == label.Public()
 ensures term.IsEncrypt() ==> res == label.Public()
 ensures term.IsAead() ==> res == label.Public()
 ensures term.IsRandom() ==> res == tm.getRandomLabel(term)
-// hash, kdf1, kdf2, and kdf3 are considered one-way functions
+// hash, kdf1, kdf2, kdf3 and kdfRatchet are considered one-way functions
 // hashes are considered to be fine for sending them to the network
 // the result of applying a KDF function however is used as a key and therefore, we want to have the
 // tightest label that is possible, which is simply the label of its parameter.
@@ -486,7 +486,7 @@ ensures term.IsRandom() ==> res == tm.getRandomLabel(term)
 // thus the secrecy lemma holds trivially
 ensures term.IsHash() ==> res == label.Public()
 ensures (term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabel(tm.getInput(term))
-// TODO_ define the alternative KDF label here, but do not use "len(getTupleSeq(...))" -> directly constrain it as a tuple of 2 elements 
+ensures term.IsKdfRatchet() ==> exists t1, t2 tm.Term :: { tm.tuple2(t1, t2) } term == tm.tuple2(t1, t2) && res == ctx.GetLabel(t2)
  // ensures term.IsKdf4() ==> tm.getInput(term).IsTuple() && len(getTupleSeq(tm.getInput(term))) == 2 && res == ctx.GetLabel(getTupleSeq(tm.getInput(term))[1])
 ensures term.IsTuple() ==> res == ctx.nestedMeetInternal(term, getTupleSeq(term), 0, true) // intersection of audience is allowed to read
 // DH exponentiation is special cased:

@@ -155,7 +155,7 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7, t8 tm.Ter
     {
         arbTerm := arb.GetArbTerm()
         assume nonDeterministicChoice == tm.getTermType(arbTerm)
-        assert 0 <= nonDeterministicChoice && nonDeterministicChoice <= 23
+        assert 0 <= nonDeterministicChoice && nonDeterministicChoice <= 24
     }
 
     if nonDeterministicChoice == 0 {
@@ -303,10 +303,15 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7, t8 tm.Ter
             // we also show that open is possible:
             res, err = Open(l, t3, t4)
         }
+    } else if nonDeterministicChoice == 24 {
+        // create kdfRatchet
+        l.LabelCtx().kdf(l.Snapshot(), t1, label.Public())
+        res = tm.kdfRatchet(t1)
+        l.Publish(res)
     } else {
         // sanity check that we have not missed any term by checking that
         // we have covered all term types
-        assert nonDeterministicChoice < 0 || 23 < nonDeterministicChoice
+        assert nonDeterministicChoice < 0 || 24 < nonDeterministicChoice
         assert false
     }
     return
@@ -574,7 +579,7 @@ func ExtendKnowledgeByDeconstruction(l *ll.LabeledLibrary, t tm.Term) {
         MultiPublish(l, seq[tm.Term]{ t1, t2, t3, t4, t5, t6, t7 })
     }
 
-    // we assume hash, kdf1, kdf2, kdf3, and createPk cannot be deconstructed
+    // we assume hash, kdf1, kdf2, kdf3, kdfRatchet and createPk cannot be deconstructed
     // due to our perfect cryptography assumption.
     
     // we already check the deconstruction of encrypt and aead (if decryption succeeds)

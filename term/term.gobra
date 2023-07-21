@@ -104,6 +104,9 @@ type Term domain {
     // type 23
     func sign(Term, Term) Term
 
+    // type 24
+    func kdfRatchet(Term) Term
+
     // WARNING: adapt first axiom if another Term is added!
 
     func getTermType(Term) int
@@ -115,7 +118,7 @@ type Term domain {
     func max7(int, int, int, int, int, int, int) int
 
     axiom { // every term belongs to a known type
-        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 23
+        forall term Term :: { getTermType(term) } 0 <= getTermType(term) && getTermType(term) <= 24
     }
 
 
@@ -231,6 +234,16 @@ type Term domain {
     axiom { // kdf3 implies its constructions
         forall t Term :: { getTermType(t) } getTermType(t) == 9 ==>
             t == kdf3(getInput(t))
+    }
+
+    axiom { // kdfRatchet is injective
+        forall t Term :: { kdfRatchet(t) } getTermType(kdfRatchet(t)) == 24 &&
+            getTermHeight(kdfRatchet(t)) == 1 + getTermHeight(t) &&
+            getInput(kdfRatchet(t)) == t
+    }
+    axiom { // kdfRatchet implies its constructions
+        forall t Term :: { getTermType(t) } getTermType(t) == 24 ==>
+            t == kdfRatchet(getInput(t))
     }
 
     // TODO `getPk` is currently total, should any argument be acceptable?
@@ -457,7 +470,7 @@ pure func (term Term) IsHash() bool {
 ghost
 decreases
 pure func (term Term) IsKdf() bool {
-    return term.IsKdf1() || term.IsKdf2() || term.IsKdf3()
+    return term.IsKdf1() || term.IsKdf2() || term.IsKdf3() || term.IsKdfRatchet()
 }
 
 ghost
@@ -476,6 +489,12 @@ ghost
 decreases
 pure func (term Term) IsKdf3() bool {
     return getTermType(term) == 9
+}
+
+ghost
+decreases
+pure func (term Term) IsKdfRatchet() bool {
+    return getTermType(term) == 24
 }
 
 ghost

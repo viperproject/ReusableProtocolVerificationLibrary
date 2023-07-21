@@ -12,6 +12,7 @@ type Bytes domain {
     func kdf1B(Bytes) Bytes
     func kdf2B(Bytes) Bytes
     func kdf3B(Bytes) Bytes
+    func kdfRatchetB(Bytes) Bytes
     func createPkB(Bytes) Bytes
     func encryptB(Bytes, Bytes) Bytes
     func aeadB(Bytes, Bytes, Bytes, Bytes) Bytes
@@ -115,6 +116,7 @@ type Gamma domain {
     (forall b Term :: {gamma(kdf1(b))} gamma(kdf1(b)) == kdf1B(gamma(b))) &&
     (forall b Term :: {gamma(kdf2(b))} gamma(kdf2(b)) == kdf2B(gamma(b))) &&
     (forall b Term :: {gamma(kdf3(b))} gamma(kdf3(b)) == kdf3B(gamma(b))) &&
+    (forall b Term :: {gamma(kdfRatchet(b))} gamma(kdfRatchet(b)) == kdfRatchetB(gamma(b))) &&
     (forall sk Term :: {gamma(createPk(sk))} gamma(createPk(sk)) == createPkB(gamma(sk))) &&
     (forall p, pk Term :: {gamma(encrypt(p,pk))} gamma(encrypt(p,pk)) == encryptB(gamma(p), gamma(pk))) &&
     (forall k, n, p, a Term :: {gamma(aead(k,n,p,a))} gamma(aead(k,n,p,a)) == aeadB(gamma(k), gamma(n), gamma(p), gamma(a))) &&
