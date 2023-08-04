@@ -79,8 +79,16 @@ requires ctx.IsMsg(t, input, l)
 ensures  ctx.IsMsg(t, tm.kdf1(input), l)
 ensures  ctx.IsMsg(t, tm.kdf2(input), l)
 ensures  ctx.IsMsg(t, tm.kdf3(input), l)
-ensures  ctx.IsMsg(t, tm.kdfRatchet(input), l)
 func (ctx LabelingContext) kdf(t tr.TraceEntry, input tm.Term, l label.SecrecyLabel) {
+    // no body needed
+}
+
+ghost
+requires ctx.Props()
+requires ctx.IsMsg(t, key, l)
+requires ctx.IsMsg(t, DhSharedSecret, l)
+ensures  ctx.IsMsg(t, tm.kdfRatchet(key, DhSharedSecret), l)
+func (ctx LabelingContext) kdfRatchet(t tr.TraceEntry, key, DhSharedSecret tm.Term, l label.SecrecyLabel) {
     // no body needed
 }
 

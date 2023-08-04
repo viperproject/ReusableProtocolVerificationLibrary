@@ -305,8 +305,8 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7, t8 tm.Ter
         }
     } else if nonDeterministicChoice == 24 {
         // create kdfRatchet
-        l.LabelCtx().kdf(l.Snapshot(), t1, label.Public())
-        res = tm.kdfRatchet(t1)
+        l.LabelCtx().kdfRatchet(l.Snapshot(), t1, t2, label.Public())
+        res = tm.kdfRatchet(t1, t2)
         l.Publish(res)
     } else {
         // sanity check that we have not missed any term by checking that

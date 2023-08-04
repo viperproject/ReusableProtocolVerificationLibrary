@@ -38,6 +38,7 @@ type Term domain {
     // type 6
     func hash(Term) Term
     func getInput(Term) Term
+    func getInput2(Term) Term
 
     // type 7
     func kdf1(Term) Term
@@ -105,7 +106,7 @@ type Term domain {
     func sign(Term, Term) Term
 
     // type 24
-    func kdfRatchet(Term) Term
+    func kdfRatchet(Term, Term) Term
 
     // WARNING: adapt first axiom if another Term is added!
 
@@ -234,16 +235,6 @@ type Term domain {
     axiom { // kdf3 implies its constructions
         forall t Term :: { getTermType(t) } getTermType(t) == 9 ==>
             t == kdf3(getInput(t))
-    }
-
-    axiom { // kdfRatchet is injective
-        forall t Term :: { kdfRatchet(t) } getTermType(kdfRatchet(t)) == 24 &&
-            getTermHeight(kdfRatchet(t)) == 1 + getTermHeight(t) &&
-            getInput(kdfRatchet(t)) == t
-    }
-    axiom { // kdfRatchet implies its constructions
-        forall t Term :: { getTermType(t) } getTermType(t) == 24 ==>
-            t == kdfRatchet(getInput(t))
     }
 
     // TODO `getPk` is currently total, should any argument be acceptable?
@@ -385,6 +376,17 @@ type Term domain {
     axiom { // sign implies its constructions
         forall t Term :: { getTermType(t) } getTermType(t) == 23 ==>
             t == sign(getPlaintext(t), getSk(t))
+    }
+
+    axiom { // kdfRatchet is injective
+        forall t1 Term, t2 Term :: { kdfRatchet(t1, t2) } getTermType(kdfRatchet(t1, t2)) == 24 &&
+            getTermHeight(kdfRatchet(t1, t2)) == 1 + max2(getTermHeight(t1), getTermHeight(t2)) &&
+            getInput(kdfRatchet(t1, t2)) == t1 &&
+            getInput2(kdfRatchet(t1, t2)) == t2
+    }
+    axiom { // kdfRatchet implies its constructions
+        forall t Term :: { getTermType(t) } getTermType(t) == 24 ==>
+            t == kdfRatchet(getInput(t), getInput2(t))
     }
 
     // axioms for getTermHeight and the max functions:
