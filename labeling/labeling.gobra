@@ -491,7 +491,6 @@ ensures term.IsRandom() ==> res == tm.getRandomLabel(term)
 ensures term.IsHash() ==> res == label.Public()
 ensures (term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabel(tm.getInput(term))
 ensures forall key, DhSharedSecret tm.Term :: { tm.kdfRatchet(key, DhSharedSecret) } term == tm.kdfRatchet(key, DhSharedSecret) ==> res == ctx.GetLabel(DhSharedSecret)
- // ensures term.IsKdf4() ==> tm.getInput(term).IsTuple() && len(getTupleSeq(tm.getInput(term))) == 2 && res == ctx.GetLabel(getTupleSeq(tm.getInput(term))[1]) // TODO_ remove
 ensures term.IsTuple() ==> res == ctx.nestedMeetInternal(term, getTupleSeq(term), 0, true) // intersection of audience is allowed to read
 // DH exponentiation is special cased:
 // if a term is `(g^x)^y` or equivalently `g^(x*y)` it results in the join label of x and y

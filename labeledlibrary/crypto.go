@@ -413,7 +413,7 @@ func (l *LabeledLibrary) Open(signedMsg, pk lib.ByteString /*@, ghost signedMsgT
 }
 
 //@ requires l.Mem()
-//@ requires acc(lib.Mem(exp), 1/16)
+//@ requires acc(lib.Mem(exp), 1/16) && lib.Size(exp) == 32
 //@ requires lib.Abs(exp) == tm.gamma(expT)
 //@ requires l.LabelCtx().IsValid(l.Snapshot(), expT) && expT.IsRandom()
 //@ ensures  l.Mem()
@@ -423,6 +423,7 @@ func (l *LabeledLibrary) Open(signedMsg, pk lib.ByteString /*@, ghost signedMsgT
 //@ ensures  l.LabelCtx().IsPublishable(l.Snapshot(), tm.exp(tm.generator(), expT))
 //@ ensures  err == nil ==> lib.Mem(res)
 //@ ensures  err == nil ==> lib.Abs(res) == tm.expB(tm.generatorB(), lib.Abs(exp))
+//@ ensures err == nil ==> lib.Size(res) == 256
 // arg is big-endian
 func (l *LabeledLibrary) DhExp(exp []byte /*@, ghost expT tm.Term @*/) (res []byte, err error) {
 	//@ unfold l.Mem()
@@ -434,11 +435,13 @@ func (l *LabeledLibrary) DhExp(exp []byte /*@, ghost expT tm.Term @*/) (res []by
 }
 
 //@ preserves l.Mem()
-//@ preserves acc(lib.Mem(dhSecret), 1/16) && acc(lib.Mem(dhHalfKey), 1/16)
+//@ requires acc(lib.Mem(dhSecret), 1/16) && acc(lib.Mem(dhHalfKey), 1/16) && lib.Size(dhSecret) == 32 && lib.Size(dhHalfKey) == 256
+//@ ensures acc(lib.Mem(dhSecret), 1/16) && acc(lib.Mem(dhHalfKey), 1/16)
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot())
 //@ ensures err == nil ==> lib.Mem(res)
 //@ ensures err == nil ==> lib.Abs(res) == tm.expB(lib.Abs(dhHalfKey), lib.Abs(dhSecret))
+//@ ensures err == nil ==> lib.Size(res) == 256
 // args are big-endian
 func (l *LabeledLibrary) DhSharedSecret(dhSecret, dhHalfKey []byte) (res []byte, err error) {
 	//@ unfold l.Mem()
