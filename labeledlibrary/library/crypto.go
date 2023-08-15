@@ -373,7 +373,7 @@ func (l *LibraryState) expMod(base, exp []byte) (res []byte, err error) {
 //@ ensures acc(Mem(exp), 1/16)
 //@ ensures err == nil ==> Mem(res)
 //@ ensures err == nil ==> Abs(res) == tm.expB(tm.generatorB(), Abs(exp))
-//@ ensures err == nil ==> Size(res) == 256
+//@ ensures err == nil ==> Size(res) == DHHalfKeyLength
 // arg is big-endian
 func (l *LibraryState) DhExp(exp []byte) (res []byte, err error) {
 	g := big.NewInt(GroupGenerator)
@@ -382,11 +382,11 @@ func (l *LibraryState) DhExp(exp []byte) (res []byte, err error) {
 
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
-//@ requires acc(Mem(dhSecret), 1/16) && acc(Mem(dhHalfKey), 1/16) && Size(dhSecret) == 32 && Size(dhHalfKey) == 256
+//@ requires acc(Mem(dhSecret), 1/16) && acc(Mem(dhHalfKey), 1/16) && Size(dhSecret) == 32 && Size(dhHalfKey) == DHHalfKeyLength
 //@ ensures acc(Mem(dhSecret), 1/16) && acc(Mem(dhHalfKey), 1/16)
 //@ ensures err == nil ==> Mem(res)
 //@ ensures err == nil ==> Abs(res) == tm.expB(Abs(dhHalfKey), Abs(dhSecret))
-//@ ensures err == nil ==> Size(res) == 256 // TODO_ Is the shared secret also of length 256?
+//@ ensures err == nil ==> Size(res) == DHHalfKeyLength // TODO_ Is the shared secret also of length 256?
 // args are big-endian
 func (l *LibraryState) DhSharedSecret(dhSecret, dhHalfKey []byte) (res []byte, err error) {
 	return l.expMod(dhHalfKey, dhSecret)
