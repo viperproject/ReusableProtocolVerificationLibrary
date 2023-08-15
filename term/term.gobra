@@ -284,6 +284,15 @@ type Term domain {
         forall t1, t2, t3 Term :: { exp(t1, t2), exp(t1, t3) } exp(t1, t2) == exp(t1, t3) ==> t2 == t3
     }
     // exp is neither injective nor does it imply its construction as we can construct the same term by using exp and mult!
+    // ___ TODO_ does it make sense? _______
+    axiom {
+        forall t1, t2 Term :: { exp(t1, t2) } getBase(exp(t1, t2)) == t1 && getExponent(exp(t1, t2)) == t2
+    }
+    axiom {
+        forall t Term :: { getTermType(t) } getTermType(t) == 14 ==>
+            exists t1, t2 Term :: { exp(t1, t2) } t == exp(t1, t2)
+    }
+    // _____________________________________
 
     axiom { // mult has type
         forall t1, t2 Term :: { mult(t1, t2) } getTermType(mult(t1, t2)) == 15 &&
