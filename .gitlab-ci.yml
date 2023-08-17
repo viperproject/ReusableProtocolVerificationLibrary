@@ -1,6 +1,6 @@
 image:
   # name: ghcr.io/viperproject/gobra:latest
-  name: ghcr.io/viperproject/gobra@sha256:0578468fcef0a6f347126253ce535116f55308d513f68ff788353b87c52ae812 # Gobra commit 1bc4960
+  name: ghcr.io/viperproject/gobra@sha256:0e7419455a3648d006e8a9957380e94c1a8e52d2d4b1ce2425af852dc275fb29 # Gobra commit f21fe70
   # override entrypoint such that we get a shell in the image
   # as the image would otherwise expect a path to a Gobra file
   entrypoint: [""]
