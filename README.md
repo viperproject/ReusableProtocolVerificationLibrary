@@ -4,3 +4,5 @@
 
 This repository hosts the Reusable Verification Library as a Go module.
 This module simplifies verifying security properties for protocol implementations as described in the paper "A Generic Methodology for the Modular Verification of Security Protocol Implementations", to appear at ACM CCS '23 [[extended version]](https://arxiv.org/abs/2212.02626).
+
+Maintainer: [Linard Arquint](https://linardarquint.com)
