@@ -1,9 +1,9 @@
 package tracemanager
 
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
 
 
 type MessageSearcher struct {

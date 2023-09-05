@@ -1,10 +1,10 @@
 package trace
 
-import . "github.com/ModularVerification/ReusableVerificationLibrary/event"
-import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+import . "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 
 ghost
 decreases _ // TODO: show that this function terminates because we are only calling ADT deconstructors

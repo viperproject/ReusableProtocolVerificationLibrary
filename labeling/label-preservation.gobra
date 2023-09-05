@@ -1,9 +1,9 @@
 package labeling
 
-import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
-import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import arb "github.com/viperproject/ReusableProtocolVerificationLibrary/arbitrary"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
 
 // in this file, we demonstrate that any derived term can be
 // read by a participant given that the participant can read all

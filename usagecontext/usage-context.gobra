@@ -1,8 +1,8 @@
 package usagecontext
 
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 
 
 type UsageOption = option[u.Usage]

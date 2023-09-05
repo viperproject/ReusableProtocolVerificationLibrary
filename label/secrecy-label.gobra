@@ -1,6 +1,6 @@
 package label
 
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
 
 type SecrecyLabel domain {
     // constructors

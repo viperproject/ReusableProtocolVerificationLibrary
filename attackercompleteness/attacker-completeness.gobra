@@ -1,17 +1,17 @@
 package attackercompleteness
 
-import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
-import att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
-import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import ll "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary"
-import lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
-import "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
-import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+import arb "github.com/viperproject/ReusableProtocolVerificationLibrary/arbitrary"
+import att "github.com/viperproject/ReusableProtocolVerificationLibrary/attacker"
+import ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+import ll "github.com/viperproject/ReusableProtocolVerificationLibrary/labeledlibrary"
+import lib "github.com/viperproject/ReusableProtocolVerificationLibrary/labeledlibrary/library"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/labeling"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
+import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 
 
 /**

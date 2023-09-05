@@ -1,8 +1,8 @@
 package tracemanager
 
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
 
 
 type PublishedTermSearcher struct {

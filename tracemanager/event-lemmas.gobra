@@ -1,9 +1,9 @@
 package tracemanager
 
-import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+import ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
 
 
 /** search for latest matching event (irrespective of a particular trace index) */

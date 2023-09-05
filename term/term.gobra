@@ -1,7 +1,7 @@
 package term
 
-import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 
 /**
  * `getTermHeight` is useful as a termination measure for (pure & impure)
@@ -233,7 +233,6 @@ type Term domain {
             t == kdf3(getInput(t))
     }
 
-    // TODO `getPk` is currently total, should any argument be acceptable?
     axiom { // createPk is injective
         forall sk Term :: { createPk(sk) } getTermType(createPk(sk)) == 10 &&
             getTermHeight(createPk(sk)) == 1 + getTermHeight(sk) &&

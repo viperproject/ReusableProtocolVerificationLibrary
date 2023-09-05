@@ -1,0 +1,20 @@
+name: Verification of Reusable Protocol Verification Library
+
+on:
+  push:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: ghcr.io/viperproject/gobra@sha256:0e7419455a3648d006e8a9957380e94c1a8e52d2d4b1ce2425af852dc275fb29 # Gobra commit f21fe70
+    steps:
+      - name: Install git
+        run: apt-get update && apt-get install -y git
+
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Verify the entire Reusable Verification Library
+        run: ./verify.sh

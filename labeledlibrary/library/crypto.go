@@ -11,13 +11,13 @@ import (
 	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
 	sign "golang.org/x/crypto/nacl/sign"
 	io "io"
-	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
-	p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+	//@ ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/labeling"
+	p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+	//@ tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+	//@ tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+	//@ u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 )
 
 

@@ -1,14 +1,14 @@
 package labeledlibrary
 
 import (
-    arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
-    att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
-	ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-    "github.com/ModularVerification/ReusableVerificationLibrary/label"
-    "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
-    tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-	tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-	p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+    arb "github.com/viperproject/ReusableProtocolVerificationLibrary/arbitrary"
+    att "github.com/viperproject/ReusableProtocolVerificationLibrary/attacker"
+	ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+    "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+    "github.com/viperproject/ReusableProtocolVerificationLibrary/labeling"
+    tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+	tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+	p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
 )
 
 

@@ -1,11 +1,11 @@
 package arbitrary
 
-import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+import ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 
 // utility package to return an arbitrary value which can then be used for forall introductions.
 // these Go functions correspond to Viper methods that do not have any postcondition and thus do not constrain

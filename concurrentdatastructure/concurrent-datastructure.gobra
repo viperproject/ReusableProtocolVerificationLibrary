@@ -1,9 +1,9 @@
 package concurrentdatastructure
 
 import "sync"
-import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import arb "github.com/viperproject/ReusableProtocolVerificationLibrary/arbitrary"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
 
 type ClientId = p.Id
 type ValueType = tr.TraceEntry

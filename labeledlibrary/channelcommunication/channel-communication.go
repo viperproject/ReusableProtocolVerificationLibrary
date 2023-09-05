@@ -1,10 +1,10 @@
 package channelcommunication
 
-//@ import ll "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary"
-import lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-//@ import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-//@ import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+//@ import ll "github.com/viperproject/ReusableProtocolVerificationLibrary/labeledlibrary"
+import lib "github.com/viperproject/ReusableProtocolVerificationLibrary/labeledlibrary/library"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+//@ import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+//@ import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
 
 
 type ChannelCommunicaton struct {

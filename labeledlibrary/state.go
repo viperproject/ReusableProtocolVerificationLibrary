@@ -1,19 +1,19 @@
 package labeledlibrary
 
 import (
-	//@ arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
-	//@ att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
-	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
-	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
-	//@ p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-	//@ tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
-	//@ tman "github.com/ModularVerification/ReusableVerificationLibrary/tracemanager"
-	//@ ts "github.com/ModularVerification/ReusableVerificationLibrary/concurrentdatastructure"
-	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+	//@ arb "github.com/viperproject/ReusableProtocolVerificationLibrary/arbitrary"
+	//@ att "github.com/viperproject/ReusableProtocolVerificationLibrary/attacker"
+	//@ ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/labeling"
+	lib "github.com/viperproject/ReusableProtocolVerificationLibrary/labeledlibrary/library"
+	//@ p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+	//@ tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+	//@ tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+	//@ tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
+	//@ tman "github.com/viperproject/ReusableProtocolVerificationLibrary/tracemanager"
+	//@ ts "github.com/viperproject/ReusableProtocolVerificationLibrary/concurrentdatastructure"
+	//@ u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 )
 
 // TODO ghost fields should be ghost

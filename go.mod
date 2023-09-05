@@ -1,4 +1,4 @@
-module github.com/ModularVerification/ReusableVerificationLibrary
+module github.com/viperproject/ReusableProtocolVerificationLibrary
 
 go 1.16
 

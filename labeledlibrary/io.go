@@ -1,13 +1,13 @@
 package labeledlibrary
 
 import (
-	//@ att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
-	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
-	p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-	//@ tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+	//@ att "github.com/viperproject/ReusableProtocolVerificationLibrary/attacker"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/labeling"
+	lib "github.com/viperproject/ReusableProtocolVerificationLibrary/labeledlibrary/library"
+	p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+	//@ tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+	//@ tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+	//@ tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
 )
 
 
