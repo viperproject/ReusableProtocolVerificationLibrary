@@ -1,6 +1,7 @@
 # A Generic Methodology for the Modular Verification of Security Protocol Implementations -- Reusable Verification Library
 
 [![Reusable Verification Library](https://github.com/viperproject/ReusableProtocolVerificationLibrary/actions/workflows/library.yml/badge.svg?branch=main)](https://github.com/viperproject/ReusableProtocolVerificationLibrary/actions/workflows/library.yml?query=branch%3Amain)
+[![Artifact DOI](https://zenodo.org/badge/doi/10.5281/zenodo.8330913.svg)](https://doi.org/10.5281/zenodo.8330913)
 
 This repository hosts the Reusable Verification Library as a Go module, which enables easy integration into Go projects.
 This module simplifies verifying security properties for protocol implementations as described in the paper "A Generic Methodology for the Modular Verification of Security Protocol Implementations", published at ACM CCS '23 [[published version]](https://doi.org/10.1145/3576915.3623105) [[extended version]](https://arxiv.org/abs/2212.02626).
