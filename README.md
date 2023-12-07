@@ -5,7 +5,7 @@
 This repository hosts the Reusable Verification Library as a Go module, which enables easy integration into Go projects.
 This module simplifies verifying security properties for protocol implementations as described in the paper "A Generic Methodology for the Modular Verification of Security Protocol Implementations", published at ACM CCS '23 [[published version]](https://doi.org/10.1145/3576915.3623105) [[extended version]](https://arxiv.org/abs/2212.02626).
 The entire artifact for this paper, which includes this verfication library, is available [here](https://github.com/viperproject/SecurityProtocolImplementations) and has been archived on Zenodo (DOI: [10.5281/zenodo.8330913](https://doi.org/10.5281/zenodo.8330913)). The paper can be cited as follows (for BibTeX):
-```
+```BibTex
 @InProceedings{ArquintSchwerhoffMehtaMueller23,
   author = {Arquint, Linard and Schwerhoff, Malte and Mehta, Vaibhav and M\"uller, Peter},
   title = {A Generic Methodology for the Modular Verification of Security Protocol Implementations},
