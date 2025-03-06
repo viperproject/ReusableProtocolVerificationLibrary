@@ -10,6 +10,7 @@ import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 // inputs
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
@@ -19,6 +20,7 @@ func (ctx LabelingContext) tuple2(t tr.TraceEntry, t1, t2 tm.Term, l label.Secre
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
@@ -29,6 +31,7 @@ func (ctx LabelingContext) tuple3(t tr.TraceEntry, t1, t2, t3 tm.Term, l label.S
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
@@ -40,6 +43,7 @@ func (ctx LabelingContext) tuple4(t tr.TraceEntry, t1, t2, t3, t4 tm.Term, l lab
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
@@ -52,6 +56,7 @@ func (ctx LabelingContext) tuple5(t tr.TraceEntry, t1, t2, t3, t4, t5 tm.Term, l
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
@@ -66,6 +71,7 @@ func (ctx LabelingContext) tuple7(t tr.TraceEntry, t1, t2, t3, t4, t5, t6, t7 tm
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, input, l)
 ensures  ctx.IsMsg(t, tm.hash(input), l)
@@ -74,6 +80,7 @@ func (ctx LabelingContext) hash(t tr.TraceEntry, input tm.Term, l label.SecrecyL
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, input, l)
 ensures  ctx.IsMsg(t, tm.kdf1(input), l)
@@ -84,6 +91,7 @@ func (ctx LabelingContext) kdf(t tr.TraceEntry, input tm.Term, l label.SecrecyLa
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, input, l)
 ensures  ctx.IsMsg(t, tm.createPk(input), l)
@@ -92,6 +100,7 @@ func (ctx LabelingContext) createPk(t tr.TraceEntry, input tm.Term, l label.Secr
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, pk, l)
 requires ctx.IsMsg(t, plaintext, l)
@@ -103,6 +112,7 @@ func (ctx LabelingContext) encrypt(t tr.TraceEntry, pk, plaintext tm.Term, l lab
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, key, l)
 requires ctx.IsMsg(t, nonce, l)
@@ -116,6 +126,7 @@ func (ctx LabelingContext) aead(t tr.TraceEntry, key, nonce, plaintext, auth tm.
 }
 
 ghost
+decreases
 requires ctx.Props()
 ensures  ctx.IsMsg(t, tm.const1(), l)
 func (ctx LabelingContext) const1(t tr.TraceEntry, l label.SecrecyLabel) {
@@ -123,6 +134,7 @@ func (ctx LabelingContext) const1(t tr.TraceEntry, l label.SecrecyLabel) {
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
@@ -158,6 +170,7 @@ func (ctx LabelingContext) exp(t tr.TraceEntry, t1, t2 tm.Term, l label.SecrecyL
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, t1, l)
 requires ctx.IsMsg(t, t2, l)
@@ -167,6 +180,7 @@ func (ctx LabelingContext) mult(t tr.TraceEntry, t1, t2 tm.Term, l label.Secrecy
 }
 
 ghost
+decreases
 requires ctx.Props()
 ensures  ctx.IsMsg(t, tm.stringTerm(s), l)
 func (ctx LabelingContext) stringTerm(t tr.TraceEntry, s string, l label.SecrecyLabel) {
@@ -174,6 +188,7 @@ func (ctx LabelingContext) stringTerm(t tr.TraceEntry, s string, l label.Secrecy
 }
 
 ghost
+decreases
 requires ctx.Props()
 ensures  ctx.IsMsg(t, tm.zeroString(n), l)
 func (ctx LabelingContext) zeroString(t tr.TraceEntry, n int, l label.SecrecyLabel) {
@@ -181,6 +196,7 @@ func (ctx LabelingContext) zeroString(t tr.TraceEntry, n int, l label.SecrecyLab
 }
 
 ghost
+decreases
 requires ctx.Props()
 ensures  ctx.IsMsg(t, tm.integer64(n), l)
 func (ctx LabelingContext) integer64(t tr.TraceEntry, n uint64, l label.SecrecyLabel) {
@@ -188,6 +204,7 @@ func (ctx LabelingContext) integer64(t tr.TraceEntry, n uint64, l label.SecrecyL
 }
 
 ghost
+decreases
 requires ctx.Props()
 ensures  ctx.IsMsg(t, tm.integer32(n), l)
 func (ctx LabelingContext) integer32(t tr.TraceEntry, n uint32, l label.SecrecyLabel) {
@@ -195,6 +212,7 @@ func (ctx LabelingContext) integer32(t tr.TraceEntry, n uint32, l label.SecrecyL
 }
 
 ghost
+decreases
 requires ctx.Props()
 ensures  ctx.IsMsg(t, tm.infoTerm(), l)
 func (ctx LabelingContext) infoTerm(t tr.TraceEntry, l label.SecrecyLabel) {
@@ -202,6 +220,7 @@ func (ctx LabelingContext) infoTerm(t tr.TraceEntry, l label.SecrecyLabel) {
 }
 
 ghost
+decreases
 requires ctx.Props()
 ensures  ctx.IsMsg(t, tm.prologueTerm(), l)
 func (ctx LabelingContext) prologueTerm(t tr.TraceEntry, l label.SecrecyLabel) {
@@ -209,6 +228,7 @@ func (ctx LabelingContext) prologueTerm(t tr.TraceEntry, l label.SecrecyLabel) {
 }
 
 ghost
+decreases
 requires ctx.Props()
 ensures  ctx.IsMsg(t, tm.generator(), l)
 func (ctx LabelingContext) generator(t tr.TraceEntry, l label.SecrecyLabel) {
@@ -221,6 +241,7 @@ func (ctx LabelingContext) generator(t tr.TraceEntry, l label.SecrecyLabel) {
 // an implementation. For example, we do not show label preservation for deconstructing
 // a hash since such a method does not exist in practice.
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, tm.tuple2(t1, t2), l)
 ensures  ctx.IsMsg(t, t1, l)
@@ -230,6 +251,7 @@ func (ctx LabelingContext) untuple2(t tr.TraceEntry, t1, t2 tm.Term, l label.Sec
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, tm.tuple3(t1, t2, t3), l)
 ensures  ctx.IsMsg(t, t1, l)
@@ -240,6 +262,7 @@ func (ctx LabelingContext) untuple3(t tr.TraceEntry, t1, t2, t3 tm.Term, l label
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, tm.tuple4(t1, t2, t3, t4), l)
 ensures  ctx.IsMsg(t, t1, l)
@@ -251,6 +274,7 @@ func (ctx LabelingContext) untuple4(t tr.TraceEntry, t1, t2, t3, t4 tm.Term, l l
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, tm.tuple5(t1, t2, t3, t4, t5), l)
 ensures  ctx.IsMsg(t, t1, l)
@@ -263,6 +287,7 @@ func (ctx LabelingContext) untuple5(t tr.TraceEntry, t1, t2, t3, t4, t5 tm.Term,
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, tm.tuple7(t1, t2, t3, t4, t5, t6, t7), l)
 ensures  ctx.IsMsg(t, t1, l)
@@ -277,6 +302,7 @@ func (ctx LabelingContext) untuple7(t tr.TraceEntry, t1, t2, t3, t4, t5, t6, t7 
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, tm.encrypt(plaintext, tm.createPk(sk)), l)
 requires ctx.IsMsg(t, sk, l) // knowing the secret key is a requirement for decryption
@@ -291,6 +317,7 @@ func (ctx LabelingContext) decrypt(t tr.TraceEntry, plaintext, sk tm.Term, l lab
 }
 
 ghost
+decreases
 requires ctx.Props()
 requires ctx.IsMsg(t, tm.aead(key, nonce, plaintext, ad), l)
 requires ctx.IsMsg(t, key, l) // knowing the key is a requirement for decryption

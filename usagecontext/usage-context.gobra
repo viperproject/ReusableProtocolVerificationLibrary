@@ -5,43 +5,43 @@ import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 
 
-type UsageOption = option[u.Usage]
+ghost type UsageOption = option[u.Usage]
 
 type UsageContext interface {
     ghost
     decreases
-    pure GetUsage(t tm.Term) UsageOption
+    pure GetUsage(ghost t tm.Term) (ghost res UsageOption)
 
     ghost
     decreases
-    pure PkePred(t tr.TraceEntry, usageString string, plaintext, pk tm.Term) bool
+    pure PkePred(ghost t tr.TraceEntry, usageString string, ghost plaintext, pk tm.Term) bool
 
     ghost
     decreases
     requires t1.isSuffix(t2)
     requires PkePred(t1, usageString, plaintext, pk)
     ensures  PkePred(t2, usageString, plaintext, pk)
-    PkePredMonotonic(t1, t2 tr.TraceEntry, usageString string, plaintext, pk tm.Term)
+    PkePredMonotonic(ghost t1, t2 tr.TraceEntry, usageString string, ghost plaintext, pk tm.Term)
 
     ghost
     decreases
-    pure AeadPred(t tr.TraceEntry, usageString string, key, nonce, plaintext, authtext tm.Term) bool
+    pure AeadPred(ghost t tr.TraceEntry, usageString string, ghost key, nonce, plaintext, authtext tm.Term) bool
 
     ghost
     decreases
     requires t1.isSuffix(t2)
     requires AeadPred(t1, usageString, key, nonce, plaintext, authtext)
     ensures  AeadPred(t2, usageString, key, nonce, plaintext, authtext)
-    AeadPredMonotonic(t1, t2 tr.TraceEntry, usageString string, key, nonce, plaintext, authtext tm.Term)
+    AeadPredMonotonic(ghost t1, t2 tr.TraceEntry, usageString string, ghost key, nonce, plaintext, authtext tm.Term)
 
     ghost
     decreases
-    pure SignPred(t tr.TraceEntry, usageString string, msg, sk tm.Term) bool
+    pure SignPred(ghost t tr.TraceEntry, usageString string, ghost msg, sk tm.Term) bool
 
     ghost
     decreases
     requires t1.isSuffix(t2)
     requires SignPred(t1, usageString, msg, sk)
     ensures  SignPred(t2, usageString, msg, sk)
-    SignPredMonotonic(t1, t2 tr.TraceEntry, usageString string, msg, sk tm.Term)
+    SignPredMonotonic(ghost t1, t2 tr.TraceEntry, usageString string, ghost msg, sk tm.Term)
 }

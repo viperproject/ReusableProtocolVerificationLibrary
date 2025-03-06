@@ -8,8 +8,8 @@ scriptDir=$(dirname "$0")
 isCi=$CI
 
 # gobraJar="/gobra/gobra.jar"
-gobraJar="/Users/LinardArquint/gobra/target/scala-2.13/gobra.jar"
-additionalGobraArgs="--module github.com/ModularVerification/ReusableVerificationLibrary --include .verification --z3Exe /Users/LinardArquint/.local/bin/z3 --parallelizeBranches"
+gobraJar="/Users/arquintlinard/ETH/PhD/gobra/target/scala-2.13/gobra.jar"
+additionalGobraArgs="--module github.com/ModularVerification/ReusableVerificationLibrary --include .verification --z3Exe /Users/arquintlinard/.local/bin/z3 --parallelizeBranches"
 
 if [ $isCi ]; then
     echo -e "\033[0Ksection_start:`date +%s`:verify[collapsed=true]\r\033[0KVerifying packages"

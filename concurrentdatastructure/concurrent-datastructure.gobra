@@ -1,39 +1,38 @@
 package concurrentdatastructure
 
-import "sync"
 import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
 import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
 import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 
-type ClientId = p.Id
-type ValueType = tr.TraceEntry
+ghost type ClientId = p.Id
+ghost type ValueType = tr.TraceEntry
 
-type ClientHistoryMutex struct {
-    mutex *sync.Mutex
-    /** each client has a last seen value */
-    snapshots map[ClientId]*ValueType
-    currentValue *ValueType
+ghost type ClientHistoryMutex ghost struct {
+    mutex gpointer[GhostMutex]
+    /** each client has a snapshot */
+    snapshots dict[ClientId]gpointer[ValueType]
+    currentValue gpointer[ValueType]
 }
 
-pred (m *ClientHistoryMutex) ClientHistoryMutexStateInit() {
+pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateInit() {
     acc(m) &&
-    acc(m.mutex) && *m.mutex == sync.Mutex{} &&
-    acc(m.snapshots) && len(m.snapshots) == 0 &&
+    acc(m.mutex) && *m.mutex == GhostMutex{} &&
+    len(m.snapshots) == 0 &&
     acc(m.currentValue)
 }
 
-pred (m *ClientHistoryMutex) ClientHistoryMutexStateInitWithInv(inv ClientHistoryInv, ghost clients set[ClientId]) {
-    acc(m) && acc(m.snapshots) &&
+pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateInitWithInv(inv ClientHistoryInv, ghost clients set[ClientId]) {
+    acc(m) &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
     clients == domain(m.snapshots) &&
     (forall client1, client2 ClientId :: client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]) &&
-    (forall snapshot *ValueType :: snapshot in range(m.snapshots) ==> acc(snapshot, 1/2))
+    (forall snapshot gpointer[ValueType] :: snapshot in range(m.snapshots) ==> acc(snapshot, 1/2))
 }
 
 /** represents the state in the mutex's unlocked state */
-pred (m *ClientHistoryMutex) ClientHistoryMutexState(inv ClientHistoryInv, client ClientId) {
+pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexState(inv ClientHistoryInv, client ClientId) {
     // the idea is that each client get 1/len(clients) many permissions
-    acc(m, _) && acc(m.snapshots, _) && inv != nil &&
+    acc(m, _) && inv != nil &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
     client in domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
@@ -41,9 +40,9 @@ pred (m *ClientHistoryMutex) ClientHistoryMutexState(inv ClientHistoryInv, clien
 }
 
 /** represents the state in the mutex's locked state */
-pred (m *ClientHistoryMutex) ClientHistoryMutexStateLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) {
+pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) {
     // beginning copy of clientHistoryMutexState
-    acc(m, _) && acc(m.snapshots, _) && inv != nil &&
+    acc(m, _) && inv != nil &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
     client in domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
@@ -52,72 +51,75 @@ pred (m *ClientHistoryMutex) ClientHistoryMutexStateLocked(inv ClientHistoryInv,
     m.mutex.UnlockP() &&
     acc(m.currentValue) &&
     *m.currentValue == currentValue &&
-    (forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, *m.currentValue) } snapshot in range(m.snapshots) ==> acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *m.currentValue))
+    (forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, *m.currentValue) } snapshot in range(m.snapshots) ==> acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *m.currentValue))
 }
 
 /** represents the invariant that is associated with the mutex */
-pred ClientHistoryMutexInv(inv ClientHistoryInv, currentValue *ValueType, ghost snapshots set[*ValueType]) {
+pred ClientHistoryMutexInv(inv ClientHistoryInv, currentValue gpointer[ValueType], ghost snapshots set[gpointer[ValueType]]) {
     inv != nil && acc(currentValue) &&
     inv.CurrentValueInv(*currentValue) &&
-    (forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, *currentValue) } snapshot in snapshots ==>
+    (forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, *currentValue) } snapshot in snapshots ==>
         acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *currentValue))
 }
 
 type ClientHistoryInv interface {
     /** invariant to specify properties that hold for the current value */
-    pred CurrentValueInv(value ValueType)
+    pred CurrentValueInv(ghost value ValueType)
 
     /** two step invariant */
     ghost
     decreases
-    pure TwoStepValueInv(oldValue ValueType, currentValue ValueType) bool
+    pure TwoStepValueInv(ghost oldValue ValueType, ghost currentValue ValueType) bool
     
     /** proof obligation to show that the two step invariant is reflexive */
     ghost
     decreases
     ensures TwoStepValueInv(value, value)
-    TwoStepValueInvReflexive(value ValueType)
+    TwoStepValueInvReflexive(ghost value ValueType)
 
     /** proof obligation to show that the two step invariant is transitive */
     ghost
     decreases
     requires TwoStepValueInv(val1, val2) && TwoStepValueInv(val2, val3)
     ensures  TwoStepValueInv(val1, val3)
-    TwoStepValueInvTransitive(val1, val2, val3 ValueType)
+    TwoStepValueInvTransitive(ghost val1, val2, val3 ValueType)
 }
 
 // indirection for ClientHistoryInv that gives us the property that
 // `inv` is non-nil
+ghost
 decreases
 requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
 ensures  inv != nil
-pure func (m *ClientHistoryMutex) GetInvLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) ClientHistoryInv {
+pure func (m gpointer[ClientHistoryMutex]) GetInvLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) ClientHistoryInv {
     return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in inv
 }
 
+ghost
 decreases
 requires acc(m.ClientHistoryMutexState(inv, client), _)
-pure func (m *ClientHistoryMutex) LastSeenValue(inv ClientHistoryInv, client ClientId) ValueType {
+pure func (m gpointer[ClientHistoryMutex]) LastSeenValue(inv ClientHistoryInv, client ClientId) ValueType {
     return unfolding acc(m.ClientHistoryMutexState(inv, client), _) in *(m.snapshots)[client]
 }
 
+ghost
 decreases
 requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
-pure func (m *ClientHistoryMutex) LastSeenValueLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) ValueType {
+pure func (m gpointer[ClientHistoryMutex]) LastSeenValueLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) ValueType {
     return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in *(m.snapshots)[client]
 }
 
 ghost
 decreases
 requires acc(m.ClientHistoryMutexState(inv, client), _)
-pure func (m *ClientHistoryMutex) Clients(inv ClientHistoryInv, client ClientId) set[ClientId] {
+pure func (m gpointer[ClientHistoryMutex]) Clients(inv ClientHistoryInv, client ClientId) set[ClientId] {
     return unfolding acc(m.ClientHistoryMutexState(inv, client), _) in domain(m.snapshots)
 }
 
 ghost
 decreases
 requires acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _)
-pure func (m *ClientHistoryMutex) ClientsLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) set[ClientId] {
+pure func (m gpointer[ClientHistoryMutex]) ClientsLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) set[ClientId] {
     return unfolding acc(m.ClientHistoryMutexStateLocked(inv, client, currentValue), _) in domain(m.snapshots)
 }
 
@@ -128,7 +130,7 @@ requires acc(m.ClientHistoryMutexState(inv, client2), 1/16)
 ensures  acc(m.ClientHistoryMutexState(inv, client1), 1/16)
 ensures  acc(m.ClientHistoryMutexState(inv, client2), 1/16)
 ensures  m.Clients(inv, client1) == m.Clients(inv, client2)
-func (m *ClientHistoryMutex) ClientsAreIdentical(inv ClientHistoryInv, client1, client2 ClientId) {
+func (m gpointer[ClientHistoryMutex]) ClientsAreIdentical(inv ClientHistoryInv, client1, client2 ClientId) {
     assert unfolding acc(m.ClientHistoryMutexState(inv, client1), 1/16) in unfolding acc(m.ClientHistoryMutexState(inv, client2), 1/16) in true
 }
 
@@ -139,55 +141,47 @@ requires acc(m.ClientHistoryMutexState(inv, client2), 1/16)
 ensures  acc(m.ClientHistoryMutexStateLocked(inv, client1, currentValue1), 1/16)
 ensures  acc(m.ClientHistoryMutexState(inv, client2), 1/16)
 ensures  m.ClientsLocked(inv, client1, currentValue1) == m.Clients(inv, client2)
-func (m *ClientHistoryMutex) ClientsAreIdenticalLocked1(inv ClientHistoryInv, client1, client2 ClientId, currentValue1 ValueType) {
+func (m gpointer[ClientHistoryMutex]) ClientsAreIdenticalLocked1(inv ClientHistoryInv, client1, client2 ClientId, currentValue1 ValueType) {
     assert unfolding acc(m.ClientHistoryMutexStateLocked(inv, client1, currentValue1), 1/16) in unfolding acc(m.ClientHistoryMutexState(inv, client2), 1/16) in true
 }
 
+ghost
 decreases
 ensures  m.ClientHistoryMutexStateInit()
-func NewClientHistoryMutex() (m *ClientHistoryMutex) {
+func NewClientHistoryMutex() (m gpointer[ClientHistoryMutex]) {
     m = &ClientHistoryMutex{}
-    m.mutex = &sync.Mutex{}
+    m.mutex = &GhostMutex{}
     var value@ ValueType
     m.currentValue = &value
-    m.snapshots = make(map[ClientId]*ValueType)
+    m.snapshots = dict[ClientId]gpointer[ValueType]{}
     fold m.ClientHistoryMutexStateInit()
 }
 
+ghost
 decreases
 requires m.ClientHistoryMutexStateInit()
 requires inv != nil && isComparable(inv)
 requires noPerm < p && p <= writePerm
 requires 0 < len(clients)
-requires forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
 requires forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
 requires inv.CurrentValueInv(initVal)
-ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
 ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
 ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> m.ClientHistoryMutexState(inv, clients[j])
 ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < len(clients) && 0 <= k && k < len(clients) ==> clients[k] in m.Clients(inv, clients[j])
-func (m *ClientHistoryMutex) SetInv(inv ClientHistoryInv, clients []ClientId, initVal ValueType, ghost p perm) {
+func (m gpointer[ClientHistoryMutex]) SetInv(inv ClientHistoryInv, clients seq[ClientId], initVal ValueType, p perm) {
     unfold m.ClientHistoryMutexStateInit()
-
-    /** sequence representation of clients */
-    clientSeq := seq[ClientId]{}
     
     invariant 0 <= i && i <= len(clients)
     // we have permissions to m, its fields, and the clients (which are pairwise disjoint):
-    invariant acc(m, 1/2) && acc(m.snapshots)
-    invariant forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> acc(&clients[j], p)
+    invariant acc(m, 1/2) && acc(&m.snapshots, 1/2)
     invariant forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
-    // clientSeq becomes more and more an abstraction of `clients`:
-    invariant len(clientSeq) == i
-    invariant forall j int :: { clientSeq[j] } 0 <= j && j < i ==> clients[j] == clientSeq[j]
-    invariant domain(m.snapshots) == set(clientSeq)
+    invariant domain(m.snapshots) == set(clients[:i])
     // each client has its own snapshot pointer and each snapshot satisfies the invariant:
-    invariant forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, initVal) } snapshot in range(m.snapshots) ==> acc(snapshot) && inv.TwoStepValueInv(*snapshot, initVal)
+    invariant forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, initVal) } snapshot in range(m.snapshots) ==> acc(snapshot) && inv.TwoStepValueInv(*snapshot, initVal)
     invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
     decreases len(clients) - i
     for i := 0; i < len(clients); i++ {
         client := clients[i]
-        clientSeq = clientSeq ++ seq[ClientId]{ client }
         clientValue@ := initVal
         length := len(m.snapshots)
         assert !(client in domain(m.snapshots))
@@ -200,10 +194,8 @@ func (m *ClientHistoryMutex) SetInv(inv ClientHistoryInv, clients []ClientId, in
     fold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
     m.mutex.SetInv(ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>)
 
-    fold m.ClientHistoryMutexStateInitWithInv(inv, set(clientSeq))
-    m.split(inv, clientSeq)
-    // the following assert stmt is necessary:
-    assert forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> clients[j] == clientSeq[j]
+    fold m.ClientHistoryMutexStateInitWithInv(inv, set(clients))
+    m.split(inv, clients)
 }
 
 ghost
@@ -213,7 +205,7 @@ requires forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < le
 requires m.ClientHistoryMutexStateInitWithInv(inv, set(clients))
 ensures forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> m.ClientHistoryMutexState(inv, clients[j])
 ensures forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> set(clients) subset m.Clients(inv, clients[j])
-func (m *ClientHistoryMutex) split(inv ClientHistoryInv, ghost clients seq[ClientId]) {
+func (m gpointer[ClientHistoryMutex]) split(inv ClientHistoryInv, ghost clients seq[ClientId]) {
     unfold m.ClientHistoryMutexStateInitWithInv(inv, set(clients))
 
     // some abbreviations for the following loop:
@@ -224,7 +216,6 @@ func (m *ClientHistoryMutex) split(inv ClientHistoryInv, ghost clients seq[Clien
     invariant forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
     invariant acc(m, _)
     invariant m.currentValue == currentValue && m.mutex == mutex
-    invariant acc(m.snapshots, _)
     invariant acc(mutex.LockP(), _) && mutex.LockInv() == ClientHistoryMutexInv!<inv, currentValue, range(m.snapshots)!>;
     invariant forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> clients[j] in domain(m.snapshots)
     invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
@@ -239,8 +230,8 @@ func (m *ClientHistoryMutex) split(inv ClientHistoryInv, ghost clients seq[Clien
     }
 }
 
-// TODO prove termination. This is currently not possible because we cannot show
-// that `Lock` eventually succeeds.
+ghost
+// we assume termination and atomicity of this ghost lock
 decreases _
 requires m.ClientHistoryMutexState(inv, client)
 ensures  m.ClientHistoryMutexStateLocked(inv, client, currentValue) && inv != nil
@@ -249,7 +240,7 @@ ensures  inv.CurrentValueInv(currentValue)
 // LastSeenValue remains unchanged:
 ensures  m.LastSeenValueLocked(inv, client, currentValue) == old(m.LastSeenValue(inv, client))
 ensures  m.ClientsLocked(inv, client, currentValue) == old(m.Clients(inv, client))
-func (m *ClientHistoryMutex) Lock(inv ClientHistoryInv, client ClientId) (currentValue ValueType) {
+func (m gpointer[ClientHistoryMutex]) Lock(inv ClientHistoryInv, client ClientId) (currentValue ValueType) {
     unfold m.ClientHistoryMutexState(inv, client)
     m.mutex.Lock()
     unfold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
@@ -268,7 +259,7 @@ requires inv.CurrentValueInv(newValue)
 ensures  m.ClientHistoryMutexState(inv, client)
 ensures  unfolding m.ClientHistoryMutexState(inv, client) in *(m.snapshots)[client] == newValue
 ensures  m.Clients(inv, client) == old(m.ClientsLocked(inv, client, currentValue))
-func (m *ClientHistoryMutex) Unlock(inv ClientHistoryInv, client ClientId, currentValue, newValue ValueType) {
+func (m gpointer[ClientHistoryMutex]) Unlock(inv ClientHistoryInv, client ClientId, currentValue, newValue ValueType) {
     inv.TwoStepValueInvReflexive(newValue)
     m.UnlockWithSnapshot(inv, client, currentValue, newValue, newValue)
 }
@@ -289,10 +280,11 @@ ensures  m.Clients(inv, client) == old(m.ClientsLocked(inv, client, currentValue
  * similar to `Unlock` in the sense that the lock is released.
  * however, this method allows to manually specify the snapshot to which this client's lastSeenValue should be set
  */
-func (m *ClientHistoryMutex) UnlockWithSnapshot(inv ClientHistoryInv, client ClientId, currentValue, newValue, snapshot ValueType) {
+func (m gpointer[ClientHistoryMutex]) UnlockWithSnapshot(inv ClientHistoryInv, client ClientId, currentValue, newValue, snapshot ValueType) {
     unfold m.ClientHistoryMutexStateLocked(inv, client, currentValue)
     m.applyInvTransitivity(inv, range(m.snapshots), currentValue, newValue, 1/2)
-    *(m.snapshots)[client] = snapshot
+    snapshotPtr := (m.snapshots)[client]
+    *snapshotPtr = snapshot
     // the following assert statement is necessary due to an incompleteness:
     assert *(m.snapshots)[client] == snapshot
     *m.currentValue = newValue
@@ -305,12 +297,12 @@ ghost
 decreases
 requires noPerm < p && p <= writePerm
 requires inv != nil
-requires forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, currentValue) } snapshot in snapshots ==>
+requires forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, currentValue) } snapshot in snapshots ==>
     acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, currentValue)
 requires inv.TwoStepValueInv(currentValue, newValue)
-ensures  forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot in snapshots ==>
+ensures  forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot in snapshots ==>
     acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, newValue)
-func (m *ClientHistoryMutex) applyInvTransitivity(inv ClientHistoryInv, snapshots set[*ValueType], currentValue, newValue ValueType, p perm) {
+func (m gpointer[ClientHistoryMutex]) applyInvTransitivity(inv ClientHistoryInv, snapshots set[gpointer[ValueType]], currentValue, newValue ValueType, p perm) {
     // non-deterministically choose a snapshot
     arbitrarySnapshot@ := arb.GetArbTraceEntry()
     if &arbitrarySnapshot in snapshots {
@@ -320,7 +312,7 @@ func (m *ClientHistoryMutex) applyInvTransitivity(inv ClientHistoryInv, snapshot
     // forall introduction:
     assert &arbitrarySnapshot in snapshots ==>
         inv.TwoStepValueInv(arbitrarySnapshot, newValue)
-    assume forall snapshot *ValueType :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot in snapshots ==>
+    assume forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot in snapshots ==>
         inv.TwoStepValueInv(*snapshot, newValue)
 }
 
@@ -331,6 +323,6 @@ requires inv != nil
 requires acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, currentValue)
 requires inv.TwoStepValueInv(currentValue, newValue)
 ensures  acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, newValue)
-func (m *ClientHistoryMutex) applyInvTransitivitySingle(inv ClientHistoryInv, snapshot *ValueType, currentValue, newValue ValueType, p perm) {
+func (m gpointer[ClientHistoryMutex]) applyInvTransitivitySingle(inv ClientHistoryInv, snapshot gpointer[ValueType], currentValue, newValue ValueType, p perm) {
     inv.TwoStepValueInvTransitive(*snapshot, currentValue, newValue)
 }

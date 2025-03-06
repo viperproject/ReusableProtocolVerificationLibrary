@@ -1,15 +1,18 @@
 package channelcommunication
 
 //@ import ll "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary"
-import lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import (
+	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
+	p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+)
+
 //@ import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 //@ import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-
 
 type ChannelCommunicaton struct {
 	channels map[ChannelKey]chan []byte
 }
+
 // the following statement is not necessary but makes subtyping explicit (for documentation purposes)
 //@ (* ChannelCommunicaton) implements ll.Communication
 
@@ -49,6 +52,27 @@ func (com *ChannelCommunicaton) Send(idSender, idReceiver p.Principal, msg lib.B
 	return nil
 }
 
+/*@
+ghost
+trusted
+decreases
+requires acc(com.LibMem(), 1/16)
+requires acc(lib.Mem(msg), 1/16)
+requires lib.Abs(msg) == tm.gamma(msgT)
+requires snapshot.isMessageAt(idSender, idReceiver, msgT)
+ensures  acc(com.LibMem(), 1/16)
+ensures  acc(lib.Mem(msg), 1/16)
+func (com *ChannelCommunicaton) AttackerSend(idSender, idReceiver p.Principal, msg lib.ByteString, msgT tm.Term, snapshot tr.TraceEntry) error {
+	channel := (com.channels)[ChannelKey{idSender, idReceiver}]
+	if len(ch) == cap(ch) {
+		// channel is full
+		return lib.AttackerNewError("Channel is full, send would block")
+	}
+	channel <- msg
+	return nil
+}
+@*/
+
 //@ trusted
 //@ requires acc(com.LibMem(), 1/16)
 //@ ensures  acc(com.LibMem(), 1/16)
@@ -60,3 +84,23 @@ func (com *ChannelCommunicaton) Receive(idSender, idReceiver p.Principal /*@, gh
 	msg = <-channel
 	return msg, nil /*@, tm.oneTerm(msg) @*/
 }
+
+/*@
+ghost
+trusted
+decreases
+requires acc(com.LibMem(), 1/16)
+ensures  acc(com.LibMem(), 1/16)
+ensures  err == nil ==> lib.Mem(msg)
+ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
+ensures  err == nil ==> snapshot.messageOccurs(idSender, idReceiver, msgT)
+func (com *ChannelCommunicaton) AttackerReceive(idSender, idReceiver p.Principal, ghost snapshot tr.TraceEntry) (msg lib.ByteString, err error, ghost msgT tm.Term) {
+	channel := (com.channels)[ChannelKey{idSender, idReceiver}]
+	if len(ch) == 0 {
+		err = lib.AttackerNewError("Channel is empty, receive would block")
+		return
+	}
+	msg = <-channel
+	return msg, nil, tm.oneTerm(msg)
+}
+@*/

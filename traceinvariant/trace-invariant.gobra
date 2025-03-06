@@ -15,7 +15,7 @@ type TraceContext interface {
     /** used to express (pure) properties about fields of TraceContext implementations */
     pure Props() bool
 
-    pred eventInv(principal p.Principal, ev Event, prev TraceEntry)
+    pred eventInv(principal p.Principal, ghost ev Event, ghost prev TraceEntry)
 
     ghost
     decreases
@@ -23,17 +23,17 @@ type TraceContext interface {
      * Specifies consistency conditions for an event. These conditions
      * have to be implied by `pureEventInv`
      */
-    pure EventConsistency(ev Event) bool
+    pure EventConsistency(ghost ev Event) bool
 
     ghost
     decreases
-    pure pureEventInv(principal p.Principal, ev Event, prev TraceEntry) bool
+    pure pureEventInv(principal p.Principal, ghost ev Event, ghost prev TraceEntry) bool
 
     ghost
     decreases
     requires pureEventInv(principal, ev, prev)
     ensures  EventConsistency(ev)
-    eventInvImpliesConsistency(principal p.Principal, ev Event, prev TraceEntry)
+    eventInvImpliesConsistency(principal p.Principal, ghost ev Event, ghost prev TraceEntry)
     
     ghost
     decreases
@@ -51,7 +51,7 @@ type TraceContext interface {
      * returns the witness from which event uniqueness can be derived.
      * This typically is a nonce stored as an event parameter
      */
-    pure UniquenessWitness(ev Event) tm.Term
+    pure UniquenessWitness(ghost ev Event) (ghost res tm.Term)
 
     ghost
     decreases
@@ -62,7 +62,7 @@ type TraceContext interface {
     ensures  nonce == UniquenessWitness(ev)
     ensures  GetLabelingContext(GetUsageContext()).NonceForEventIsUnique(nonce, ev.typ)
     ensures  GetLabelingContext(GetUsageContext()).NonceForEventIsUnique(nonce, ev.typ) --* eventInv(principal, ev, prev)
-    isUniqueImpliesUniqueResource(principal p.Principal, ev Event, prev TraceEntry) (nonce tm.Term)
+    isUniqueImpliesUniqueResource(principal p.Principal, ghost ev Event, ghost prev TraceEntry) (ghost nonce tm.Term)
 
     ghost
     decreases
@@ -70,21 +70,21 @@ type TraceContext interface {
     requires acc(eventInv(principal, ev, prev), p)
     ensures  acc(eventInv(principal, ev, prev), p)
     ensures  pureEventInv(principal, ev, prev)
-    getPureEventInv(principal p.Principal, ev Event, prev TraceEntry, p perm)
+    getPureEventInv(principal p.Principal, ghost ev Event, ghost prev TraceEntry, ghost p perm)
 
     ghost
     decreases
     requires t1.isSuffix(t2)
     requires eventInv(principal, ev, t1)
     ensures  eventInv(principal, ev, t2)
-    eventInvMonotonic(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
+    eventInvMonotonic(principal p.Principal, ghost ev Event, ghost t1, t2 TraceEntry)
 
     ghost
     decreases
     requires t1.isSuffix(t2)
     requires pureEventInv(principal, ev, t1)
     ensures  pureEventInv(principal, ev, t2)
-    pureEventInvMonotonic(principal p.Principal, ev Event, t1 TraceEntry, t2 TraceEntry)
+    pureEventInvMonotonic(principal p.Principal, ghost ev Event, ghost t1, t2 TraceEntry)
 
     ghost
     decreases

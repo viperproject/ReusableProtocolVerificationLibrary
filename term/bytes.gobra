@@ -1,6 +1,6 @@
 package term
 
-type Bytes domain {
+ghost type Bytes domain {
 
     // constructors
     func tuple2B(Bytes, Bytes) Bytes
@@ -96,7 +96,7 @@ type Bytes domain {
     }
 }
 
-type Gamma domain {
+ghost type Gamma domain {
   func gamma(Term) Bytes
 
   func oneTerm(Bytes) Term

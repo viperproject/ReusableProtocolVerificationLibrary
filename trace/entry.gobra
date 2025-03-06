@@ -6,7 +6,7 @@ import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
 import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
 import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 
-type TraceEntry domain {
+ghost type TraceEntry domain {
     // constructors
     // type 0
     func makeRoot(set[tm.Term]) TraceEntry

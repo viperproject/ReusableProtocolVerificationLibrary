@@ -1,0 +1,36 @@
+// Copyright 2009 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in https://golang.org/LICENSE
+
+package concurrentdatastructure
+
+type GhostMutex struct {
+	state int32
+	stema uint32
+}
+
+pred (m gpointer[GhostMutex]) LockP()
+pred (m gpointer[GhostMutex]) UnlockP()
+
+ghost
+requires acc(m.LockP(), _)
+decreases _
+pure func (m gpointer[GhostMutex]) LockInv() pred()
+
+ghost
+requires inv() && acc(m) && *m == GhostMutex{}
+ensures m.LockP() && m.LockInv() == inv
+decreases
+func (m gpointer[GhostMutex]) SetInv(ghost inv pred())
+
+ghost
+requires acc(m.LockP(), _)
+ensures m.LockP() && m.UnlockP() && m.LockInv()()
+decreases // we assume that the ghost lock is justified via atomicity of critical sections. Thus, `Lock` will eventually return
+func (m gpointer[GhostMutex]) Lock()
+
+ghost
+requires acc(m.LockP(), _) && m.UnlockP() && m.LockInv()()
+ensures m.LockP()
+decreases
+func (m gpointer[GhostMutex]) Unlock()

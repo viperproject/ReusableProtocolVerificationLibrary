@@ -10,7 +10,6 @@ import (
 	//@ tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
 )
 
-
 /** abstracts over different communication channels */
 type Communication interface {
 	//@ pred LibMem()
@@ -23,18 +22,44 @@ type Communication interface {
 	//@ ensures  acc(lib.Mem(msg), 1/16)
 	Send(idSender, idReceiver p.Principal, msg lib.ByteString /*@, ghost msgT tm.Term, ghost snapshot tr.TraceEntry @*/) error
 
+	/*@
+	ghost
+	decreases
+	requires acc(LibMem(), 1/16)
+	requires acc(lib.Mem(msg), 1/16)
+	requires lib.Abs(msg) == tm.gamma(msgT)
+	requires snapshot.isMessageAt(idSender, idReceiver, msgT)
+	ensures  acc(LibMem(), 1/16)
+	ensures  acc(lib.Mem(msg), 1/16)
+	// Send operation that the attacker uses (for proving attacker completeness)
+	AttackerSend(idSender, idReceiver p.Principal, msg lib.ByteString, ghost msgT tm.Term, ghost snapshot tr.TraceEntry) error
+	@*/
+
 	//@ requires acc(LibMem(), 1/16)
 	//@ ensures  acc(LibMem(), 1/16)
 	//@ ensures  err == nil ==> lib.Mem(msg)
 	//@ ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
 	//@ ensures  err == nil ==> snapshot.messageOccurs(idSender, idReceiver, msgT)
-	// returns a message that was at or before `snapshot`. It's thus adviceable to synchronize to the globa
+	// returns a message that was at or before `snapshot`. It's thus adviceable to synchronize to the global
 	// trace first such that the set of receivable messages is as big as possible
 	Receive(idSender, idReceiver p.Principal /*@, ghost snapshot tr.TraceEntry @*/) (msg lib.ByteString, err error /*@, ghost msgT tm.Term @*/)
+
+	/*@
+	ghost
+	decreases // we assume termination, i.e., this function returns an error if there are no messages that can be received
+	requires acc(LibMem(), 1/16)
+	ensures  acc(LibMem(), 1/16)
+	ensures  err == nil ==> lib.Mem(msg)
+	ensures  err == nil ==> lib.Abs(msg) == tm.gamma(msgT)
+	ensures  err == nil ==> snapshot.messageOccurs(idSender, idReceiver, msgT)
+	// returns a message that was at or before `snapshot`. It's thus adviceable to synchronize to the global
+	// trace first such that the set of receivable messages is as big as possible
+	// Receive operation that the attacker uses (for proving attacker completeness)
+	AttackerReceive(idSender, idReceiver p.Principal, ghost snapshot tr.TraceEntry) (msg lib.ByteString, err error, ghost msgT tm.Term)
+	@*/
 }
 
-
-/** 
+/**
  * acts as a middleware between participant implementation and the library:
  * it not only delegates the call to the library but also creates a corresponding
  * trace trace
@@ -86,6 +111,7 @@ func (l *LabeledLibrary) Receive(idSender, idReceiver p.Principal) (msg lib.Byte
 
 /*@
 ghost
+decreases
 requires l.Mem()
 requires (l.LabelCtx()).IsPublishable(l.Snapshot(), term)
 ensures  l.Mem()

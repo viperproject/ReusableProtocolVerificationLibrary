@@ -5,7 +5,7 @@ import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
 
 
-type PublicTermSearcher struct {
+ghost type PublicTermSearcher ghost struct {
     ctx tri.TraceContext
     term tm.Term
 }
@@ -104,7 +104,7 @@ ensures  prev.isSuffix(m.Snapshot(ctx, owner))
 ensures  tri.publicInv(m.Ctx(ctx, owner), snap.getPublicTerms(), prev)
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) PublicTermImpliesPublicInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
+func (m gpointer[TraceManager]) PublicTermImpliesPublicInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublicTermSearcher{ ctx, term }
     // the following assert stmt is necessary to derive that `ctx != nil`:
     assert unfolding m.Mem(ctx, owner) in true
