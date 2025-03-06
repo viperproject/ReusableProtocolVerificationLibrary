@@ -235,6 +235,7 @@ func (l *LabeledLibrary) AttackerDec(ciphertext, sk lib.ByteString, ciphertextT 
 	}
 	return
 }
+@*/
 
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16)
