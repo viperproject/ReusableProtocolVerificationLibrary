@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
-      image: ghcr.io/viperproject/gobra@sha256:0e7419455a3648d006e8a9957380e94c1a8e52d2d4b1ce2425af852dc275fb29 # Gobra commit f21fe70
+      image: ghcr.io/viperproject/gobra@sha256:432559ae1ea823d612e28f7e5798f1923cf7f4e343040359575c33ae081a01d9 # Gobra commit ab5ab7f
     steps:
       - name: Install git
         run: apt-get update && apt-get install -y git

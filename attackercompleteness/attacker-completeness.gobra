@@ -28,11 +28,19 @@ import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
  */
 
 ghost
+decreases if false // does not terminate
 requires l.Mem()
 ensures  l.Mem()
 func Attacker(l *ll.LabeledLibrary) {
+    // to make Gobra happy, we introduce the notion of a bound on the number of steps
+    // the attacker can perform. However, this bound is arbitrary and, thus, does not
+    // affect soundness.
+    numberOfSteps := arb.GetArbInt()
+
     invariant l.Mem()
-    for {
+    invariant 0 <= i && (i <= numberOfSteps || numberOfSteps < 0)
+    decreases numberOfSteps - i
+    for i := 0; i < numberOfSteps; i++ {
         // the attacker chooses non-deterministically an operation it wants to perform
         nonDeterministicChoice := arb.GetArbInt()
         if nonDeterministicChoice == 1 {
@@ -81,6 +89,7 @@ func Attacker(l *ll.LabeledLibrary) {
 
 // operation 1: create nonce
 ghost
+decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -88,7 +97,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), nonce)
 func CreateNonce(l *ll.LabeledLibrary, usageString string) (nonce tm.Term, err error) {
     unfold l.Mem()
     var nonceB lib.ByteString
-    nonceB, err = l.s.CreateNonce(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
+    nonceB, err = l.s.GhostCreateNonce(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
     if err == nil {
         nonce = tm.random(lib.Abs(nonceB), label.Public(), u.Nonce(usageString))
         l.manager.LogNonce(l.ctx, l.owner, nonce)
@@ -101,6 +110,7 @@ func CreateNonce(l *ll.LabeledLibrary, usageString string) (nonce tm.Term, err e
 
 // operation 2: send message
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), msg)
 ensures  l.Mem()
@@ -112,7 +122,7 @@ func Send(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.Term) (
     unfold l.Mem()
     l.manager.LogSend(l.ctx, l.owner, idSender, idReceiver, msg)
     snapshot := l.manager.Snapshot(l.ctx, l.owner)
-    err = l.com.Send(idSender, idReceiver, msgBytes, msg, snapshot)
+    err = l.com.AttackerSend(idSender, idReceiver, msgBytes, msg, snapshot)
 	fold l.Mem()
 }
 
@@ -125,6 +135,7 @@ func Send(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.Term) (
 
 // operation 4: extend attacker knowledge
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), t1)
 requires att.attackerKnows(l.Snapshot(), t2)
@@ -319,14 +330,15 @@ func ExtendKnowledge(l *ll.LabeledLibrary, t1, t2, t3, t4, t5, t6, t7, t8 tm.Ter
  * representation
  */
 ghost
+decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
 func GeneratePkeKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
     unfold l.Mem()
-    var skB lib.ByteString
-    _, skB, err = l.s.GeneratePkeKey(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
+    var pkB, skB lib.ByteString
+    pkB, skB, err = l.s.AttackerGeneratePkeKey(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.PkeKey(usageString))
         l.manager.LogNonce(l.ctx, l.owner, sk)
@@ -338,6 +350,7 @@ func GeneratePkeKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err e
 }
 
 ghost
+decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -345,7 +358,7 @@ ensures  err == nil ==> att.attackerKnows(l.Snapshot(), sk)
 func GenerateDHKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err error) {
     unfold l.Mem()
     var skB lib.ByteString
-    skB, err = l.s.GenerateDHKey(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
+    skB, err = l.s.AttackerGenerateDHKey(tri.GetLabeling(l.ctx), label.Public(), usageString, set[ev.EventType]{})
     if err == nil {
         sk = tm.random(lib.Abs(skB), label.Public(), u.DhKey(usageString))
         l.manager.LogNonce(l.ctx, l.owner, sk)
@@ -357,6 +370,7 @@ func GenerateDHKey(l *ll.LabeledLibrary, usageString string) (sk tm.Term, err er
 }
 
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), pk)
 requires att.attackerKnows(l.Snapshot(), plaintext)
@@ -368,7 +382,8 @@ func Enc(l *ll.LabeledLibrary, pk, plaintext tm.Term) (ciphertext tm.Term, err e
     plaintextBytes := lib.NewByteStringWithContent(tm.gamma(plaintext))
     l.AttackerOnlyKnowsPublishableValues(pk)
     l.AttackerOnlyKnowsPublishableValues(plaintext)
-    _, err = l.Enc(plaintextBytes, pkBytes, plaintext, pk)
+    var ciphertextBytes lib.ByteString
+    ciphertextBytes, err = l.AttackerEnc(plaintextBytes, pkBytes, plaintext, pk)
     if err == nil {
         ciphertext = tm.encrypt(plaintext, pk)
         l.Publish(ciphertext)
@@ -376,6 +391,7 @@ func Enc(l *ll.LabeledLibrary, pk, plaintext tm.Term) (ciphertext tm.Term, err e
 }
 
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), ciphertext)
 requires att.attackerKnows(l.Snapshot(), sk)
@@ -389,7 +405,8 @@ func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err e
     l.AttackerOnlyKnowsPublishableValues(sk)
     skOwner := arb.GetArbId()
     l.LabelCtx().CanDecryptWithPublicSk(l.Snapshot(), ciphertext, sk, skOwner)
-    _, err = l.Dec(ciphertextBytes, skBytes, ciphertext, sk, skOwner)
+    var plaintextBytes lib.ByteString
+    plaintextBytes, err = l.AttackerDec(ciphertextBytes, skBytes, ciphertext, sk, skOwner)
     if err != nil {
         return
     }
@@ -400,7 +417,7 @@ func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err e
         // we model the attacker to operate on symbolic terms.
         // thus, we additionally call decrypt on the term-level and abort
         // if decryption fails
-        err = lib.NewError("decryption failed")
+        err = lib.AttackerNewError("decryption failed")
         return
     }
     plaintext = get(optPlaintext)
@@ -409,6 +426,7 @@ func Dec(l *ll.LabeledLibrary, ciphertext, sk tm.Term) (plaintext tm.Term, err e
 }
 
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), key)
 requires att.attackerKnows(l.Snapshot(), nonce)
@@ -427,10 +445,11 @@ func AeadEnc(l *ll.LabeledLibrary, key, nonce, plaintext, additionalData tm.Term
     l.AttackerOnlyKnowsPublishableValues(plaintext)
     l.AttackerOnlyKnowsPublishableValues(additionalData)
     if lib.Size(keyBytes) != 32 || lib.Size(nonceBytes) != 12 {
-        err = lib.NewError("key or nonce have invalid length")
+        err = lib.AttackerNewError("key or nonce have invalid length")
         return
     }
-    _, err = l.AeadEnc(keyBytes, nonceBytes, plaintextBytes, additionalDataBytes, key, nonce, plaintext, additionalData, label.Public())
+    var ciphertextBytes lib.ByteString
+    ciphertextBytes, err = l.AttackerAeadEnc(keyBytes, nonceBytes, plaintextBytes, additionalDataBytes, key, nonce, plaintext, additionalData, label.Public())
     if err == nil {
         ciphertext = tm.aead(key, nonce, plaintext, additionalData)
         l.Publish(ciphertext)
@@ -438,6 +457,7 @@ func AeadEnc(l *ll.LabeledLibrary, key, nonce, plaintext, additionalData tm.Term
 }
 
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), key)
 requires att.attackerKnows(l.Snapshot(), nonce)
@@ -456,11 +476,12 @@ func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Ter
     l.AttackerOnlyKnowsPublishableValues(ciphertext)
     l.AttackerOnlyKnowsPublishableValues(additionalData)
     if lib.Size(keyBytes) != 32 || lib.Size(nonceBytes) != 12 {
-        err = lib.NewError("key or nonce have invalid length")
+        err = lib.AttackerNewError("key or nonce have invalid length")
         return
     }
     l.LabelCtx().CanAeadDecryptWithPublishableKey(l.Snapshot(), key, nonce, ciphertext, additionalData, label.Public())
-    _, err = l.AeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, key, nonce, ciphertext, additionalData, label.Public())
+    var plaintextBytes lib.ByteString
+    plaintextBytes, err = l.AttackerAeadDec(keyBytes, nonceBytes, ciphertextBytes, additionalDataBytes, key, nonce, ciphertext, additionalData, label.Public())
     if err != nil {
         return
     }
@@ -471,7 +492,7 @@ func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Ter
         // we model the attacker to operate on symbolic terms.
         // thus, we additionally call decrypt on the term-level and abort
         // if decryption fails
-        err = lib.NewError("decryption failed")
+        err = lib.AttackerNewError("decryption failed")
         return
     }
     plaintext = get(optPlaintext)
@@ -480,6 +501,7 @@ func AeadDec(l *ll.LabeledLibrary, key, nonce, ciphertext, additionalData tm.Ter
 }
 
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), msg)
 requires att.attackerKnows(l.Snapshot(), sk)
@@ -492,7 +514,8 @@ func Sign(l *ll.LabeledLibrary, msg, sk tm.Term) (signedMsg tm.Term, err error) 
     l.AttackerOnlyKnowsPublishableValues(msg)
     l.AttackerOnlyKnowsPublishableValues(sk)
     skOwner := arb.GetArbId()
-    _, err = l.Sign(msgBytes, skBytes, msg, sk, skOwner)
+    var signatureBytes lib.ByteString
+    signatureBytes, err = l.AttackerSign(msgBytes, skBytes, msg, sk, skOwner)
     if err == nil {
         signedMsg = tm.sign(msg, sk)
         l.Publish(signedMsg)
@@ -500,6 +523,7 @@ func Sign(l *ll.LabeledLibrary, msg, sk tm.Term) (signedMsg tm.Term, err error) 
 }
 
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), signedMsg)
 requires att.attackerKnows(l.Snapshot(), pk)
@@ -518,7 +542,8 @@ func Open(l *ll.LabeledLibrary, signedMsg, pk tm.Term) (msg tm.Term, err error) 
     sk := arb.GetArbTerm()
     assume lib.Abs(pkBytes) == tm.gamma(tm.createPk(sk))
     skOwner := arb.GetArbId()
-    _, err = l.Open(signedMsgBytes, pkBytes, signedMsg, sk, skOwner)
+    var msgBytes lib.ByteString
+    msgBytes, err = l.AttackerOpen(signedMsgBytes, pkBytes, signedMsg, sk, skOwner)
     if err != nil {
         return
     }
@@ -529,7 +554,7 @@ func Open(l *ll.LabeledLibrary, signedMsg, pk tm.Term) (msg tm.Term, err error) 
         // we model the attacker to operate on symbolic terms.
         // thus, we additionally call open on the term-level and abort
         // if signature verification fails
-        err = lib.NewError("signature verification failed")
+        err = lib.AttackerNewError("signature verification failed")
         return
     }
     msg = get(optMsg)
@@ -539,6 +564,7 @@ func Open(l *ll.LabeledLibrary, signedMsg, pk tm.Term) (msg tm.Term, err error) 
 
 // operation 5: deconstruct term in the attacker knowledge
 ghost
+decreases
 requires l.Mem()
 requires att.attackerKnows(l.Snapshot(), t)
 ensures  l.Mem()
@@ -584,6 +610,7 @@ func ExtendKnowledgeByDeconstruction(l *ll.LabeledLibrary, t tm.Term) {
 }
 
 ghost
+decreases
 requires l.Mem()
 requires forall i uint :: { terms[i] } 0 <= i && i < len(terms) ==> l.LabelCtx().IsPublishable(l.Snapshot(), terms[i])
 ensures  l.Mem()
@@ -596,6 +623,7 @@ func MultiPublish(l *ll.LabeledLibrary, terms seq[tm.Term]) {
     invariant forall j uint :: { terms[j] } i <= j && j < len(terms) ==> l.LabelCtx().IsPublishable(snap, terms[j])
     invariant snap.isSuffix(l.Snapshot())
     invariant l.ImmutableState() == old(l.ImmutableState())
+    decreases len(terms) - i
     for i := 0; i < len(terms); i++ {
         snap1 := l.Snapshot()
         l.LabelCtx().IsPublishableMonotonic(snap, snap1, terms[i])
@@ -606,6 +634,7 @@ func MultiPublish(l *ll.LabeledLibrary, terms seq[tm.Term]) {
 
 // operation 6: participant corruption
 ghost
+decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -634,6 +663,7 @@ func CorruptParticipant(l *ll.LabeledLibrary, principal p.Principal) (arbTerm tm
 
 // operation 7: session corruption
 ghost
+decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
@@ -661,12 +691,13 @@ func CorruptSession(l *ll.LabeledLibrary, sessionId p.Id) (arbTerm tm.Term) {
 
 // operation 8: drop message
 ghost
+decreases
 requires l.Mem()
 requires l.Snapshot().messageOccurs(idSender, idReceiver, msg) // only previously sent message can be dropped
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot().isMessageDroppedAt(idSender, idReceiver, msg)
-func DropMessage(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.Term) {
+func DropMessage(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, ghost msg tm.Term) {
     msgBytes := lib.NewByteStringWithContent(tm.gamma(msg))
     l.MessageOccursImpliesMessageInv(idSender, idReceiver, msg)
     unfold l.Mem()
@@ -680,19 +711,21 @@ func DropMessage(l *ll.LabeledLibrary, idSender, idReceiver p.Principal, msg tm.
 // to its attacker knowledge (similarly to how the attacker adds a term derived by
 // function application to its knowledge)
 ghost
+decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
-ensures  err == nil ==> att.attackerKnows(l.Snapshot(), msg)
-func Recv(l *ll.LabeledLibrary, idSender, idReceiver p.Principal) (err error, msg tm.Term) {
+ensures  err == nil ==> att.attackerKnows(l.Snapshot(), msgT)
+func Recv(l *ll.LabeledLibrary, idSender, idReceiver p.Principal) (err error, msgT tm.Term) {
     snapshot := l.Snapshot()
     unfold l.Mem()
-    _, err, msg = l.com.Receive(idSender, idReceiver, snapshot)
+    var msg lib.ByteString
+    msg, err, msgT = l.com.AttackerReceive(idSender, idReceiver, snapshot)
     fold l.Mem()
     ghost if err == nil {
-		prev := l.MessageOccursImpliesMessageInv(idSender, idReceiver, msg)
+		prev := l.MessageOccursImpliesMessageInv(idSender, idReceiver, msgT)
 		(tr.getPrev(prev)).isSuffixTransitive(prev, l.Snapshot())
-		tri.messageInvTransitive(l.Ctx(), idSender, idReceiver, msg, tr.getPrev(prev), l.Snapshot())
-        l.Publish(msg)
+		tri.messageInvTransitive(l.Ctx(), idSender, idReceiver, msgT, tr.getPrev(prev), l.Snapshot())
+        l.Publish(msgT)
 	}
 }

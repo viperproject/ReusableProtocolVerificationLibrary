@@ -5,7 +5,7 @@ import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
 import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
 
 
-type PublishedTermSearcher struct {
+ghost type PublishedTermSearcher ghost struct {
     ctx tri.TraceContext
     term tm.Term
 }
@@ -105,7 +105,7 @@ ensures  prev.isPublic()
 ensures  tri.madePublicInv(m.Ctx(ctx, owner), term, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) PublishedTermImpliesMadePublicInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
+func (m gpointer[TraceManager]) PublishedTermImpliesMadePublicInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, term tm.Term) (prev tr.TraceEntry) {
     searcher := PublishedTermSearcher{ ctx, term }
     // the following assert stmt is necessary to derive that `ctx != nil`:
     assert unfolding m.Mem(ctx, owner) in true

@@ -12,7 +12,7 @@ import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
  * all have the same height.
  */
 
-type Term domain {
+ghost type Term domain {
     // type 0
     func random(Bytes, label.SecrecyLabel, u.Usage) Term
     func getRandomBytes(Term) Bytes
@@ -573,12 +573,16 @@ pure func decrypt(ciphertext, sk Term) option[Term] {
         none[Term] // not a ciphertext
 }
 
+ghost
+decreases
 requires decrypt(ciphertext, sk) == some(plaintext)
 ensures  ciphertext == encrypt(plaintext, createPk(sk))
 func pkeDecLemma(sk Term, ciphertext Term, plaintext Term) {
     // no body needed
 }
 
+ghost
+decreases
 requires sk1 != sk2
 requires ciphertext == encrypt(plaintext, createPk(sk1))
 ensures  decrypt(ciphertext, sk1) == some(plaintext)

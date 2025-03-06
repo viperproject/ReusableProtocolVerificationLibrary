@@ -14,6 +14,7 @@ import (
 
 // #region Security Properties
 ghost
+decreases
 requires acc(l.Mem(), _)
 // A term is secret if it is either unknown to the attacker or one of its readers (i.e. `honestIds`)
 // has been corrupted. Currently, this property is restricted to the `Readers` label
@@ -25,6 +26,7 @@ pure func (l *LabeledLibrary) Secrecy(term tm.Term, honestIds set[p.Id]) bool {
 }
 
 ghost
+decreases
 requires prev.isSuffix(snapshot)
 // `honestIds` can be corrupted at any time and `prevHonestIds` must have been already been corrupted at `prev`
 // in order that `term` is considered forward secret despite the attacker knowing the value.
@@ -35,6 +37,7 @@ pure func ForwardSecrecy(snapshot, prev tr.TraceEntry, term tm.Term, prevHonestI
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) NonInjectiveAgreement(actor, peer p.Principal, commit, running ev.Event, honestIds set[p.Id]) bool {
     return l.Ctx().EventConsistency(running) &&
@@ -47,6 +50,7 @@ pure func (l *LabeledLibrary) NonInjectiveAgreement(actor, peer p.Principal, com
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) InjectiveAgreement(actor, peer p.Principal, commit, running ev.Event, honestIds set[p.Id]) bool {
     return l.NonInjectiveAgreement(actor, peer, commit, running, honestIds) &&
@@ -57,6 +61,7 @@ pure func (l *LabeledLibrary) InjectiveAgreement(actor, peer p.Principal, commit
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) EventIsUnique(principal p.Principal, event ev.Event) bool {
     return l.Ctx().EventConsistency(event) &&

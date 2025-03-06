@@ -6,7 +6,7 @@ import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
 import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
 
 
-type MessageSearcher struct {
+ghost type MessageSearcher ghost struct {
     ctx tri.TraceContext
     sender p.Principal
     receiver p.Principal
@@ -108,7 +108,7 @@ ensures  prev.isMessageAt(sender, receiver, payload)
 ensures  tri.messageInv(m.Ctx(ctx, owner), sender, receiver, payload, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) MessageOccursImpliesMessageInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
+func (m gpointer[TraceManager]) MessageOccursImpliesMessageInvWithSnap(ctx tri.TraceContext, owner Client, snap tr.TraceEntry, sender, receiver p.Principal, payload tm.Term) (prev tr.TraceEntry) {
     searcher := MessageSearcher{ ctx, sender, receiver, payload }
     // the following assert stmt is necessary to derive that `ctx != nil`:
     assert unfolding m.Mem(ctx, owner) in true
