@@ -5,7 +5,7 @@ import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinv
 
 
 /** represents the state after acquiring the mutex to then use it prove a lemma */
-pred (m *TraceManager) memLocked(ctx tri.TraceContext, owner Client, lastSeenSnapshot, snapshot tr.TraceEntry) {
+pred (m gpointer[TraceManager]) memLocked(ctx tri.TraceContext, owner Client, lastSeenSnapshot, snapshot tr.TraceEntry) {
     acc(m) && 0 < m.nClients &&
     ctx != nil && isComparable(ctx) && ctx.Props() &&
     m.mutex.ClientHistoryMutexStateLocked(ManagerInv{ ctx }, owner, snapshot) &&
@@ -23,7 +23,7 @@ ensures  lastSeenSnapshot.isSuffix(snapshot)
 ensures  m.memLocked(ctx, owner, lastSeenSnapshot, snapshot)
 ensures  old(unfolding m.Mem(ctx, owner) in m.mutex) == unfolding m.memLocked(ctx, owner, lastSeenSnapshot, snapshot) in m.mutex
 /** utility function to lock mutex and get the valid trace predicate */
-func (m *TraceManager) acquireValidTrace(ctx tri.TraceContext, owner Client) (lastSeenSnapshot, snapshot tr.TraceEntry) {
+func (m gpointer[TraceManager]) acquireValidTrace(ctx tri.TraceContext, owner Client) (lastSeenSnapshot, snapshot tr.TraceEntry) {
     // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
     inv := ManagerInv{ ctx }
     lastSeenSnapshot := m.Snapshot(ctx, owner)
@@ -40,7 +40,7 @@ requires tri.validTrace(ctx, snapshot)
 ensures  m.Mem(ctx, owner)
 ensures  m.Snapshot(ctx, owner) == lastSeenSnapshot
 ensures  (unfolding m.Mem(ctx, owner) in m.mutex) == old(unfolding m.memLocked(ctx, owner, lastSeenSnapshot, snapshot) in m.mutex)
-func (m *TraceManager) releaseValidTrace(ctx tri.TraceContext, owner Client, lastSeenSnapshot, snapshot tr.TraceEntry) {
+func (m gpointer[TraceManager]) releaseValidTrace(ctx tri.TraceContext, owner Client, lastSeenSnapshot, snapshot tr.TraceEntry) {
     inv := ManagerInv{ ctx }
     unfold m.memLocked(ctx, owner, lastSeenSnapshot, snapshot)
     fold inv.CurrentValueInv(snapshot)
@@ -62,7 +62,7 @@ type TraceSearcher interface {
     
     ghost
     decreases
-    pure Matches(entry tr.TraceEntry) bool
+    pure Matches(ghost entry tr.TraceEntry) bool
 
     ghost
     decreases
@@ -71,22 +71,22 @@ type TraceSearcher interface {
     /**
      * states additional (pure) properties about the entry that `Matches`
      */
-    pure MatchProperties(snapshot, entry tr.TraceEntry) bool
+    pure MatchProperties(ghost snapshot, entry tr.TraceEntry) bool
 
     ghost
     decreases
-    pure Occurs(entry tr.TraceEntry) bool
+    pure Occurs(ghost entry tr.TraceEntry) bool
 
     ghost
     decreases
     requires Props()
-    pure PureEntryInv(entry tr.TraceEntry) bool
+    pure PureEntryInv(ghost entry tr.TraceEntry) bool
 
     ghost
     decreases
     requires Matches(entry)
     ensures  MatchProperties(entry, entry)
-    MatchPropertiesReflexive(snapshot, entry tr.TraceEntry)
+    MatchPropertiesReflexive(ghost snapshot, entry tr.TraceEntry)
 
     ghost
     decreases
@@ -95,7 +95,7 @@ type TraceSearcher interface {
     requires !Matches(snapshot)
     requires MatchProperties(tr.getPrev(snapshot), entry)
     ensures  MatchProperties(snapshot, entry)
-    MatchPropertiesTransitive(snapshot, entry tr.TraceEntry)
+    MatchPropertiesTransitive(ghost snapshot, entry tr.TraceEntry)
 
     ghost
     decreases
@@ -106,7 +106,7 @@ type TraceSearcher interface {
      * entry will occur further in the trace's past. This then also implies that we
      * cannot have reached the root yet
      */
-    OccursImpliesAnEventualMatch(entry tr.TraceEntry)
+    OccursImpliesAnEventualMatch(ghost entry tr.TraceEntry)
 
     ghost
     decreases
@@ -120,7 +120,7 @@ type TraceSearcher interface {
      * pure component of the `validTrace` invariant that belongs to the entry that
      * was searched.
      */
-    ExtractPureEntryInv(entry tr.TraceEntry, p perm)
+    ExtractPureEntryInv(ghost entry tr.TraceEntry, ghost p perm)
 }
 
 ghost
@@ -143,7 +143,7 @@ ensures  acc(tri.validTrace(searcher.Ctx(), prev), p) --* acc(tri.validTrace(sea
  * Searches on the trace for an existing entry and returns this entry.
  * Furthermore, the (impure) valid trace invariant at the time point back then is returned.
  */
-func (m *TraceManager) findEntryWithInv(searcher TraceSearcher, validTraceEntry, entry tr.TraceEntry, p perm) (prev tr.TraceEntry) {
+func (m gpointer[TraceManager]) findEntryWithInv(searcher TraceSearcher, validTraceEntry, entry tr.TraceEntry, p perm) (prev tr.TraceEntry) {
     ctx := searcher.Ctx()
     if validTraceEntry == entry {
         unfold acc(tri.validTrace(ctx, validTraceEntry), p)
@@ -191,7 +191,7 @@ ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searche
  * Searches on the trace for an existing entry and returns this entry.
  * Furthermore, the pure invariant for the located entry is returned.
  */
-func (m *TraceManager) findEntryWithPureInv(searcher TraceSearcher, owner Client) (prev tr.TraceEntry) {
+func (m gpointer[TraceManager]) findEntryWithPureInv(searcher TraceSearcher, owner Client) (prev tr.TraceEntry) {
     prev = m.findEntryWithPureInvWithSnap(searcher, owner, m.Snapshot(searcher.Ctx(), owner))
 }
 
@@ -211,7 +211,7 @@ ensures  m.ImmutableState(searcher.Ctx(), owner) == old(m.ImmutableState(searche
  * Searches on the trace for an existing entry and returns this entry.
  * Furthermore, the pure invariant for the located entry is returned.
  */
-func (m *TraceManager) findEntryWithPureInvWithSnap(searcher TraceSearcher, owner Client, snap tr.TraceEntry) (prev tr.TraceEntry) {
+func (m gpointer[TraceManager]) findEntryWithPureInvWithSnap(searcher TraceSearcher, owner Client, snap tr.TraceEntry) (prev tr.TraceEntry) {
     // to obtain the validTrace predicate instance, we have to aquire the lock and apply monotonicity:
     lastSeenSnapshot, snapshot := m.acquireValidTrace(searcher.Ctx(), owner)
     snap.isSuffixTransitive(lastSeenSnapshot, snapshot)
@@ -253,7 +253,7 @@ ensures s1 != s2 ==>
     localValidTrace(searcher2.Ctx(), s2) &&
     ((localValidTrace(searcher1.Ctx(), s1) && localValidTrace(searcher2.Ctx(), s2)) --* tri.validTrace(searcher1.Ctx(), validTraceEntry))
 // this lemma is part of the manager as it requires the validTrace predicate
-func (m *TraceManager) findEntriesWithInv(searcher1, searcher2 TraceSearcher, validTraceEntry tr.TraceEntry) (s1, s2 tr.TraceEntry) {
+func (m gpointer[TraceManager]) findEntriesWithInv(searcher1, searcher2 TraceSearcher, validTraceEntry tr.TraceEntry) (s1, s2 tr.TraceEntry) {
     ctx := searcher1.Ctx()
     s1Found := false
     s2Found := false

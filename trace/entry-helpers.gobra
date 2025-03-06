@@ -54,6 +54,7 @@ decreases
 pure func (entry TraceEntry) isEventAt(principal p.Principal, ev Event) bool {
     return entry.isEvent() &&
         getPrincipal(entry) == principal &&
+        isComparable(ev.params) &&
         getEvent(entry) == ev
 }
 

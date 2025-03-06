@@ -16,13 +16,12 @@ import (
 	//@ u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 )
 
-// TODO ghost fields should be ghost
 type LabeledLibrary struct {
-	s *lib.LibraryState
+	s   *lib.LibraryState
 	com Communication
-	//@ ctx tri.TraceContext
-	//@ manager *tman.TraceManager
-	//@ owner p.Id
+	//@ ghost ctx tri.TraceContext
+	//@ ghost manager gpointer[tman.TraceManager]
+	//@ ghost owner p.Id
 }
 
 /*@
@@ -36,19 +35,20 @@ pred (l *LabeledLibrary) Mem() {
 }
 
 // abstract over all memory that remains unchanged after library initialization
-// TODO should be ghost
-type ImmutableState struct {
+ghost type ImmutableState ghost struct {
 	l LabeledLibrary // the entire struct remains constant after initialization
 	managerState tman.ImmutableState
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) ImmutableState() ImmutableState {
 	return unfolding acc(l.Mem(), _) in ImmutableState{ *l, l.manager.ImmutableState(l.ctx, l.owner) }
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 ensures  res != nil && isComparable(res) && res.Props()
 pure func (l *LabeledLibrary) Ctx() (res tri.TraceContext) {
@@ -56,30 +56,35 @@ pure func (l *LabeledLibrary) Ctx() (res tri.TraceContext) {
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
-pure func (l *LabeledLibrary) Manager() *tman.TraceManager {
+pure func (l *LabeledLibrary) Manager() gpointer[tman.TraceManager] {
 	return unfolding acc(l.Mem(), _) in l.manager
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) Owner() p.Id {
 	return unfolding acc(l.Mem(), _) in l.owner
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) OwnerWoThread() p.Id {
 	return unfolding acc(l.Mem(), _) in l.owner.IsSessionThread() ? p.sessionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner)) : l.owner
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) LabelCtx() labeling.LabelingContext {
 	return tri.GetLabeling(l.Ctx())
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 	return unfolding acc(l.Mem(), _) in l.manager.Snapshot(l.ctx, l.owner)
@@ -97,9 +102,15 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ ensures  res.Owner() == owner
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Snapshot(ctx, owner))
-// TODO manager, ctx, owner should be ghost
-func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tri.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
-	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
+func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, ghost manager gpointer[tman.TraceManager], ghost ctx tri.TraceContext, ghost owner p.Id @*/) (res *LabeledLibrary) {
+	// the following line is currently not accepted by Gobra's type-checker (see https://github.com/viperproject/gobra/issues/876):
+	// res = &LabeledLibrary{s, com /*@, ctx, manager, owner @*/}
+	res = new(LabeledLibrary)
+	res.s = s
+	res.com = com
+	//@ res.ctx = ctx
+	//@ res.manager = manager
+	//@ res.owner = owner
 	//@ fold res.Mem()
 	return
 }
@@ -439,7 +450,9 @@ func (l *LabeledLibrary) PublishedTermImpliesMadePublicInvWithSnap(snap tr.Trace
 }
 
 ghost
+decreases
 requires l.Mem()
+requires isComparable(event.params)
 requires (l.Ctx()).eventInv(l.Owner().getPrincipal(), event, l.Snapshot())
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())

@@ -5,7 +5,7 @@ import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
 import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
 
 
-type NonceSearcher struct {
+ghost type NonceSearcher ghost struct {
     ctx tri.TraceContext
     nonce tm.Term
 }
@@ -105,7 +105,7 @@ ensures  prev.isNonceAt(nonce)
 ensures  tri.pureRandInv(ctx, nonce, tr.getPrev(prev))
 ensures  old(m.Snapshot(ctx, owner)) == m.Snapshot(ctx, owner)
 ensures  m.ImmutableState(ctx, owner) == old(m.ImmutableState(ctx, owner))
-func (m *TraceManager) NonceOccursImpliesRandInv(ctx tri.TraceContext, owner Client, nonce tm.Term) (prev tr.TraceEntry) {
+func (m gpointer[TraceManager]) NonceOccursImpliesRandInv(ctx tri.TraceContext, owner Client, nonce tm.Term) (prev tr.TraceEntry) {
     searcher := NonceSearcher{ ctx, nonce }
     // the following assert stmt is necessary to derive that `ctx != nil`:
     assert unfolding m.Mem(ctx, owner) in true

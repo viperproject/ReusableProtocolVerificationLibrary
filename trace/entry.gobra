@@ -6,7 +6,7 @@ import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
 import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
 import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 
-type TraceEntry domain {
+ghost type TraceEntry domain {
     // constructors
     // type 0
     func makeRoot(set[tm.Term]) TraceEntry

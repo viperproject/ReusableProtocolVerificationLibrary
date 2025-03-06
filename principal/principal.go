@@ -3,13 +3,13 @@ package principal
 type Principal = string
 
 /*@
-type Id domain {
+ghost type Id domain {
 	// constructors
 	// type 0
 	func principalId(Principal) Id
 	// type 1
 	func sessionId(Principal, uint32) Id
-	// type 2; similar to type1 but allows to distinguish between 
+	// type 2; similar to type1 but allows to distinguish between
 	// different threads belonging to the same session
 	func sessionThreadId(Principal, uint32, uint32) Id
 	// type 3
@@ -70,7 +70,7 @@ type Id domain {
     }
 }
 
-// TODO this should be ghost
+ghost
 decreases
 ensures res == principalId(principal)
 pure func NewPrincipalId(principal Principal) (res Id)

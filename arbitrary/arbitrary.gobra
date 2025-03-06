@@ -11,38 +11,50 @@ import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 // these Go functions correspond to Viper methods that do not have any postcondition and thus do not constrain
 // their return value.
 
+ghost
 decreases
 func GetArbTerm() tm.Term
 
+ghost
 decreases
 func GetArbTraceEntry() tr.TraceEntry
 
+ghost
 decreases
 func GetArbLabel() label.SecrecyLabel
 
+ghost
 decreases
 func GetArbPrincipal() p.Principal
 
+ghost
 decreases
 func GetArbId() p.Id
 
+ghost
 decreases
 func GetArbEvent() ev.Event
 
+ghost
 decreases
 func GetArbUsage() u.Usage
 
+ghost
 decreases
 func GetArbString() string
 
+ghost
 decreases
 func GetArbUInt32() uint32
 
+ghost
 decreases
 func GetArbUInt64() uint64
 
+ghost
 decreases
 func GetArbInt() int
 
+ghost
 decreases
 func GetArbBool() bool
