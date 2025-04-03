@@ -16,7 +16,7 @@ additionalGobraArgs="--module github.com/viperproject/ReusableProtocolVerificati
 if [ $isCi ]; then
     echo -e "\033[0Ksection_start:`date +%s`:verify[collapsed=true]\r\033[0KVerifying packages"
 fi
-java -Xss128m -jar "$gobraJar" --recursive -I "$scriptDir" "$additionalGobraArgs"
+java -Xss128m -jar "$gobraJar" --recursive -I "$scriptDir" $additionalGobraArgs
 exitCode=$?
 if [ $isCi ]; then
     echo -e "\033[0Ksection_end:`date +%s`:verify\r\033[0K"
