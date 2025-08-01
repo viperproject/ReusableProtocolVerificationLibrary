@@ -3,14 +3,17 @@ package library
 import (
 	rand "crypto/rand"
 	rsa "crypto/rsa"
-	x509 "crypto/x509"
 	sha256 "crypto/sha256"
-	"errors"
+	x509 "crypto/x509"
 	hex "encoding/hex"
+	"errors"
+	io "io"
 	big "math/big"
+	"runtime"
+
 	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
 	sign "golang.org/x/crypto/nacl/sign"
-	io "io"
+
 	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
 	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
 	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
@@ -19,7 +22,6 @@ import (
 	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
 	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
 )
-
 
 type ByteString []byte
 
@@ -32,7 +34,6 @@ const NonceLength = 24
 const GroupGenerator = 2
 const GroupSizeString = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF"
 const DHHalfKeyLength = 256
-
 
 type LibraryState struct {
 	// we need at least a field to not run into unknown equality issues
@@ -101,7 +102,7 @@ func Size(b ByteString) (res int) {
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(sk, version), versionPerm)
 // GeneratePkeKey takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
-func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
+func (l *LibraryState) GeneratePkeKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (pk, sk ByteString, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return
@@ -125,7 +126,7 @@ func (l *LibraryState) GeneratePkeKey(/*@ ghost ctx labeling.LabelingContext, gh
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(key, version), versionPerm)
 // GenerateDHKey takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
-func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key ByteString, err error) {
+func (l *LibraryState) GenerateDHKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (key ByteString, err error) {
 	var keyBuf [32]byte
 	key = keyBuf[:]
 	_, err = rand.Read(key)
@@ -144,7 +145,7 @@ func (l *LibraryState) GenerateDHKey(/*@ ghost ctx labeling.LabelingContext, gho
 //@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)), eventType)
-func (l *LibraryState) GenerateSigningKey(/*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (pk, sk ByteString, err error) {
+func (l *LibraryState) GenerateSigningKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (pk, sk ByteString, err error) {
 	publicKey, privateKey, err := sign.GenerateKey(rand.Reader)
 	if err != nil {
 		return
@@ -165,7 +166,7 @@ func (l *LibraryState) GenerateSigningKey(/*@ ghost ctx labeling.LabelingContext
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 //@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(nonce, version), versionPerm)
 // CreateNonce takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a nonce with version `version`. If versionPerm is set to 0, the nonce is not versioned, and the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
-func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost nonceLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce ByteString, err error) {
+func (l *LibraryState) CreateNonce( /*@ ghost ctx labeling.LabelingContext, ghost nonceLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (nonce ByteString, err error) {
 	var nonceArr [NonceLength]byte
 	nonce = nonceArr[:]
 	io.ReadFull(rand.Reader, nonce)
@@ -179,14 +180,14 @@ func (l *LibraryState) CreateNonce(/*@ ghost ctx labeling.LabelingContext, ghost
 //@ requires versionPermGuard > 0 && acc(guard(version), versionPermGuard) // This is to ensure that the version parameter corresponds to the current version
 //@ ensures acc(guard(version), versionPermGuard)
 //@ ensures err == nil ==> acc(guard(version), versionPermReceipt)
-func (l* LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, ghost versionPermReceipt perm, ghost versionPermGuard perm @*/) (err error) {
+func (l *LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, ghost versionPermReceipt perm, ghost versionPermGuard perm @*/) (err error) {
 	// Implementation from: https://github.com/golang/go/issues/33325#issuecomment-515996402
- 	// overwrite the value with zeros
- 	for i := range value {
- 		value[i] = 0
- 	}
- 	// prevent the compiler from optimizing out the entire function
- 	runtime.KeepAlive(value)
+	// overwrite the value with zeros
+	for i := range value {
+		value[i] = 0
+	}
+	// prevent the compiler from optimizing out the entire function
+	runtime.KeepAlive(value)
 	return
 }
 
@@ -205,13 +206,13 @@ func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error
 
 	var rsaPublicKey *rsa.PublicKey
 	switch publicKey := publicKey.(type) {
-    	case *rsa.PublicKey:
-			rsaPublicKey = publicKey
-            break
-    	default:
-			err = errors.New("invalid public key")
-            return
-    }
+	case *rsa.PublicKey:
+		rsaPublicKey = publicKey
+		break
+	default:
+		err = errors.New("invalid public key")
+		return
+	}
 
 	rng := rand.Reader
 	ciphertext, err = rsa.EncryptOAEP(sha256.New(), rng, rsaPublicKey, msg, nil)
@@ -317,7 +318,7 @@ func (l *LibraryState) Open(signedData []byte, pk []byte /*@, ghost skT tm.Term 
 	}
 	var pkBuf [32]byte
 	copy(pkBuf[:], pk)
-	
+
 	var out []byte
 	data, success := sign.Open(out, signedData, &pkBuf)
 	if success {
@@ -330,7 +331,7 @@ func (l *LibraryState) Open(signedData []byte, pk []byte /*@, ghost skT tm.Term 
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
 //@ preserves acc(Mem(exp), 1/16)
-//@ ensures err == nil ==> Mem(res)
+//@ ensures err == nil ==> Mem(res) && Size(res) == DHHalfKeyLength
 // arg is big-endian
 func (l *LibraryState) expModWithIntBase(base *big.Int, exp []byte) (res []byte, err error) {
 	// prepare mod argument:
@@ -358,7 +359,7 @@ func (l *LibraryState) expModWithIntBase(base *big.Int, exp []byte) (res []byte,
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
 //@ preserves acc(Mem(base), 1/16) && acc(Mem(exp), 1/16)
-//@ ensures err == nil ==> Mem(res)
+//@ ensures err == nil ==> Mem(res) && Size(res) == DHHalfKeyLength
 // args are big-endian
 func (l *LibraryState) expMod(base, exp []byte) (res []byte, err error) {
 	// prepare mod argument:
@@ -386,7 +387,7 @@ func (l *LibraryState) DhExp(exp []byte) (res []byte, err error) {
 //@ ensures acc(Mem(dhSecret), 1/16) && acc(Mem(dhHalfKey), 1/16)
 //@ ensures err == nil ==> Mem(res)
 //@ ensures err == nil ==> Abs(res) == tm.expB(Abs(dhHalfKey), Abs(dhSecret))
-//@ ensures err == nil ==> Size(res) == DHHalfKeyLength // TODO_ Is the shared secret also of length 256?
+//@ ensures err == nil ==> Size(res) == DHHalfKeyLength
 // args are big-endian
 func (l *LibraryState) DhSharedSecret(dhSecret, dhHalfKey []byte) (res []byte, err error) {
 	return l.expMod(dhHalfKey, dhSecret)

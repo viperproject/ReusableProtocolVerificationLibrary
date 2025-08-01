@@ -29,9 +29,9 @@ import (
 // Return the same amount of receipt permission
 //@ ensures  err == nil && versionPerm > 0 ==> acc(lib.receipt(nonce, l.Version()), versionPerm)
 // CreateNonce takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a versioned nonce. If versionPerm is set to 0, the nonce is not versioned.
-func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, ghost versionPerm perm, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (nonce lib.ByteString, err error) {
+func (l *LabeledLibrary) CreateNonce( /*@ ghost nonceLabel label.SecrecyLabel, ghost versionPerm perm, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (nonce lib.ByteString, err error) {
 	//@ unfold l.Mem()
-	nonce, err = l.s.CreateNonce(/*@ tri.GetLabeling(l.ctx), nonceLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, eventTypes @*/)
+	nonce, err = l.s.CreateNonce( /*@ tri.GetLabeling(l.ctx), nonceLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, eventTypes @*/ )
 	// store nonce on trace
 	/*@
 	ghost if err == nil {
@@ -60,13 +60,13 @@ func (l *LabeledLibrary) CreateNonce(/*@ ghost nonceLabel label.SecrecyLabel, gh
 //@ ensures  err == nil && versionPerm > 0 ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.OwnerWithVersion() }), u.PkeKey(usageString)) && acc(lib.receipt(sk, l.Version()), versionPerm)
 // TODO make skT ghost
 // GeneratePkeKey takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a versioned key. If versionPerm is set to 0, the key is not versioned.
-func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost versionPerm perm, ghost usageString string @*/) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
+func (l *LabeledLibrary) GeneratePkeKey( /*@ ghost versionPerm perm, ghost usageString string @*/ ) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
 	//@ unfold l.Mem()
 	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
 	//@ ghost if versionPerm>0 {
 	//@ 	keyLabel = label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.manager.Version(l.ctx, l.owner)) }) // OwnerWithVersion label
 	//@ }
-	pk, sk, err = l.s.GeneratePkeKey(/*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, set[ev.EventType]{} @*/)
+	pk, sk, err = l.s.GeneratePkeKey( /*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, set[ev.EventType]{} @*/ )
 	// store sk on trace
 	/*@
 	ghost if err == nil {
@@ -91,16 +91,15 @@ func (l *LabeledLibrary) GeneratePkeKey(/*@ ghost versionPerm perm, ghost usageS
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
 //@ ensures  err == nil ==> lib.Mem(key) && lib.Size(key) == 32
 //@ ensures  err == nil ==> lib.Abs(key) == tm.gamma(skT)
-// TODO_ The following condition verifies, even though it should not, as we get a receipt only for versionPerm>0: //@ ensures  err == nil ==> skT == tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString)) && acc(lib.receipt(key, l.Version()), versionPerm)
-//@ ensures  err == nil ==> skT == tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString))
+//@ ensures  err == nil ==> skT == tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString)) && acc(lib.receipt(key, l.Version()), versionPerm)
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> l.LabelCtx().NonceForEventIsUnique(skT, eventType)
 // Return the same amount of receipt permission
 //@ ensures  err == nil && versionPerm > 0 ==> acc(lib.receipt(key, l.Version()), versionPerm)
 // GenerateDHKey takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a versioned key. If versionPerm is set to 0, the key is not versioned.
-func (l *LabeledLibrary) GenerateDHKey(/*@ ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost usageString string, ghost eventTypes set[ev.EventType] @*/) (key lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
+func (l *LabeledLibrary) GenerateDHKey( /*@ ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (key lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
 	//@ unfold l.Mem()
-	key, err = l.s.GenerateDHKey(/*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, eventTypes @*/)
+	key, err = l.s.GenerateDHKey( /*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, eventTypes @*/ )
 	// store key on trace
 	/*@
 	ghost if err == nil {
@@ -123,11 +122,11 @@ func (l *LabeledLibrary) GenerateDHKey(/*@ ghost keyLabel label.SecrecyLabel, gh
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
 //@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.Owner() }), u.SigningKey(usageString))
 // TODO make skT ghost
-func (l *LabeledLibrary) GenerateSigningKey(/*@ ghost usageString string @*/) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
+func (l *LabeledLibrary) GenerateSigningKey( /*@ ghost usageString string @*/ ) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
 	//@ owner := l.Owner()
 	//@ unfold l.Mem()
 	//@ keyLabel := label.Readers(set[p.Id]{ owner })
-	pk, sk, err = l.s.GenerateSigningKey(/*@ tri.GetLabeling(l.ctx), keyLabel, usageString, set[ev.EventType]{} @*/)
+	pk, sk, err = l.s.GenerateSigningKey( /*@ tri.GetLabeling(l.ctx), keyLabel, usageString, set[ev.EventType]{} @*/ )
 	// store sk on trace
 	/*@
 	ghost if err == nil {
@@ -148,7 +147,7 @@ func (l *LabeledLibrary) GenerateSigningKey(/*@ ghost usageString string @*/) (p
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot())
 //@ ensures  err == nil ==> acc(lib.guard(l.Version()), versionPermReceipt)
-func (l* LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost versionPermReceipt perm, ghost versionPermGuard perm @*/) (err error) {
+func (l *LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost versionPermReceipt perm, ghost versionPermGuard perm @*/) (err error) {
 	//@ unfold l.Mem()
 	err = l.s.DeleteSafely(value /*@, l.manager.Version(l.ctx, l.owner), versionPermReceipt, versionPermGuard @*/)
 	//@ fold l.Mem()
@@ -186,21 +185,23 @@ func (l* LabeledLibrary) GuardFromReceiptUnversioned(value lib.ByteString, value
 
 ghost
 requires l.Mem()
-requires acc(lib.guard(l.Version()), 1/1)
+requires lib.guard(l.Version())
 requires nextPerm >= 0 && acc(lib.guardNext(l.Version() + 1), nextPerm)
 ensures  l.Mem()
 ensures  l.ImmutableStateExceptVersion() == old(l.ImmutableStateExceptVersion())
 ensures  l.Snapshot() == old(l.Snapshot())
 ensures  l.Version() == old(l.Version()) + 1
 ensures  acc(lib.guard(l.Version()), nextPerm)
-ensures  acc(lib.guardNext(l.Version() + 1), 1/1)
+ensures  lib.guardNext(l.Version() + 1)
 func (l* LabeledLibrary) BumpVersion(nextPerm perm) {
 	unfold l.Mem()
 	unfold l.manager.Mem(l.ctx, l.owner)
+	exhale lib.guard(l.Version())
+	exhale acc(lib.guardNext(l.Version() + 1), nextPerm)
 	l.manager.version = l.manager.version + 1
-	fold l.manager.Mem(l.ctx, l.owner)
 	inhale acc(lib.guard(l.manager.Version(l.ctx, l.owner)), nextPerm)
-	inhale acc(lib.guardNext(l.manager.Version(l.ctx, l.owner) + 1), 1/1)
+	inhale lib.guardNext(l.manager.Version(l.ctx, l.owner) + 1)
+	fold l.manager.Mem(l.ctx, l.owner)
 	fold l.Mem()
 }
 @*/
