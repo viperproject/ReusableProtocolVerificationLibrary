@@ -1,6 +1,6 @@
 package labeling
 
-type KeyType domain {
+ghost type KeyType domain {
     // constructors
     // type 0
     func KeyTypePke() KeyType
@@ -43,5 +43,6 @@ type KeyType domain {
     }
 }
 
+ghost
 decreases
 func GetArbKeyType() KeyType

@@ -1,8 +1,8 @@
 package label
 
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
 
-type SecrecyLabel domain {
+ghost type SecrecyLabel domain {
     // constructors
     // type 0
     func Public() SecrecyLabel

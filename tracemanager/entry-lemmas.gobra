@@ -1,10 +1,10 @@
 package tracemanager
 
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
 
 
-type EntrySearcher struct {
+ghost type EntrySearcher ghost struct {
     ctx tri.TraceContext
     entry tr.TraceEntry
 }

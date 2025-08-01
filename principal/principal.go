@@ -3,19 +3,23 @@ package principal
 type Principal = string
 
 /*@
-type Id domain {
+ghost type Id domain {
 	// constructors
 	// type 0
 	func principalId(Principal) Id
 	// type 1
 	func sessionId(Principal, uint32) Id
-	// type 2
-	func versionId(Principal, uint32, uint32) Id // Version
+	// type 2; similar to type1 but allows to distinguish between
+	// different threads belonging to the same session
+	func sessionThreadId(Principal, uint32, uint32) Id
+	// type 3
+	func versionId(Principal, uint32, uint32) Id
 
 	// deconstructors
 	func getIdType(Id) int
 	func getIdPrincipal(Id) Principal
 	func getIdSession(Id) uint32
+	func getIdThread(Id) uint32
 	func getIdVersion(Id) uint32
 
 	// WARNING: adapt first axiom if another Id is added!
@@ -43,29 +47,40 @@ type Id domain {
             id == sessionId(getIdPrincipal(id), getIdSession(id))
     }
 
+	axiom { // sessionThreadId is injective
+		forall principal Principal, session, threadId uint32 :: { sessionThreadId(principal, session, threadId) } getIdType(sessionThreadId(principal, session, threadId)) == 2 &&
+			getIdPrincipal(sessionThreadId(principal, session, threadId)) == principal &&
+			getIdSession(sessionThreadId(principal, session, threadId)) == session &&
+			getIdThread(sessionThreadId(principal, session, threadId)) == threadId
+	}
+	axiom { // sessionThreadId implies its constructions
+        forall id Id :: { getIdType(id) } getIdType(id) == 2 ==>
+            id == sessionThreadId(getIdPrincipal(id), getIdSession(id), getIdThread(id))
+    }
+
 	axiom { // versionId is injective
-		forall principal Principal, session, version uint32 :: { versionId(principal, session, version) } getIdType(versionId(principal, session, version)) == 2 &&
+		forall principal Principal, session, version uint32 :: { versionId(principal, session, version) } getIdType(versionId(principal, session, version)) == 3 &&
 			getIdPrincipal(versionId(principal, session, version)) == principal &&
 			getIdSession(versionId(principal, session, version)) == session &&
 			getIdVersion(versionId(principal, session, version)) == version
 	}
 	axiom { // versionId implies its constructions
-        forall id Id :: { getIdType(id) } getIdType(id) == 2 ==>
+        forall id Id :: { getIdType(id) } getIdType(id) == 3 ==>
             id == versionId(getIdPrincipal(id), getIdSession(id), getIdVersion(id))
     }
 }
 
-// TODO this should be ghost
+ghost
 decreases
 ensures res == principalId(principal)
 pure func NewPrincipalId(principal Principal) (res Id)
 
-// TODO this should be ghost
+ghost
 decreases
 ensures res == sessionId(principal, session)
 pure func NewSessionId(principal Principal, session uint32) (res Id)
 
-// TODO this should be ghost
+ghost
 decreases
 ensures res == versionId(principal, session, version)
 pure func NewVersionId(principal Principal, session uint32, version uint32) (res Id)
@@ -80,6 +95,12 @@ ghost
 decreases
 pure func (id Id) IsSession() bool {
 	return getIdType(id) == 1
+}
+
+ghost
+decreases
+pure func (id Id) IsSessionThread() bool {
+	return getIdType(id) == 2
 }
 
 ghost
@@ -113,7 +134,7 @@ decreases
 // is equal or a superset of the versions covered by `id2`
 pure func (id1 Id) Covers(id2 Id) bool {
 	return id1.IsPrincipal() ? (id1.getPrincipal() == id2.getPrincipal()) :
-		id1.IsSession() ? (id1.getPrincipal() == id2.getPrincipal() &&
+		id1.IsSession() || id1.IsSessionThread() ? (id1.getPrincipal() == id2.getPrincipal() &&
 			id1.getSession() == id2.getSession()) :
 		id1 == id2 // if id1 is a version
 }

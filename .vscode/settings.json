@@ -1,5 +1,5 @@
 {
-    "gobraSettings.moduleName": "github.com/ModularVerification/ReusableVerificationLibrary",
+    "gobraSettings.moduleName": "github.com/viperproject/ReusableProtocolVerificationLibrary",
     "gobraSettings.includeDirs": [
         ".",
         ".verification"

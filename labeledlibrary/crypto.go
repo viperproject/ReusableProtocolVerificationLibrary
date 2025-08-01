@@ -1,15 +1,16 @@
 package labeledlibrary
 
 import (
-	//@ arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
-	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
-	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
-	//@ p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-	//@ tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
-	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+	//@ arb "github.com/viperproject/ReusableProtocolVerificationLibrary/arbitrary"
+	//@ ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/labeling"
+	lib "github.com/viperproject/ReusableProtocolVerificationLibrary/labeledlibrary/library"
+	//@ p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+	//@ tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+	//@ tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+	//@ tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
+	//@ u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 )
 
 //@ requires l.Mem()
@@ -18,7 +19,7 @@ import (
 // If the nonce is versioned, consume a partial permission to the guard and verify that it is readable by the owner at the current version (or the owner in general)
 //@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), versionPerm) && l.Owner().IsSession() && tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.OwnerWithVersion() }))
 // If the nonce is unversioned, just verify that it is readable by the owner
-//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.Owner() }))
+//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), nonceLabel, label.Readers(set[p.Id]{ l.OwnerWoThread() }))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
@@ -36,7 +37,7 @@ func (l *LabeledLibrary) CreateNonce( /*@ ghost nonceLabel label.SecrecyLabel, g
 	/*@
 	ghost if err == nil {
 		nonceT := tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString))
-		l.manager.LogNonce(l.ctx, l.owner, versionPerm>0, nonceT)
+		l.manager.LogNonce(l.ctx, l.owner, versionPerm > 0, nonceT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -55,15 +56,15 @@ func (l *LabeledLibrary) CreateNonce( /*@ ghost nonceLabel label.SecrecyLabel, g
 //@ ensures  err == nil ==> lib.Mem(sk)
 //@ ensures  err == nil ==> lib.Abs(sk) == tm.gamma(skT) && lib.Abs(pk) == tm.createPkB(lib.Abs(sk))
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
-//@ ensures  err == nil && versionPerm == 0 ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.Owner() }), u.PkeKey(usageString))
+//@ ensures  err == nil && versionPerm == 0 ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.OwnerWoThread() }), u.PkeKey(usageString))
 // Return the same amount of receipt permission
 //@ ensures  err == nil && versionPerm > 0 ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.OwnerWithVersion() }), u.PkeKey(usageString)) && acc(lib.receipt(sk, l.Version()), versionPerm)
-// TODO make skT ghost
 // GeneratePkeKey takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a versioned key. If versionPerm is set to 0, the key is not versioned.
-func (l *LabeledLibrary) GeneratePkeKey( /*@ ghost versionPerm perm, ghost usageString string @*/ ) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
+func (l *LabeledLibrary) GeneratePkeKey( /*@ ghost versionPerm perm, ghost usageString string @*/ ) (pk, sk lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
+	//@ ownerWoThread := l.OwnerWoThread()
 	//@ unfold l.Mem()
-	//@ keyLabel := label.Readers(set[p.Id]{ l.owner })
-	//@ ghost if versionPerm>0 {
+	//@ keyLabel := label.Readers(set[p.Id]{ ownerWoThread })
+	//@ ghost if versionPerm > 0 {
 	//@ 	keyLabel = label.Readers(set[p.Id]{ p.versionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner), l.manager.Version(l.ctx, l.owner)) }) // OwnerWithVersion label
 	//@ }
 	pk, sk, err = l.s.GeneratePkeKey( /*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, set[ev.EventType]{} @*/ )
@@ -72,7 +73,7 @@ func (l *LabeledLibrary) GeneratePkeKey( /*@ ghost versionPerm perm, ghost usage
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(sk), keyLabel, u.PkeKey(usageString))
 		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
-		l.manager.LogNonce(l.ctx, l.owner, versionPerm>0, skT)
+		l.manager.LogNonce(l.ctx, l.owner, versionPerm > 0, skT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -80,12 +81,12 @@ func (l *LabeledLibrary) GeneratePkeKey( /*@ ghost versionPerm perm, ghost usage
 }
 
 //@ requires l.Mem()
-// versionPerm == 0 ==> the nonce is not versioned
+// versionPerm == 0 ==> the key is not versioned
 //@ requires versionPerm >= 0
 // If the key is versioned, consume a partial permission to the guard and verify that it is readable by the owner at the current version (or the owner in general)
 //@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), versionPerm) && l.Owner().IsSession() && tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), keyLabel, label.Readers(set[p.Id]{ l.OwnerWithVersion() }))
 // If the nonce is unversioned, just verify that it is readable by the owner
-//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), keyLabel, label.Readers(set[p.Id]{ l.Owner() }))
+//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), keyLabel, label.Readers(set[p.Id]{ l.OwnerWoThread() }))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
@@ -94,18 +95,17 @@ func (l *LabeledLibrary) GeneratePkeKey( /*@ ghost versionPerm perm, ghost usage
 //@ ensures  err == nil ==> skT == tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString)) && acc(lib.receipt(key, l.Version()), versionPerm)
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> l.LabelCtx().NonceForEventIsUnique(skT, eventType)
-// Return the same amount of receipt permission
-//@ ensures  err == nil && versionPerm > 0 ==> acc(lib.receipt(key, l.Version()), versionPerm)
 // GenerateDHKey takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a versioned key. If versionPerm is set to 0, the key is not versioned.
 func (l *LabeledLibrary) GenerateDHKey( /*@ ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (key lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
+	//@ version := l.Version()
 	//@ unfold l.Mem()
-	key, err = l.s.GenerateDHKey( /*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, l.manager.Version(l.ctx, l.owner), usageString, eventTypes @*/ )
+	key, err = l.s.GenerateDHKey( /*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, version, usageString, eventTypes @*/ )
 	// store key on trace
 	/*@
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(key), keyLabel, u.DhKey(usageString))
 		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
-		l.manager.LogNonce(l.ctx, l.owner, versionPerm>0, skT)
+		l.manager.LogNonce(l.ctx, l.owner, versionPerm > 0, skT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -113,6 +113,11 @@ func (l *LabeledLibrary) GenerateDHKey( /*@ ghost keyLabel label.SecrecyLabel, g
 }
 
 //@ requires l.Mem()
+//@ requires versionPerm >= 0
+// If the key is versioned, consume a partial permission to the guard and verify that it is readable by the owner at the current version (or the owner in general)
+//@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), versionPerm) && l.Owner().IsSession() && tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), keyLabel, label.Readers(set[p.Id]{ l.OwnerWithVersion() }))
+// If the nonce is unversioned, just verify that it is readable by the owner
+//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), keyLabel, label.Readers(set[p.Id]{ l.OwnerWoThread() }))
 //@ ensures  l.Mem()
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  old(l.Snapshot()).isSuffix(l.Snapshot())
@@ -120,19 +125,18 @@ func (l *LabeledLibrary) GenerateDHKey( /*@ ghost keyLabel label.SecrecyLabel, g
 //@ ensures  err == nil ==> lib.Mem(sk)
 //@ ensures  err == nil ==> lib.Abs(sk) == tm.gamma(skT) && lib.Abs(pk) == tm.createPkB(lib.Abs(sk))
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
-//@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), label.Readers(set[p.Id]{ l.Owner() }), u.SigningKey(usageString))
-// TODO make skT ghost
-func (l *LabeledLibrary) GenerateSigningKey( /*@ ghost usageString string @*/ ) (pk, sk lib.ByteString, err error /*@, skT tm.Term @*/) {
-	//@ owner := l.Owner()
+//@ ensures  err == nil ==> skT == tm.random(lib.Abs(sk), keyLabel, u.SigningKey(usageString)) && acc(lib.receipt(sk, l.Version()), versionPerm)
+func (l *LabeledLibrary) GenerateSigningKey( /*@ ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost usageString string @*/ ) (pk, sk lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
+	//@ ownerWoThread := l.OwnerWoThread()
+	//@ version := l.Version()
 	//@ unfold l.Mem()
-	//@ keyLabel := label.Readers(set[p.Id]{ owner })
-	pk, sk, err = l.s.GenerateSigningKey( /*@ tri.GetLabeling(l.ctx), keyLabel, usageString, set[ev.EventType]{} @*/ )
+	pk, sk, err = l.s.GenerateSigningKey( /*@ tri.GetLabeling(l.ctx), keyLabel, versionPerm, version, usageString, set[ev.EventType]{} @*/ )
 	// store sk on trace
 	/*@
 	ghost if err == nil {
 		skT = tm.random(lib.Abs(sk), keyLabel, u.SigningKey(usageString))
 		tri.GetLabeling(l.ctx).CanFlowReflexive(l.manager.Snapshot(l.ctx, l.owner), keyLabel)
-		l.manager.LogNonce(l.ctx, l.owner, false, skT)
+		l.manager.LogNonce(l.ctx, l.owner, versionPerm > 0, skT)
 	}
 	@*/
 	//@ fold l.Mem()
@@ -151,10 +155,12 @@ func (l *LabeledLibrary) DeleteSafely(value lib.ByteString /*@, ghost versionPer
 	//@ unfold l.Mem()
 	err = l.s.DeleteSafely(value /*@, l.manager.Version(l.ctx, l.owner), versionPermReceipt, versionPermGuard @*/)
 	//@ fold l.Mem()
+	return
 }
 
 /*@
 ghost
+decreases
 requires l.Mem()
 requires acc(lib.Mem(value), 1/8)
 requires lib.Abs(value) == tm.gamma(valueT)
@@ -171,6 +177,7 @@ ensures  acc(lib.receipt(value, l.Version() + 1), versionPerm)
 func (l* LabeledLibrary) ConvertToNextVersion(value lib.ByteString, valueT tm.Term, versionPerm perm)
 
 ghost
+decreases
 requires l.Mem()
 requires acc(lib.Mem(value), 1/8)
 requires lib.Abs(value) == tm.gamma(valueT)
@@ -184,6 +191,7 @@ ensures  acc(lib.guard(l.Version()), versionPerm)
 func (l* LabeledLibrary) GuardFromReceiptUnversioned(value lib.ByteString, valueT tm.Term, versionPerm perm)
 
 ghost
+decreases
 requires l.Mem()
 requires lib.guard(l.Version())
 requires nextPerm >= 0 && acc(lib.guardNext(l.Version() + 1), nextPerm)
@@ -196,11 +204,11 @@ ensures  lib.guardNext(l.Version() + 1)
 func (l* LabeledLibrary) BumpVersion(nextPerm perm) {
 	unfold l.Mem()
 	unfold l.manager.Mem(l.ctx, l.owner)
-	exhale lib.guard(l.Version())
-	exhale acc(lib.guardNext(l.Version() + 1), nextPerm)
+	exhale lib.guard(l.manager.version)
+	exhale acc(lib.guardNext(l.manager.version + 1), nextPerm)
 	l.manager.version = l.manager.version + 1
-	inhale acc(lib.guard(l.manager.Version(l.ctx, l.owner)), nextPerm)
-	inhale lib.guardNext(l.manager.Version(l.ctx, l.owner) + 1)
+	inhale acc(lib.guard(l.manager.version), nextPerm)
+	inhale lib.guardNext(l.manager.version + 1)
 	fold l.manager.Mem(l.ctx, l.owner)
 	fold l.Mem()
 }
@@ -227,6 +235,32 @@ func (l *LabeledLibrary) Enc(msg, pk lib.ByteString /*@, ghost msgT tm.Term, gho
 	//@ l.LabelCtx().CiphertextIsPublishable(l.Snapshot(), msgT, pkT)
 	return
 }
+
+/*@
+ghost
+decreases
+requires l.Mem()
+requires acc(lib.Mem(msg), 1/8)
+requires lib.Abs(msg) == tm.gamma(msgT)
+requires acc(lib.Mem(pk), 1/8)
+requires lib.Abs(pk) == tm.gamma(pkT)
+requires l.LabelCtx().CanEncrypt(l.Snapshot(), msgT, pkT) || (l.LabelCtx().IsPublishable(l.Snapshot(), msgT) && l.LabelCtx().IsPublishable(l.Snapshot(), pkT))
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  acc(lib.Mem(msg), 1/8)
+ensures  acc(lib.Mem(pk), 1/8)
+ensures  err == nil ==> lib.Mem(ciphertext)
+ensures  err == nil ==> lib.Abs(ciphertext) == tm.encryptB(lib.Abs(msg), lib.Abs(pk))
+ensures  err == nil ==> l.LabelCtx().IsPublishable(l.Snapshot(), tm.encrypt(msgT, pkT))
+func (l *LabeledLibrary) AttackerEnc(msg, pk lib.ByteString, msgT tm.Term, pkT tm.Term) (ciphertext lib.ByteString, err error) {
+	unfold l.Mem()
+	ciphertext, err = l.s.AttackerEnc(msg, pk)
+	fold l.Mem()
+	l.LabelCtx().CiphertextIsPublishable(l.Snapshot(), msgT, pkT)
+	return
+}
+@*/
 
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(ciphertext), 1/8)
@@ -277,6 +311,45 @@ func (l *LabeledLibrary) Dec(ciphertext, sk lib.ByteString /*@, ghost versionPer
 	return
 }
 
+/*@
+ghost
+decreases
+requires l.Mem()
+requires acc(lib.Mem(ciphertext), 1/8)
+requires lib.Abs(ciphertext) == tm.gamma(ciphertextT)
+requires acc(lib.Mem(sk), 1/8)
+requires lib.Abs(sk) == tm.gamma(skT)
+requires l.LabelCtx().CanDecrypt(l.Snapshot(), ciphertextT, skT, skOwner)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  acc(lib.Mem(ciphertext), 1/8)
+ensures  acc(lib.Mem(sk), 1/8)
+ensures  err == nil ==> lib.Mem(msg)
+ensures  err == nil ==> lib.Abs(ciphertext) == tm.encryptB(lib.Abs(msg), tm.createPkB(lib.Abs(sk)))
+ensures  err == nil ==> (forall msgT tm.Term :: { tm.encrypt(msgT, tm.createPk(skT)) } ciphertextT == tm.encrypt(msgT, tm.createPk(skT)) ==>
+	l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner))
+func (l *LabeledLibrary) AttackerDec(ciphertext, sk lib.ByteString, ciphertextT tm.Term, skT tm.Term, skOwner p.Id) (msg lib.ByteString, err error) {
+	unfold l.Mem()
+	msg, err = l.s.AttackerDec(ciphertext, sk)
+	fold l.Mem()
+	if err == nil {
+		pkT := tm.createPk(skT)
+
+		// we choose an arbitrary msgT and then show that if we assume that it's the correct
+		// we can call `DecryptSatisfiesInvariant` which then gives us an implication with the given quantifier
+		arbMsgT := arb.GetArbTerm()
+		if ciphertextT == tm.encrypt(arbMsgT, pkT) {
+			l.LabelCtx().DecryptSatisfiesInvariant(l.Snapshot(), arbMsgT, skT, skOwner)
+		}
+		// forall introduction:
+		assert ciphertextT == tm.encrypt(arbMsgT, pkT) ==> l.LabelCtx().WasDecrypted(l.Snapshot(), arbMsgT, skT, skOwner)
+		assume forall msgT tm.Term :: { tm.encrypt(msgT, pkT) } ciphertextT == tm.encrypt(msgT, pkT) ==> l.LabelCtx().WasDecrypted(l.Snapshot(), msgT, skT, skOwner)
+	}
+	return
+}
+@*/
+
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16)
 //@ requires lib.Size(key) == 32 && lib.Size(nonce) == 12
@@ -303,6 +376,37 @@ func (l *LabeledLibrary) AeadEnc(key, nonce, plaintext, additionalData lib.ByteS
 	//@ l.LabelCtx().AeadCiphertextIsPublishable(l.Snapshot(), keyT, nonceT, plaintextT, adT, keyL)
 	return
 }
+
+/*@
+ghost
+decreases
+requires l.Mem()
+requires acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16)
+requires lib.Size(key) == 32 && lib.Size(nonce) == 12
+requires plaintext != nil ==> acc(lib.Mem(plaintext), 1/16)
+requires additionalData != nil ==> acc(lib.Mem(additionalData), 1/16)
+requires lib.Abs(key) == tm.gamma(keyT)
+requires lib.Abs(nonce) == tm.gamma(nonceT)
+requires lib.SafeAbs(plaintext, 0) == tm.gamma(plaintextT)
+requires lib.SafeAbs(additionalData, 0) == tm.gamma(adT)
+requires l.LabelCtx().CanAeadEncrypt(l.Snapshot(), keyT, nonceT, plaintextT, adT, keyL) || (l.LabelCtx().IsPublishable(l.Snapshot(), keyT) && l.LabelCtx().IsPublishable(l.Snapshot(), nonceT) && l.LabelCtx().IsPublishable(l.Snapshot(), plaintextT) && l.LabelCtx().IsPublishable(l.Snapshot(), adT))
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16)
+ensures  plaintext != nil ==> acc(lib.Mem(plaintext), 1/16)
+ensures  additionalData != nil ==> acc(lib.Mem(additionalData), 1/16)
+ensures  err == nil ==> lib.Mem(ciphertext) && lib.Size(ciphertext) == (plaintext == nil ? 0 : lib.Size(plaintext)) + 16
+ensures  err == nil ==> lib.Abs(ciphertext) == tm.aeadB(lib.Abs(key), lib.Abs(nonce), lib.SafeAbs(plaintext, 0), lib.SafeAbs(additionalData, 0))
+ensures  err == nil ==> l.LabelCtx().IsPublishable(l.Snapshot(), tm.aead(keyT, nonceT, plaintextT, adT))
+func (l *LabeledLibrary) AttackerAeadEnc(key, nonce, plaintext, additionalData lib.ByteString, keyT tm.Term, nonceT tm.Term, plaintextT tm.Term, adT tm.Term, keyL label.SecrecyLabel) (ciphertext lib.ByteString, err error) {
+	unfold l.Mem()
+	ciphertext, err = l.s.AttackerAeadEnc(key, nonce, plaintext, additionalData)
+	fold l.Mem()
+	l.LabelCtx().AeadCiphertextIsPublishable(l.Snapshot(), keyT, nonceT, plaintextT, adT, keyL)
+	return
+}
+@*/
 
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16)
@@ -356,6 +460,47 @@ func (l *LabeledLibrary) AeadDec(key, nonce, ciphertext, additionalData lib.Byte
 	return
 }
 
+/*@
+ghost
+decreases
+requires l.Mem()
+requires acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16)
+requires lib.Size(key) == 32 && lib.Size(nonce) == 12
+requires acc(lib.Mem(ciphertext), 1/16)
+requires additionalData != nil ==> acc(lib.Mem(additionalData), 1/16)
+requires lib.Abs(key) == tm.gamma(keyT)
+requires lib.Abs(nonce) == tm.gamma(nonceT)
+requires lib.Abs(ciphertext) == tm.gamma(ciphertextT)
+requires lib.SafeAbs(additionalData, 0) == tm.gamma(adT)
+requires l.LabelCtx().CanAeadDecrypt(l.Snapshot(), keyT, nonceT, ciphertextT, adT, keyL)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  acc(lib.Mem(key), 1/16) && acc(lib.Mem(nonce), 1/16) && acc(lib.Mem(ciphertext), 1/16)
+ensures  additionalData != nil ==> acc(lib.Mem(additionalData), 1/16)
+ensures  err == nil ==> lib.Mem(res) && lib.Size(res) == lib.Size(ciphertext) - 16
+ensures  err == nil ==> lib.Abs(ciphertext) == tm.aeadB(lib.Abs(key), lib.Abs(nonce), lib.Abs(res), lib.SafeAbs(additionalData, 0))
+ensures  err == nil ==> (forall msgT tm.Term :: { tm.aead(keyT, nonceT, msgT, adT) } ciphertextT == tm.aead(keyT, nonceT, msgT, adT) ==>
+	l.LabelCtx().WasAeadDecrypted(l.Snapshot(), keyT, nonceT, msgT, adT, keyL))
+func (l *LabeledLibrary) AttackerAeadDec(key, nonce, ciphertext, additionalData lib.ByteString, keyT tm.Term, nonceT tm.Term, ciphertextT tm.Term, adT tm.Term, keyL label.SecrecyLabel) (res lib.ByteString, err error) {
+	unfold l.Mem()
+	res, err = l.s.AttackerAeadDec(key, nonce, ciphertext, additionalData)
+	fold l.Mem()
+	if err == nil {
+		// we choose an arbitrary msgT and then show that if we assume that it's the correct
+		// we can call `AeadDecryptSatisfiesInvariant` which then gives us an implication with the given quantifier
+		arbMsgT := arb.GetArbTerm()
+		if ciphertextT == tm.aead(keyT, nonceT, arbMsgT, adT) {
+			l.LabelCtx().AeadDecryptSatisfiesInvariant(l.Snapshot(), keyT, nonceT, arbMsgT, adT, keyL)
+		}
+		// forall introduction:
+		assert ciphertextT == tm.aead(keyT, nonceT, arbMsgT, adT) ==> l.LabelCtx().WasAeadDecrypted(l.Snapshot(), keyT, nonceT, arbMsgT, adT, keyL)
+		assume forall msgT tm.Term :: { tm.aead(keyT, nonceT, msgT, adT) } ciphertextT == tm.aead(keyT, nonceT, msgT, adT) ==> l.LabelCtx().WasAeadDecrypted(l.Snapshot(), keyT, nonceT, msgT, adT, keyL)
+	}
+	return
+}
+@*/
+
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(msg), 1/8)
 //@ requires lib.Abs(msg) == tm.gamma(msgT)
@@ -377,6 +522,32 @@ func (l *LabeledLibrary) Sign(msg, sk lib.ByteString /*@, ghost msgT tm.Term, gh
 	//@ l.LabelCtx().SignedMessageIsPublishable(l.Snapshot(), msgT, skT, skOwner)
 	return
 }
+
+/*@
+ghost
+decreases
+requires l.Mem()
+requires acc(lib.Mem(msg), 1/8)
+requires lib.Abs(msg) == tm.gamma(msgT)
+requires acc(lib.Mem(sk), 1/8)
+requires lib.Abs(sk) == tm.gamma(skT)
+requires l.LabelCtx().CanSign(l.Snapshot(), msgT, skT, skOwner) || (l.LabelCtx().IsPublishable(l.Snapshot(), msgT) && l.LabelCtx().IsPublishable(l.Snapshot(), skT))
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  acc(lib.Mem(msg), 1/8)
+ensures  acc(lib.Mem(sk), 1/8)
+ensures  err == nil ==> lib.Mem(signedMsg)
+ensures  err == nil ==> lib.Abs(signedMsg) == tm.signB(lib.Abs(msg), lib.Abs(sk))
+ensures  err == nil ==> l.LabelCtx().IsPublishable(l.Snapshot(), tm.sign(msgT, skT))
+func (l *LabeledLibrary) AttackerSign(msg, sk lib.ByteString, msgT tm.Term, skT tm.Term, skOwner p.Id) (signedMsg lib.ByteString, err error) {
+	unfold l.Mem()
+	signedMsg, err = l.s.AttackerSign(msg, sk)
+	fold l.Mem()
+	l.LabelCtx().SignedMessageIsPublishable(l.Snapshot(), msgT, skT, skOwner)
+	return
+}
+@*/
 
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(signedMsg), 1/8)
@@ -413,6 +584,43 @@ func (l *LabeledLibrary) Open(signedMsg, pk lib.ByteString /*@, ghost signedMsgT
 	return
 }
 
+/*@
+ghost
+decreases
+requires l.Mem()
+requires acc(lib.Mem(signedMsg), 1/8)
+requires lib.Abs(signedMsg) == tm.gamma(signedMsgT)
+requires acc(lib.Mem(pk), 1/8)
+requires lib.Abs(pk) == tm.gamma(tm.createPk(skT))
+requires l.LabelCtx().CanOpen(l.Snapshot(), signedMsgT, tm.createPk(skT), skOwner)
+ensures  l.Mem()
+ensures  l.ImmutableState() == old(l.ImmutableState())
+ensures  l.Snapshot() == old(l.Snapshot())
+ensures  acc(lib.Mem(signedMsg), 1/8)
+ensures  acc(lib.Mem(pk), 1/8)
+ensures  err == nil ==> lib.Mem(msg)
+ensures  err == nil ==> lib.Abs(signedMsg) == tm.signB(lib.Abs(msg), tm.gamma(skT))
+ensures  err == nil ==> (forall msgT tm.Term :: { tm.sign(msgT, skT) } signedMsgT == tm.sign(msgT, skT) ==>
+	l.LabelCtx().WasOpened(l.Snapshot(), msgT, skT, skOwner))
+func (l *LabeledLibrary) AttackerOpen(signedMsg, pk lib.ByteString, signedMsgT tm.Term, skT tm.Term, skOwner p.Id) (msg lib.ByteString, err error) {
+	unfold l.Mem()
+	msg, err = l.s.AttackerOpen(signedMsg, pk, skT)
+	fold l.Mem()
+	if err == nil {
+		// we choose an arbitrary msgT and then show that if we assume that it's the correct
+		// we can call `OpenSatisfiesInvariant` which then gives us an implication with the given quantifier
+		arbMsgT := arb.GetArbTerm()
+		if signedMsgT == tm.sign(arbMsgT, skT) {
+			l.LabelCtx().OpenSatisfiesInvariant(l.Snapshot(), arbMsgT, skT, skOwner)
+		}
+		// forall introduction:
+		assert signedMsgT == tm.sign(arbMsgT, skT) ==> l.LabelCtx().WasOpened(l.Snapshot(), arbMsgT, skT, skOwner)
+		assume forall msgT tm.Term :: { tm.sign(msgT, skT) } signedMsgT == tm.sign(msgT, skT) ==> l.LabelCtx().WasOpened(l.Snapshot(), msgT, skT, skOwner)
+	}
+	return
+}
+@*/
+
 //@ requires l.Mem()
 //@ requires acc(lib.Mem(exp), 1/16) && lib.Size(exp) == 32
 //@ requires lib.Abs(exp) == tm.gamma(expT)
@@ -424,7 +632,7 @@ func (l *LabeledLibrary) Open(signedMsg, pk lib.ByteString /*@, ghost signedMsgT
 //@ ensures  l.LabelCtx().IsPublishable(l.Snapshot(), tm.exp(tm.generator(), expT))
 //@ ensures  err == nil ==> lib.Mem(res)
 //@ ensures  err == nil ==> lib.Abs(res) == tm.expB(tm.generatorB(), lib.Abs(exp))
-//@ ensures err == nil ==> lib.Size(res) == lib.DHHalfKeyLength
+//@ ensures  err == nil ==> lib.Size(res) == lib.DHHalfKeyLength
 // arg is big-endian
 func (l *LabeledLibrary) DhExp(exp []byte /*@, ghost expT tm.Term @*/) (res []byte, err error) {
 	//@ unfold l.Mem()
@@ -435,18 +643,33 @@ func (l *LabeledLibrary) DhExp(exp []byte /*@, ghost expT tm.Term @*/) (res []by
 	return
 }
 
-//@ preserves l.Mem()
+//@ requires l.Mem()
 //@ requires acc(lib.Mem(dhSecret), 1/16) && acc(lib.Mem(dhHalfKey), 1/16) && lib.Size(dhSecret) == 32 && lib.Size(dhHalfKey) == lib.DHHalfKeyLength
-//@ ensures acc(lib.Mem(dhSecret), 1/16) && acc(lib.Mem(dhHalfKey), 1/16)
+//@ requires lib.Abs(dhSecret) == tm.gamma(dhSecretT)
+//@ requires l.LabelCtx().IsValid(l.Snapshot(), dhSecretT) && dhSecretT.IsRandom()
+//@ requires versionPerm >= 0
+// If the key is versioned, consume a partial permission to the guard
+//@ requires versionPerm > 0 ==> acc(lib.guard(l.Version()), versionPerm)
+// If the nonce is unversioned, just verify that it is readable by the owner
+//@ requires versionPerm == 0 ==> tri.GetLabeling(l.Ctx()).CanFlow(l.Snapshot(), tri.GetLabeling(l.Ctx()).GetLabel(dhSecretT), label.Readers(set[p.Id]{ l.OwnerWoThread() }))
+//@ ensures  l.Mem()
+//@ ensures  acc(lib.Mem(dhSecret), 1/16) && acc(lib.Mem(dhHalfKey), 1/16)
 //@ ensures  l.ImmutableState() == old(l.ImmutableState())
 //@ ensures  l.Snapshot() == old(l.Snapshot())
-//@ ensures err == nil ==> lib.Mem(res)
-//@ ensures err == nil ==> lib.Abs(res) == tm.expB(lib.Abs(dhHalfKey), lib.Abs(dhSecret))
-//@ ensures err == nil ==> lib.Size(res) == lib.DHHalfKeyLength
+//@ ensures  err == nil ==> lib.Mem(res)
+//@ ensures  err == nil ==> lib.Abs(res) == tm.expB(lib.Abs(dhHalfKey), lib.Abs(dhSecret))
+//@ ensures  err == nil ==> lib.Size(res) == lib.DHHalfKeyLength
+//@ ensures  err == nil ==> acc(lib.receipt(res, l.Version()), versionPerm)
 // args are big-endian
-func (l *LabeledLibrary) DhSharedSecret(dhSecret, dhHalfKey []byte) (res []byte, err error) {
+func (l *LabeledLibrary) DhSharedSecret(dhSecret, dhHalfKey []byte /*@, ghost dhSecretT tm.Term, ghost versionPerm perm @*/) (res []byte, err error) {
 	//@ unfold l.Mem()
-	res, err = l.s.DhSharedSecret(dhSecret, dhHalfKey)
+	/*@
+	ghost if versionPerm == 0 {
+		// In this case, the precondition has proved that `dhSecret` is unversioned. We can inhale this predicate to use it to call the underlying DhSharedSecret implementation.
+		inhale lib.IsUnversioned(dhSecret)
+	}
+	@*/
+	res, err = l.s.DhSharedSecret(dhSecret, dhHalfKey /*@, versionPerm, l.manager.Version(l.ctx, l.owner) @*/)
 	//@ fold l.Mem()
 	return
 }

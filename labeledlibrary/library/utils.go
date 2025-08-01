@@ -6,7 +6,6 @@ import (
 	fmt "fmt"
 )
 
-
 //@ trusted
 //@ decreases
 //@ requires acc(Mem(s1), 1/16)
@@ -24,8 +23,18 @@ func Compare(s1, s2 ByteString) (res bool) {
 //@ decreases
 //@ ensures res != nil
 func NewError(desc string) (res error) {
-	return errors.New("idB does not match")
+	return errors.New(desc)
 }
+
+/*@
+ghost
+trusted
+decreases
+ensures res != nil
+func AttackerNewError(desc string) (res error) {
+	return errors.New(desc)
+}
+@*/
 
 //@ trusted
 //@ decreases

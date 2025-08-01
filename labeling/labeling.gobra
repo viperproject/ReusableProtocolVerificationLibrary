@@ -1,17 +1,17 @@
 package labeling
 
-import arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
-import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
-import . "github.com/ModularVerification/ReusableVerificationLibrary/usagecontext"
+import arb "github.com/viperproject/ReusableProtocolVerificationLibrary/arbitrary"
+import ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
+import . "github.com/viperproject/ReusableProtocolVerificationLibrary/usagecontext"
 
 
 /** alias */
-type IdSet = set[p.Id]
+ghost type IdSet = set[p.Id]
 
 /** 
  * overview over some lemmas available in this file on the level of `canFlowInternal_DYStar
@@ -1101,6 +1101,7 @@ pure func (ctx LabelingContext) canFlowInternal(corruptIds set[p.Id], l1, l2 lab
 }
 
 ghost
+decreases label.GetHeight(l1), label.GetHeight(l2)
 /** 
   * this is the orginal `can_flow` function used by DY*.
   * we show below that `canFlowInternal` and `canFlowInternal_DYStar` are equivalent.
@@ -1971,9 +1972,11 @@ pred (ctx LabelingContext) NonceForEventIsUnique(nonce tm.Term, eventType ev.Eve
 // results in a contradiction when unfolding the predicate instances
 type Void int // note that `struct{}` results in Gobra not generating the expected heap permissions
 ghost
+decreases
 pure func (ctx LabelingContext) getNonceIsUniquePointer(nonce tm.Term) *Void
 
 ghost
+decreases
 pure func (ctx LabelingContext) getNonceForEventIsUniquePointer(nonce tm.Term, eventType ev.EventType) *Void
 
 ghost

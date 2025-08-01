@@ -1,48 +1,60 @@
 package arbitrary
 
-import ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-import u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+import ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+import p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 
 // utility package to return an arbitrary value which can then be used for forall introductions.
 // these Go functions correspond to Viper methods that do not have any postcondition and thus do not constrain
 // their return value.
 
+ghost
 decreases
 func GetArbTerm() tm.Term
 
+ghost
 decreases
 func GetArbTraceEntry() tr.TraceEntry
 
+ghost
 decreases
 func GetArbLabel() label.SecrecyLabel
 
+ghost
 decreases
 func GetArbPrincipal() p.Principal
 
+ghost
 decreases
 func GetArbId() p.Id
 
+ghost
 decreases
 func GetArbEvent() ev.Event
 
+ghost
 decreases
 func GetArbUsage() u.Usage
 
+ghost
 decreases
 func GetArbString() string
 
+ghost
 decreases
 func GetArbUInt32() uint32
 
+ghost
 decreases
 func GetArbUInt64() uint64
 
+ghost
 decreases
 func GetArbInt() int
 
+ghost
 decreases
 func GetArbBool() bool

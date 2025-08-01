@@ -7,7 +7,7 @@ package event
 type EventParams interface {}
 
 type EventType int
-type Event struct {
+ghost type Event ghost struct {
     typ EventType
     params EventParams
 }

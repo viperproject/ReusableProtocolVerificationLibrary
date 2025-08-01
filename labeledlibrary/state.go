@@ -1,28 +1,27 @@
 package labeledlibrary
 
 import (
-	//@ arb "github.com/ModularVerification/ReusableVerificationLibrary/arbitrary"
-	//@ att "github.com/ModularVerification/ReusableVerificationLibrary/attacker"
-	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
-	lib "github.com/ModularVerification/ReusableVerificationLibrary/labeledlibrary/library"
-	//@ p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-	//@ tri "github.com/ModularVerification/ReusableVerificationLibrary/traceinvariant"
-	//@ tman "github.com/ModularVerification/ReusableVerificationLibrary/tracemanager"
-	//@ ts "github.com/ModularVerification/ReusableVerificationLibrary/concurrentdatastructure"
-	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+	//@ arb "github.com/viperproject/ReusableProtocolVerificationLibrary/arbitrary"
+	//@ att "github.com/viperproject/ReusableProtocolVerificationLibrary/attacker"
+	//@ ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/labeling"
+	lib "github.com/viperproject/ReusableProtocolVerificationLibrary/labeledlibrary/library"
+	//@ p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+	//@ tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+	//@ tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+	//@ tri "github.com/viperproject/ReusableProtocolVerificationLibrary/traceinvariant"
+	//@ tman "github.com/viperproject/ReusableProtocolVerificationLibrary/tracemanager"
+	//@ ts "github.com/viperproject/ReusableProtocolVerificationLibrary/concurrentdatastructure"
+	//@ u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 )
 
-// TODO ghost fields should be ghost
 type LabeledLibrary struct {
-	s *lib.LibraryState
+	s   *lib.LibraryState
 	com Communication
-	//@ ctx tri.TraceContext
-	//@ manager *tman.TraceManager
-	//@ owner p.Id
+	//@ ghost ctx tri.TraceContext
+	//@ ghost manager gpointer[tman.TraceManager]
+	//@ ghost owner p.Id
 }
 
 /*@
@@ -36,25 +35,27 @@ pred (l *LabeledLibrary) Mem() {
 }
 
 // abstract over all memory that remains unchanged after library initialization
-// TODO should be ghost
-type ImmutableState struct {
+ghost type ImmutableState ghost struct {
 	l LabeledLibrary // the entire struct remains constant after initialization
 	managerState tman.ImmutableState
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) ImmutableState() ImmutableState {
 	return unfolding acc(l.Mem(), _) in ImmutableState{ *l, l.manager.ImmutableState(l.ctx, l.owner) }
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) ImmutableStateExceptVersion() ImmutableState {
 	return unfolding acc(l.Mem(), _) in ImmutableState{ *l, l.manager.ImmutableStateExceptVersion(l.ctx, l.owner) }
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 ensures  res != nil && isComparable(res) && res.Props()
 pure func (l *LabeledLibrary) Ctx() (res tri.TraceContext) {
@@ -62,24 +63,35 @@ pure func (l *LabeledLibrary) Ctx() (res tri.TraceContext) {
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
-pure func (l *LabeledLibrary) Manager() *tman.TraceManager {
+pure func (l *LabeledLibrary) Manager() gpointer[tman.TraceManager] {
 	return unfolding acc(l.Mem(), _) in l.manager
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) Owner() p.Id {
 	return unfolding acc(l.Mem(), _) in l.owner
 }
 
 ghost
+decreases
+requires acc(l.Mem(), _)
+pure func (l *LabeledLibrary) OwnerWoThread() p.Id {
+	return unfolding acc(l.Mem(), _) in l.owner.IsSessionThread() ? p.sessionId(p.getIdPrincipal(l.owner), p.getIdSession(l.owner)) : l.owner
+}
+
+ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) Version() (res uint32) {
 	return unfolding acc(l.Mem(), _) in l.manager.Version(l.ctx, l.owner)
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 requires l.Owner().IsSession() // owner is a session Id
 ensures  res == p.versionId(p.getIdPrincipal(l.Owner()), p.getIdSession(l.Owner()), l.Version())
@@ -88,6 +100,7 @@ pure func (l *LabeledLibrary) OwnerWithVersion() (res p.Id) {
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 requires l.Owner().IsSession() // owner is a session Id
 ensures  res == p.versionId(p.getIdPrincipal(l.Owner()), p.getIdSession(l.Owner()), l.Version()+1)
@@ -96,12 +109,14 @@ pure func (l *LabeledLibrary) OwnerWithNextVersion() (res p.Id) {
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) LabelCtx() labeling.LabelingContext {
 	return tri.GetLabeling(l.Ctx())
 }
 
 ghost
+decreases
 requires acc(l.Mem(), _)
 pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 	return unfolding acc(l.Mem(), _) in l.manager.Snapshot(l.ctx, l.owner)
@@ -120,9 +135,15 @@ pure func (l *LabeledLibrary) Snapshot() tr.TraceEntry {
 //@ ensures  res.Owner() == owner
 //@ ensures  (res.ImmutableState()).managerState == old(manager.ImmutableState(ctx, owner))
 //@ ensures  res.Snapshot() == old(manager.Snapshot(ctx, owner))
-// TODO manager, ctx, owner should be ghost
-func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, manager *tman.TraceManager, ctx tri.TraceContext, owner p.Id @*/) (res *LabeledLibrary) {
-	res = &LabeledLibrary{ s, com /*@, ctx, manager, owner @*/ }
+func NewLabeledLibrary(s *lib.LibraryState, com Communication /*@, ghost manager gpointer[tman.TraceManager], ghost ctx tri.TraceContext, ghost owner p.Id @*/) (res *LabeledLibrary) {
+	// the following line is currently not accepted by Gobra's type-checker (see https://github.com/viperproject/gobra/issues/876):
+	// res = &LabeledLibrary{s, com /*@, ctx, manager, owner @*/}
+	res = new(LabeledLibrary)
+	res.s = s
+	res.com = com
+	//@ res.ctx = ctx
+	//@ res.manager = manager
+	//@ res.owner = owner
 	//@ fold res.Mem()
 	return
 }
@@ -462,7 +483,9 @@ func (l *LabeledLibrary) PublishedTermImpliesMadePublicInvWithSnap(snap tr.Trace
 }
 
 ghost
+decreases
 requires l.Mem()
+requires isComparable(event.params)
 requires (l.Ctx()).eventInv(l.Owner().getPrincipal(), event, l.Snapshot())
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())

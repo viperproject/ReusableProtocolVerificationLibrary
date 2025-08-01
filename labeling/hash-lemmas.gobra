@@ -1,8 +1,8 @@
 package labeling
 
-import "github.com/ModularVerification/ReusableVerificationLibrary/label"
-import tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-import tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
+import "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+import tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
 
 
 ghost

@@ -14,13 +14,13 @@ import (
 	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
 	sign "golang.org/x/crypto/nacl/sign"
 
-	//@ ev "github.com/ModularVerification/ReusableVerificationLibrary/event"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/label"
-	//@ "github.com/ModularVerification/ReusableVerificationLibrary/labeling"
-	p "github.com/ModularVerification/ReusableVerificationLibrary/principal"
-	//@ tm "github.com/ModularVerification/ReusableVerificationLibrary/term"
-	//@ tr "github.com/ModularVerification/ReusableVerificationLibrary/trace"
-	//@ u "github.com/ModularVerification/ReusableVerificationLibrary/usage"
+	//@ ev "github.com/viperproject/ReusableProtocolVerificationLibrary/event"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/label"
+	//@ "github.com/viperproject/ReusableProtocolVerificationLibrary/labeling"
+	p "github.com/viperproject/ReusableProtocolVerificationLibrary/principal"
+	//@ tm "github.com/viperproject/ReusableProtocolVerificationLibrary/term"
+	//@ tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
+	//@ u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
 )
 
 type ByteString []byte
@@ -60,16 +60,19 @@ pred Mem(s ByteString) // {
 // }
 
 ghost
+decreases
 requires acc(Mem(b), _)
 ensures  Size(b) == 0 ==> res == tm.zeroStringB(0)
 pure func Abs(b ByteString) (res tm.Bytes)
 
 ghost
+decreases
 ensures Mem(res) && Abs(res) == bytes
 // allocates a new slice of bytes and sets the elements according to `bytes`
 func NewByteStringWithContent(bytes tm.Bytes) (res ByteString)
 
 ghost
+decreases
 requires b != nil ==> acc(Mem(b), _)
 ensures  b != nil ? res == Abs(b) : res == tm.zeroStringB(l)
 pure func SafeAbs(b ByteString, l int) (res tm.Bytes)
@@ -85,6 +88,7 @@ pred receipt(key ByteString, v uint32)
 pred IsNonce(b tm.Bytes)
 @*/
 
+//@ decreases
 //@ requires acc(Mem(b), _)
 //@ ensures res >= 0 && res == len(b)
 //@ pure
@@ -95,12 +99,12 @@ func Size(b ByteString) (res int) {
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
 //@ requires versionPerm >= 0
-//@ requires versionPerm > 0 ==> acc(guard(version), versionPerm)
+//@ requires acc(guard(version), versionPerm)
 //@ ensures  err == nil ==> Mem(pk) && Mem(sk)
 //@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
-//@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(sk, version), versionPerm)
+//@ ensures  err == nil ==> acc(receipt(sk, version), versionPerm)
 // GeneratePkeKey takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
 func (l *LibraryState) GeneratePkeKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (pk, sk ByteString, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -116,15 +120,42 @@ func (l *LibraryState) GeneratePkeKey( /*@ ghost ctx labeling.LabelingContext, g
 	return
 }
 
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+requires versionPerm >= 0
+requires acc(guard(version), versionPerm)
+ensures  err == nil ==> Mem(pk) && Mem(sk)
+ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
+ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
+ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
+ensures  err == nil ==> acc(receipt(sk, version), versionPerm)
+func (l *LibraryState) AttackerGeneratePkeKey(ctx labeling.LabelingContext, keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, usageString string, eventTypes set[ev.EventType]) (pk, sk ByteString, err error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return
+	}
+	publicKey := privateKey.Public()
+
+	// we serialize the private and public key as PKCS #1, ASN.1 DER and PKIX, ASN.1 DER, respectively.
+	sk = x509.MarshalPKCS1PrivateKey(privateKey)
+
+	pk, err = x509.MarshalPKIXPublicKey(publicKey)
+	return
+}
+@*/
+
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
 //@ requires versionPerm >= 0
-//@ requires versionPerm > 0 ==> acc(guard(version), versionPerm)
+//@ requires acc(guard(version), versionPerm)
 //@ ensures  err == nil ==> Mem(key) && Size(key) == 32
 //@ ensures  err == nil ==> Abs(key) == tm.gamma(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
-//@ ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(key, version), versionPerm)
+//@ ensures  err == nil ==> acc(receipt(key, version), versionPerm)
 // GenerateDHKey takes a versionPerm parameter, allowing the caller to specify how much (versionPerm) permission to take from the guard when creating a key with version `version`. If versionPerm is set to 0, the key is not versioned, and the value of `version` is ignored. If versionPerm is >0, we are assured that it is the current version because we require permission to `guard(version)`.
 func (l *LibraryState) GenerateDHKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (key ByteString, err error) {
 	var keyBuf [32]byte
@@ -139,13 +170,42 @@ func (l *LibraryState) GenerateDHKey( /*@ ghost ctx labeling.LabelingContext, gh
 	return
 }
 
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+requires versionPerm >= 0
+requires acc(guard(version), versionPerm)
+ensures  err == nil ==> Mem(key) && Size(key) == 32
+ensures  err == nil ==> Abs(key) == tm.gamma(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
+ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
+ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
+ensures  err == nil ==> acc(receipt(key, version), versionPerm)
+func (l *LibraryState) AttackerGenerateDHKey(ctx labeling.LabelingContext, keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, usageString string, eventTypes set[ev.EventType]) (key ByteString, err error) {
+	var keyBuf [32]byte
+	key = keyBuf[:]
+	_, err = rand.Read(key)
+	if err != nil {
+		return
+	}
+	// clamp
+	key[0] &= 248
+	key[31] = (key[31] & 127) | 64
+	return
+}
+@*/
+
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
+//@ requires versionPerm >= 0
+//@ requires acc(guard(version), versionPerm)
 //@ ensures  err == nil ==> Mem(pk) && Mem(sk)
 //@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)))
 //@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)), eventType)
-func (l *LibraryState) GenerateSigningKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (pk, sk ByteString, err error) {
+//@ ensures  err == nil ==> acc(receipt(sk, version), versionPerm)
+func (l *LibraryState) GenerateSigningKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (pk, sk ByteString, err error) {
 	publicKey, privateKey, err := sign.GenerateKey(rand.Reader)
 	if err != nil {
 		return
@@ -174,12 +234,33 @@ func (l *LibraryState) CreateNonce( /*@ ghost ctx labeling.LabelingContext, ghos
 	return nonce, nil
 }
 
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+requires versionPerm >= 0
+requires versionPerm > 0 ==> acc(guard(version), versionPerm)
+ensures  err == nil ==> Mem(nonce) && Size(nonce) == NonceLength
+ensures  err == nil ==> Abs(nonce) == tm.gamma(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
+ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
+ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
+ensures  err == nil ==> versionPerm > 0 ==> acc(receipt(nonce, version), versionPerm)
+func (l *LibraryState) GhostCreateNonce(ctx labeling.LabelingContext, nonceLabel label.SecrecyLabel, ghost versionPerm perm, ghost version uint32, usageString string, eventTypes set[ev.EventType]) (nonce ByteString, err error) {
+	var nonceArr [NonceLength]byte
+	nonce = nonceArr[:]
+	io.ReadFull(rand.Reader, nonce)
+	// inhale `NonceIsUnique` and `NonceForEventIsUnique` instances
+	return nonce, nil
+}
+@*/
+
 //@ trusted
 //@ requires Mem(value)
 //@ requires versionPermReceipt > 0 && acc(receipt(value, version), versionPermReceipt)
 //@ requires versionPermGuard > 0 && acc(guard(version), versionPermGuard) // This is to ensure that the version parameter corresponds to the current version
-//@ ensures acc(guard(version), versionPermGuard)
-//@ ensures err == nil ==> acc(guard(version), versionPermReceipt)
+//@ ensures  acc(guard(version), versionPermGuard)
+//@ ensures  err == nil ==> acc(guard(version), versionPermReceipt)
 func (l *LibraryState) DeleteSafely(value ByteString /*@, ghost version uint32, ghost versionPermReceipt perm, ghost versionPermGuard perm @*/) (err error) {
 	// Implementation from: https://github.com/golang/go/issues/33325#issuecomment-515996402
 	// overwrite the value with zeros
@@ -219,7 +300,40 @@ func (l *LibraryState) Enc(msg, pk ByteString) (ciphertext ByteString, err error
 	return
 }
 
-//@ pred IsUnversioned (value ByteString) // Abstract predicate whose only purpose is to ensure a method that requires it that the value is unversioned, when the method cannot prove it itself.
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+preserves acc(Mem(msg), 1/16)
+preserves acc(Mem(pk), 1/16)
+ensures  err == nil ==> Mem(ciphertext)
+ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), Abs(pk))
+func (l *LibraryState) AttackerEnc(msg, pk ByteString) (ciphertext ByteString, err error) {
+	// unmarshal pk:
+	publicKey, err := x509.ParsePKIXPublicKey(pk)
+	if err != nil {
+		return
+	}
+
+	var rsaPublicKey *rsa.PublicKey
+	switch publicKey := publicKey.(type) {
+	case *rsa.PublicKey:
+		rsaPublicKey = publicKey
+		break
+	default:
+		err = errors.New("invalid public key")
+		return
+	}
+
+	rng := rand.Reader
+	ciphertext, err = rsa.EncryptOAEP(sha256.New(), rng, rsaPublicKey, msg, nil)
+	return
+}
+@*/
+
+// Abstract predicate whose only purpose is to ensure a method that requires it that the value is unversioned, when the method cannot prove it itself.
+//@ pred IsUnversioned (value ByteString)
 
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
@@ -244,6 +358,29 @@ func (l *LibraryState) Dec(ciphertext, sk ByteString /*@, ghost versionPerm perm
 	return
 }
 
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+preserves acc(Mem(ciphertext), 1/16)
+preserves acc(Mem(sk), 1/16)
+// we do not need `IsUnversioned(sk)` or a guard fraction as all keys the attacker can use are publishable
+ensures  err == nil ==> Mem(msg)
+ensures  err == nil ==> Abs(ciphertext) == tm.encryptB(Abs(msg), tm.createPkB(Abs(sk)))
+func (l *LibraryState) AttackerDec(ciphertext, sk ByteString) (msg ByteString, err error) {
+	// unmarshal sk:
+	privateKey, err := x509.ParsePKCS1PrivateKey(sk)
+	if err != nil {
+		return
+	}
+
+	rng := rand.Reader
+	msg, err = rsa.DecryptOAEP(sha256.New(), rng, privateKey, ciphertext, nil)
+	return
+}
+@*/
+
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
 //@ requires acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
@@ -262,6 +399,29 @@ func (l *LibraryState) AeadEnc(key, nonce, plaintext, additionalData ByteString)
 	aead.Seal(ciphertext[:0], nonce, plaintext, additionalData)
 	return
 }
+
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+requires acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
+requires Size(key) == 32 && Size(nonce) == 12
+preserves plaintext != nil ==> acc(Mem(plaintext), 1/16)
+preserves additionalData != nil ==> acc(Mem(additionalData), 1/16)
+ensures  acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
+ensures  err == nil ==> Mem(ciphertext) && Size(ciphertext) == (plaintext == nil ? 0 : Size(plaintext)) + 16
+ensures  err == nil ==> Abs(ciphertext) == tm.aeadB(Abs(key), Abs(nonce), SafeAbs(plaintext, 0), SafeAbs(additionalData, 0))
+func (l *LibraryState) AttackerAeadEnc(key, nonce, plaintext, additionalData ByteString) (ciphertext ByteString, err error) {
+	aead, err := chacha20poly1305.New(key)
+	if err != nil {
+		return
+	}
+	ciphertext = make([]byte, len(plaintext)+16)
+	aead.Seal(ciphertext[:0], nonce, plaintext, additionalData)
+	return
+}
+@*/
 
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
@@ -287,6 +447,30 @@ func (l *LibraryState) AeadDec(key, nonce, ciphertext, additionalData ByteString
 	return
 }
 
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+requires acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
+requires Size(key) == 32 && Size(nonce) == 12
+preserves acc(Mem(ciphertext), 1/16)
+preserves additionalData != nil ==> acc(Mem(additionalData), 1/16)
+// we do not need `IsUnversioned(key)` or a guard fraction as all keys the attacker can use are publishable
+ensures  acc(Mem(key), 1/16) && acc(Mem(nonce), 1/16)
+ensures  err == nil ==> Mem(res) && Size(res) == Size(ciphertext) - 16
+ensures  err == nil ==> Abs(ciphertext) == tm.aeadB(Abs(key), Abs(nonce), Abs(res), SafeAbs(additionalData, 0))
+func (l *LibraryState) AttackerAeadDec(key, nonce, ciphertext, additionalData ByteString) (res ByteString, err error) {
+	aead, err := chacha20poly1305.New(key)
+	if err != nil {
+		return
+	}
+	res = make([]byte, len(ciphertext)-16)
+	_, err = aead.Open(res[:0], nonce, ciphertext, additionalData)
+	return
+}
+@*/
+
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
 //@ preserves acc(Mem(data), 1/16) && acc(Mem(sk), 1/16)
@@ -303,6 +487,27 @@ func (l *LibraryState) Sign(data []byte, sk []byte) (res []byte, err error) {
 	// not that the (64 bytes) signature is prepended to the plaintext
 	return sign.Sign(out, data, &skBuf), nil
 }
+
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+preserves acc(Mem(data), 1/16) && acc(Mem(sk), 1/16)
+ensures err == nil ==> Mem(res)
+ensures err == nil ==> Abs(res) == tm.signB(Abs(data), Abs(sk))
+func (l *LibraryState) AttackerSign(data []byte, sk []byte) (res []byte, err error) {
+	if len(sk) != 64 {
+		return nil, errors.New("invalid secret key")
+	}
+	var skBuf [64]byte
+	copy(skBuf[:], sk)
+
+	var out []byte
+	// not that the (64 bytes) signature is prepended to the plaintext
+	return sign.Sign(out, data, &skBuf), nil
+}
+@*/
 
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
@@ -327,6 +532,34 @@ func (l *LibraryState) Open(signedData []byte, pk []byte /*@, ghost skT tm.Term 
 		return nil, errors.New("signature check has failed")
 	}
 }
+
+/*@
+ghost
+trusted
+decreases
+preserves acc(l.Mem(), 1/16)
+preserves acc(Mem(signedData), 1/16)
+requires acc(Mem(pk), 1/16)
+requires Abs(pk) == tm.gamma(tm.createPk(skT))
+ensures  acc(Mem(pk), 1/16)
+ensures err == nil ==> Mem(res)
+ensures err == nil ==> Abs(signedData) == tm.signB(Abs(res), tm.gamma(skT))
+func (l *LibraryState) AttackerOpen(signedData []byte, pk []byte, skT tm.Term) (res []byte, err error) {
+	if len(pk) != 32 {
+		return nil, errors.New("invalid public key")
+	}
+	var pkBuf [32]byte
+	copy(pkBuf[:], pk)
+
+	var out []byte
+	data, success := sign.Open(out, signedData, &pkBuf)
+	if success {
+		return data, nil
+	} else {
+		return nil, errors.New("signature check has failed")
+	}
+}
+@*/
 
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
@@ -384,11 +617,15 @@ func (l *LibraryState) DhExp(exp []byte) (res []byte, err error) {
 //@ trusted
 //@ preserves acc(l.Mem(), 1/16)
 //@ requires acc(Mem(dhSecret), 1/16) && acc(Mem(dhHalfKey), 1/16) && Size(dhSecret) == 32 && Size(dhHalfKey) == DHHalfKeyLength
+//@ requires versionPerm >= 0
+//@ requires versionPerm == 0 ==> IsUnversioned(dhSecret)
+//@ requires versionPerm > 0 ==> acc(guard(version), versionPerm)
 //@ ensures acc(Mem(dhSecret), 1/16) && acc(Mem(dhHalfKey), 1/16)
 //@ ensures err == nil ==> Mem(res)
 //@ ensures err == nil ==> Abs(res) == tm.expB(Abs(dhHalfKey), Abs(dhSecret))
 //@ ensures err == nil ==> Size(res) == DHHalfKeyLength
+//@ ensures  err == nil && versionPerm > 0 ==> acc(receipt(res, version), versionPerm)
 // args are big-endian
-func (l *LibraryState) DhSharedSecret(dhSecret, dhHalfKey []byte) (res []byte, err error) {
+func (l *LibraryState) DhSharedSecret(dhSecret, dhHalfKey []byte /*@, ghost versionPerm perm, ghost version uint32 @*/) (res []byte, err error) {
 	return l.expMod(dhHalfKey, dhSecret)
 }
