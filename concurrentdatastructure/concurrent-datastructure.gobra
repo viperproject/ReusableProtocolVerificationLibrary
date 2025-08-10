@@ -25,8 +25,8 @@ pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateInitWithInv(inv Cli
     acc(m) &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
     clients == domain(m.snapshots) &&
-    (forall client1, client2 ClientId :: client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]) &&
-    (forall snapshot gpointer[ValueType] :: snapshot in range(m.snapshots) ==> acc(snapshot, 1/2))
+    (forall client1, client2 ClientId :: client1 elem domain(m.snapshots) && client2 elem domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]) &&
+    (forall snapshot gpointer[ValueType] :: snapshot elem range(m.snapshots) ==> acc(snapshot, 1/2))
 }
 
 /** represents the state in the mutex's unlocked state */
@@ -34,7 +34,7 @@ pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexState(inv ClientHistoryI
     // the idea is that each client get 1/len(clients) many permissions
     acc(m, _) && inv != nil &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
-    client in domain(m.snapshots) &&
+    client elem domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
     acc((m.snapshots)[client], 1/2)
 }
@@ -44,21 +44,21 @@ pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateLocked(inv ClientHi
     // beginning copy of clientHistoryMutexState
     acc(m, _) && inv != nil &&
     acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
-    client in domain(m.snapshots) &&
+    client elem domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
     acc((m.snapshots)[client], 1/2) &&
     // end of copy of clientHistoryMutexState
     m.mutex.UnlockP() &&
     acc(m.currentValue) &&
     *m.currentValue == currentValue &&
-    (forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, *m.currentValue) } snapshot in range(m.snapshots) ==> acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *m.currentValue))
+    (forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, *m.currentValue) } snapshot elem range(m.snapshots) ==> acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *m.currentValue))
 }
 
 /** represents the invariant that is associated with the mutex */
 pred ClientHistoryMutexInv(inv ClientHistoryInv, currentValue gpointer[ValueType], ghost snapshots set[gpointer[ValueType]]) {
     inv != nil && acc(currentValue) &&
     inv.CurrentValueInv(*currentValue) &&
-    (forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, *currentValue) } snapshot in snapshots ==>
+    (forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, *currentValue) } snapshot elem snapshots ==>
         acc(snapshot, 1/2) && inv.TwoStepValueInv(*snapshot, *currentValue))
 }
 
@@ -167,7 +167,7 @@ requires forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < le
 requires inv.CurrentValueInv(initVal)
 ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
 ensures  forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> m.ClientHistoryMutexState(inv, clients[j])
-ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < len(clients) && 0 <= k && k < len(clients) ==> clients[k] in m.Clients(inv, clients[j])
+ensures  forall j, k int :: { clients[j], clients[k] } 0 <= j && j < len(clients) && 0 <= k && k < len(clients) ==> clients[k] elem m.Clients(inv, clients[j])
 func (m gpointer[ClientHistoryMutex]) SetInv(inv ClientHistoryInv, clients seq[ClientId], initVal ValueType, p perm) {
     unfold m.ClientHistoryMutexStateInit()
     
@@ -177,14 +177,14 @@ func (m gpointer[ClientHistoryMutex]) SetInv(inv ClientHistoryInv, clients seq[C
     invariant forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
     invariant domain(m.snapshots) == set(clients[:i])
     // each client has its own snapshot pointer and each snapshot satisfies the invariant:
-    invariant forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, initVal) } snapshot in range(m.snapshots) ==> acc(snapshot) && inv.TwoStepValueInv(*snapshot, initVal)
-    invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
+    invariant forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, initVal) } snapshot elem range(m.snapshots) ==> acc(snapshot) && inv.TwoStepValueInv(*snapshot, initVal)
+    invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 elem domain(m.snapshots) && client2 elem domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
     decreases len(clients) - i
     for i := 0; i < len(clients); i++ {
         client := clients[i]
         clientValue@ := initVal
         length := len(m.snapshots)
-        assert !(client in domain(m.snapshots))
+        assert !(client elem domain(m.snapshots))
         (m.snapshots)[client] = &clientValue
         assert len(m.snapshots) == length + 1
         inv.TwoStepValueInvReflexive(initVal)
@@ -217,8 +217,8 @@ func (m gpointer[ClientHistoryMutex]) split(inv ClientHistoryInv, ghost clients 
     invariant acc(m, _)
     invariant m.currentValue == currentValue && m.mutex == mutex
     invariant acc(mutex.LockP(), _) && mutex.LockInv() == ClientHistoryMutexInv!<inv, currentValue, range(m.snapshots)!>;
-    invariant forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> clients[j] in domain(m.snapshots)
-    invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 in domain(m.snapshots) && client2 in domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
+    invariant forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> clients[j] elem domain(m.snapshots)
+    invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 elem domain(m.snapshots) && client2 elem domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
     invariant forall j int :: { clients[j] } i <= j && j < len(clients) ==> acc((m.snapshots)[clients[j]], 1/2)
     // in each iteration an additional predicate instance is constructed:
     invariant forall j int :: { clients[j] } 0 <= j && j < i ==> m.ClientHistoryMutexState(inv, clients[j])
@@ -297,22 +297,22 @@ ghost
 decreases
 requires noPerm < p && p <= writePerm
 requires inv != nil
-requires forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, currentValue) } snapshot in snapshots ==>
+requires forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, currentValue) } snapshot elem snapshots ==>
     acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, currentValue)
 requires inv.TwoStepValueInv(currentValue, newValue)
-ensures  forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot in snapshots ==>
+ensures  forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot elem snapshots ==>
     acc(snapshot, p) && inv.TwoStepValueInv(*snapshot, newValue)
 func (m gpointer[ClientHistoryMutex]) applyInvTransitivity(inv ClientHistoryInv, snapshots set[gpointer[ValueType]], currentValue, newValue ValueType, p perm) {
     // non-deterministically choose a snapshot
     arbitrarySnapshot@ := arb.GetArbTraceEntry()
-    if &arbitrarySnapshot in snapshots {
+    if &arbitrarySnapshot elem snapshots {
         m.applyInvTransitivitySingle(inv, &arbitrarySnapshot, currentValue, newValue, p)
         assert inv.TwoStepValueInv(arbitrarySnapshot, newValue)
     }
     // forall introduction:
-    assert &arbitrarySnapshot in snapshots ==>
+    assert &arbitrarySnapshot elem snapshots ==>
         inv.TwoStepValueInv(arbitrarySnapshot, newValue)
-    assume forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot in snapshots ==>
+    assume forall snapshot gpointer[ValueType] :: { inv.TwoStepValueInv(*snapshot, newValue) } snapshot elem snapshots ==>
         inv.TwoStepValueInv(*snapshot, newValue)
 }
 

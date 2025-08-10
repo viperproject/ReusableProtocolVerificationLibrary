@@ -247,7 +247,7 @@ ghost
 decreases
 requires m.Mem(ctx, owner)
 ensures  m.Mem(ctx, owner)
-ensures  id in m.Snapshot(ctx, owner).getCorruptIds()
+ensures  id elem m.Snapshot(ctx, owner).getCorruptIds()
 ensures  tr.containsCorruptId(m.Snapshot(ctx, owner).getCorruptIds(), set[p.Id]{ id })
 ensures  old(m.Snapshot(ctx, owner)).isSuffix(m.Snapshot(ctx, owner))
 ensures  m.ImmutableState(ctx, owner) === old(m.ImmutableState(ctx, owner))

@@ -638,7 +638,7 @@ decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
-ensures  p.principalId(principal) in l.Snapshot().getCorruptIds()
+ensures  p.principalId(principal) elem l.Snapshot().getCorruptIds()
 ensures  tr.containsCorruptId(l.Snapshot().getCorruptIds(), set[p.Id]{ p.principalId(principal) })
 ensures  att.attackerKnows(l.Snapshot(), arbTerm)
 func CorruptParticipant(l *ll.LabeledLibrary, principal p.Principal) (arbTerm tm.Term) {
@@ -667,9 +667,9 @@ decreases
 requires l.Mem()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
-ensures  sessionId in l.Snapshot().getCorruptIds()
+ensures  sessionId elem l.Snapshot().getCorruptIds()
 ensures  tr.containsCorruptId(l.Snapshot().getCorruptIds(), set[p.Id]{ sessionId })
-ensures  sessionId in l.Snapshot().getCorruptIds()
+ensures  sessionId elem l.Snapshot().getCorruptIds()
 func CorruptSession(l *ll.LabeledLibrary, sessionId p.Id) (arbTerm tm.Term) {
     labelCtx := l.LabelCtx()
 

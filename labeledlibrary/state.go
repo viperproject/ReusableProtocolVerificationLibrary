@@ -274,16 +274,16 @@ func (l *LabeledLibrary) AttackerOnlyKnowsPublishableValuesWithSnap(snap tr.Trac
 	msgPayloads := snap.getMessagePayloads()
 	publishedTerms := snap.getTermsMadePublic()
 
-	if term in publicTerms {
+	if term elem publicTerms {
 		prev := l.PublicTermImpliesPublicInvWithSnap(snap, term)
 		l.LabelCtx().IsPublishableMonotonic(prev, snap, term)
-	} else if term in msgPayloads {
+	} else if term elem msgPayloads {
 		sender, receiver := snap.getMsgSenderReceiver(term)
 		prev := l.MessageOccursImpliesMessageInvWithSnap(snap, sender, receiver, term)
 		tr.getPrev(prev).isSuffixTransitive(prev, snap)
 		l.LabelCtx().IsPublishableMonotonic(tr.getPrev(prev), snap, term)
 	} else {
-		// assert term in publishedTerms
+		// assert term elem publishedTerms
 		prev := l.PublishedTermImpliesMadePublicInvWithSnap(snap, term)
 		tr.getPrev(prev).isSuffixTransitive(prev, snap)
 		l.LabelCtx().IsPublishableMonotonic(tr.getPrev(prev), snap, term)
@@ -351,7 +351,7 @@ func (l *LabeledLibrary) NonceOccursImpliesRandInv(nonce tm.Term) (prev tr.Trace
 ghost
 decreases
 requires l.Mem()
-requires term in l.Snapshot().getPublicTerms()
+requires term elem l.Snapshot().getPublicTerms()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
@@ -366,7 +366,7 @@ ghost
 decreases
 requires l.Mem()
 requires snap.isSuffix(l.Snapshot())
-requires term in snap.getPublicTerms()
+requires term elem snap.getPublicTerms()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
@@ -420,7 +420,7 @@ func (l *LabeledLibrary) MessageOccursImpliesMessageInvWithSnap(snap tr.TraceEnt
 ghost
 decreases
 requires l.Mem()
-requires term in l.Snapshot().getTermsMadePublic()
+requires term elem l.Snapshot().getTermsMadePublic()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())
@@ -435,7 +435,7 @@ ghost
 decreases
 requires l.Mem()
 requires snap.isSuffix(l.Snapshot())
-requires term in snap.getTermsMadePublic()
+requires term elem snap.getTermsMadePublic()
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 ensures  l.Snapshot() == old(l.Snapshot())

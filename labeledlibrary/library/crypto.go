@@ -93,7 +93,7 @@ func Size(b ByteString) (res int) {
 //@ ensures  err == nil ==> Mem(pk) && Mem(sk)
 //@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
+//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 func (l *LibraryState) GeneratePkeKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (pk, sk ByteString, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -116,7 +116,7 @@ preserves acc(l.Mem(), 1/16)
 ensures  err == nil ==> Mem(pk) && Mem(sk)
 ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
 ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)))
-ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
+ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.PkeKey(usageString)), eventType)
 func (l *LibraryState) AttackerGeneratePkeKey(ctx labeling.LabelingContext, keyLabel label.SecrecyLabel, usageString string, eventTypes set[ev.EventType]) (pk, sk ByteString, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -137,7 +137,7 @@ func (l *LibraryState) AttackerGeneratePkeKey(ctx labeling.LabelingContext, keyL
 //@ ensures  err == nil ==> Mem(key) && Size(key) == 32
 //@ ensures  err == nil ==> Abs(key) == tm.gamma(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
+//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
 func (l *LibraryState) GenerateDHKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (key ByteString, err error) {
 	var keyBuf [32]byte
 	key = keyBuf[:]
@@ -159,7 +159,7 @@ preserves acc(l.Mem(), 1/16)
 ensures  err == nil ==> Mem(key) && Size(key) == 32
 ensures  err == nil ==> Abs(key) == tm.gamma(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
 ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)))
-ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
+ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(key), keyLabel, u.DhKey(usageString)), eventType)
 func (l *LibraryState) AttackerGenerateDHKey(ctx labeling.LabelingContext, keyLabel label.SecrecyLabel, usageString string, eventTypes set[ev.EventType]) (key ByteString, err error) {
 	var keyBuf [32]byte
 	key = keyBuf[:]
@@ -179,7 +179,7 @@ func (l *LibraryState) AttackerGenerateDHKey(ctx labeling.LabelingContext, keyLa
 //@ ensures  err == nil ==> Mem(pk) && Mem(sk)
 //@ ensures  err == nil ==> Abs(pk) == tm.createPkB(Abs(sk)) && Abs(sk) == tm.gamma(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)))
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)), eventType)
+//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(sk), keyLabel, u.SigningKey(usageString)), eventType)
 func (l *LibraryState) GenerateSigningKey( /*@ ghost ctx labeling.LabelingContext, ghost keyLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (pk, sk ByteString, err error) {
 	publicKey, privateKey, err := sign.GenerateKey(rand.Reader)
 	if err != nil {
@@ -196,7 +196,7 @@ func (l *LibraryState) GenerateSigningKey( /*@ ghost ctx labeling.LabelingContex
 //@ ensures  err == nil ==> Mem(nonce) && Size(nonce) == NonceLength
 //@ ensures  err == nil ==> Abs(nonce) == tm.gamma(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
+//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 func (l *LibraryState) CreateNonce( /*@ ghost ctx labeling.LabelingContext, ghost nonceLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (nonce ByteString, err error) {
 	var nonceArr [NonceLength]byte
 	nonce = nonceArr[:]
@@ -213,7 +213,7 @@ preserves acc(l.Mem(), 1/16)
 ensures  err == nil ==> Mem(nonce) && Size(nonce) == NonceLength
 ensures  err == nil ==> Abs(nonce) == tm.gamma(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
 ensures  err == nil ==> ctx.NonceIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)))
-ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
+ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> ctx.NonceForEventIsUnique(tm.random(Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 func (l *LibraryState) GhostCreateNonce(ctx labeling.LabelingContext, nonceLabel label.SecrecyLabel, usageString string, eventTypes set[ev.EventType]) (nonce ByteString, err error) {
 	var nonceArr [NonceLength]byte
 	nonce = nonceArr[:]

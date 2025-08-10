@@ -116,7 +116,7 @@ pure func (ctx LabelingContext) Props() bool {
     return ctx.usage != nil
 }
 
-// TODO make ghost
+ghost
 decreases
 pure func GetLabelingContext(usage UsageContext) (res LabelingContext) {
     return LabelingContext{ usage }
@@ -136,9 +136,40 @@ pure func (ctx LabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bool {
         (term.IsGenerator() ==> true) &&
         (term.IsPk() ==> ctx.IsValid(t, tm.getSk(term))) &&
         (term.IsEncrypt() ==>
-            ctx.IsValidEncryptInternal(t, tm.getPk(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)), true)) &&
+            // due to Gobra issue #956, we inline `IsValidEncryptInternal`
+            // ctx.IsValidEncryptInternal(t, tm.getPk(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)), true)) &&
+            let pk, plaintext, plaintextLabel := tm.getPk(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)) in
+            ctx.IsValid(t, pk) &&
+            ctx.IsValid(t, plaintext) &&
+            // message has to flow to secrecy label of secret key
+            ctx.CanFlow(t, plaintextLabel, ctx.GetSkLabel(pk)) &&
+            (
+                // either the plaintext is public ...
+                ctx.CanFlow(t, plaintextLabel, label.Public()) ||
+                // ... or pkePred holds
+                (
+                    pk.IsPk() &&
+                    ctx.IsPkeKey(tm.getSk(pk)) &&
+                    ctx.usage.PkePred(t, u.GetUsageString(get(ctx.GetUsage(tm.getSk(pk)))), plaintext, pk)))) &&
         (term.IsAead() ==>
-            ctx.IsValidAeadInternal(t, tm.getAeadKey(term), tm.getAeadNonce(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)), tm.getAuthtext(term), true)) &&
+            // due to Gobra issue #956, we inline `IsValidAeadInternal`
+            // ctx.IsValidAeadInternal(t, tm.getAeadKey(term), tm.getAeadNonce(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)), tm.getAuthtext(term), true)) &&
+            let key, nonce, plaintext, plaintextLabel, authtext := tm.getAeadKey(term), tm.getAeadNonce(term), tm.getPlaintext(term), ctx.GetLabel(tm.getPlaintext(term)), tm.getAuthtext(term) in
+            ctx.IsValid(t, key) &&
+            ctx.IsValid(t, nonce) &&
+            ctx.IsValid(t, plaintext) &&
+            ctx.IsValid(t, authtext) &&
+            // nonce and authtext have to flow to public
+            ctx.CanFlow(t, ctx.GetLabel(nonce), label.Public()) &&
+            ctx.CanFlow(t, ctx.GetLabel(authtext), label.Public()) &&
+            (
+                // either key and message are public...
+                (ctx.CanFlow(t, ctx.GetLabel(key), label.Public()) &&
+                    ctx.CanFlow(t, plaintextLabel, label.Public())) ||
+                // ... or message can flow to key's label and AeadPred holds
+                (ctx.CanFlow(t, plaintextLabel, ctx.GetLabel(key)) &&
+                    ctx.HasAeadKeyUsage(key) &&
+                    ctx.usage.AeadPred(t, u.GetUsageString(get(ctx.GetUsage(key))), key, nonce, plaintext, authtext)))) &&
         (term.IsRandom() ==>
             // `nonceOccurs` saves us from writing yet another function to simply state that `term` is on the trace
             t.OnlyNonceOccurs(term)) &&
@@ -146,7 +177,19 @@ pure func (ctx LabelingContext) IsValid(t tr.TraceEntry, term tm.Term) bool {
         ((term.IsHash() || term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> ctx.IsValid(t, tm.getInput(term))) &&
         (term.IsTuple() ==> forall i int :: { tm.getTupleElem(term, i) } 0 <= i && i < term.GetTupleArity() ==> ctx.IsValid(t, tm.getTupleElem(term, i))) &&
         (term.IsSignature() ==>
-            ctx.IsValidSignatureInternal(t, tm.getPlaintext(term), tm.getSk(term), true))
+            // due to Gobra issue #956, we inline `IsValidSignatureInternal`
+            // ctx.IsValidSignatureInternal(t, tm.getPlaintext(term), tm.getSk(term), true))
+            let msg, sk := tm.getPlaintext(term), tm.getSk(term) in
+            ctx.IsValid(t, msg) &&
+            ctx.IsValid(t, sk) &&
+            ctx.CanFlow(t, ctx.GetLabel(msg), label.Public()) && // since msg can be extracted from signature
+            (
+                // either the secret key is public ...
+                ctx.CanFlow(t, ctx.GetLabel(sk), label.Public()) ||
+                // ... or SignPred holds
+                (
+                    ctx.IsSigningKey(sk) &&
+                    ctx.usage.SignPred(t, u.GetUsageString(get(ctx.GetUsage(sk))), msg, sk))))
 }
 
 ghost
@@ -265,13 +308,41 @@ func (ctx LabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term) 
     } else if (term.IsEncrypt()) {
         pk := tm.getPk(term)
         plaintext := tm.getPlaintext(term)
-        ctx.IsValidEncryptMonotonic(t1, t2, pk, plaintext, ctx.GetLabel(plaintext), true)
+        // due to Gobra issue #956, we inline `IsValidEncryptMonotonic`
+        // ctx.IsValidEncryptMonotonic(t1, t2, pk, plaintext, ctx.GetLabel(plaintext), true)
+        ctx.IsValidMonotonic(t1, t2, pk)
+        ctx.IsValidMonotonic(t1, t2, plaintext)
+        plaintextLabel := ctx.GetLabel(plaintext)
+        skLabel := ctx.GetSkLabel(pk)
+        ctx.CanFlowMonotonic(t1, t2, plaintextLabel, skLabel)
+        if (ctx.CanFlow(t1, plaintextLabel, label.Public())) {
+            ctx.CanFlowMonotonic(t1, t2, plaintextLabel, label.Public())
+        } else {
+            ctx.usage.PkePredMonotonic(t1, t2, u.GetUsageString(get(ctx.GetUsage(tm.getSk(pk)))), plaintext, pk)
+        }
     } else if term.IsAead() {
         key := tm.getAeadKey(term)
         nonce := tm.getAeadNonce(term)
         plaintext := tm.getPlaintext(term)
         authtext := tm.getAuthtext(term)
-        ctx.IsValidAeadMonotonic(t1, t2, key, nonce, plaintext, ctx.GetLabel(plaintext), authtext, true)
+        // due to Gobra issue #956, we inline `IsValidAeadMonotonic`
+        // ctx.IsValidAeadMonotonic(t1, t2, key, nonce, plaintext, ctx.GetLabel(plaintext), authtext, true)
+        ctx.IsValidMonotonic(t1, t2, key)
+        ctx.IsValidMonotonic(t1, t2, nonce)
+        ctx.IsValidMonotonic(t1, t2, plaintext)
+        ctx.IsValidMonotonic(t1, t2, authtext)
+        ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(nonce), label.Public())
+        ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(authtext), label.Public())
+        plaintextLabel := ctx.GetLabel(plaintext)
+        if (ctx.CanFlow(t1, ctx.GetLabel(key), label.Public()) &&
+            ctx.CanFlow(t1, plaintextLabel, label.Public())) {
+            ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(key), label.Public())
+            ctx.CanFlowMonotonic(t1, t2, plaintextLabel, label.Public())
+        } else {
+            ctx.CanFlowMonotonic(t1, t2, plaintextLabel, ctx.GetLabel(key))
+            usageCtx := ctx.GetUsage(key)
+            ctx.usage.AeadPredMonotonic(t1, t2, u.GetUsageString(get(usageCtx)), key, nonce, plaintext, authtext)
+        }
     } else if term.IsExp() {
         assert exists base, e tm.Term :: { tm.exp(base, e) } term == tm.exp(base, e) && ctx.IsValid(t1, base) && ctx.IsValid(t1, e)
         base, e := arb.GetArbTerm(), arb.GetArbTerm()
@@ -291,7 +362,17 @@ func (ctx LabelingContext) IsValidMonotonic(t1, t2 tr.TraceEntry, term tm.Term) 
     } else if term.IsSignature() {
         sk := tm.getSk(term)
         plaintext := tm.getPlaintext(term)
-        ctx.IsValidSignatureMonotonic(t1, t2, plaintext, sk, true)
+        // due to Gobra issue #956, we inline `IsValidSignatureMonotonic`
+        // ctx.IsValidSignatureMonotonic(t1, t2, plaintext, sk, true)
+        ctx.IsValidMonotonic(t1, t2, plaintext)
+        ctx.IsValidMonotonic(t1, t2, sk)
+        ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(plaintext), label.Public())
+        if ctx.CanFlow(t1, ctx.GetLabel(sk), label.Public()) {
+            ctx.CanFlowMonotonic(t1, t2, ctx.GetLabel(sk), label.Public())
+        } else {
+            usageCtx := ctx.GetUsage(sk)
+            ctx.usage.SignPredMonotonic(t1, t2, u.GetUsageString(get(usageCtx)), plaintext, sk)
+        }
     }
 }
 
@@ -463,7 +544,8 @@ func (ctx LabelingContext) IsSecretRelaxedMonotonic(t1, t2 tr.TraceEntry, term t
 }
 
 ghost
-decreases tm.getTermHeight(term)
+decreases tm.getTermHeight(term), mutualRecursionTrick
+requires mutualRecursionTrick
 requires ctx.Props()
 ensures term.IsInteger64() ==> res == label.Public()
 ensures term.IsInteger32() ==> res == label.Public()
@@ -485,8 +567,8 @@ ensures term.IsRandom() ==> res == tm.getRandomLabel(term)
 // as we would consider an unnecessarily big set of participants of which any could be corrupted and
 // thus the secrecy lemma holds trivially
 ensures term.IsHash() ==> res == label.Public()
-ensures (term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabel(tm.getInput(term))
-ensures term.IsTuple() ==> res == ctx.nestedMeetInternal(term, getTupleSeq(term), 0, true) // intersection of audience is allowed to read
+ensures (term.IsKdf1() || term.IsKdf2() || term.IsKdf3()) ==> res == ctx.GetLabelInternal(tm.getInput(term), true)
+ensures term.IsTuple() ==> res == ctx.nestedMeetInternal(term, getTupleSeq(term), 0, false) // intersection of audience is allowed to read
 // DH exponentiation is special cased:
 // if a term is `(g^x)^y` or equivalently `g^(x*y)` it results in the join label of x and y
 // i.e. the DH key can be read by all readers of x and y (set union) since it's sufficient
@@ -494,17 +576,29 @@ ensures term.IsTuple() ==> res == ctx.nestedMeetInternal(term, getTupleSeq(term)
 // note that one must make sure the postconditions to not specify multiple labels for the same term, which
 // would immediately be a contradiction. Thus, the case where t1 is an exponent of the generator and another term `e1` has to be explicitly excluded
 // as this case is already covered via `mult`, i.e. (g^e1)^t2 == g^(e1 * t2)
-ensures forall t1, t2 tm.Term :: { tm.mult(t1, t2) } term == tm.mult(t1, t2) ==> res == label.Join(ctx.GetLabel(t1), ctx.GetLabel(t2))
+ensures forall t1, t2 tm.Term :: { tm.mult(t1, t2) } term == tm.mult(t1, t2) ==> res == label.Join(ctx.GetLabelInternal(t1, true), ctx.GetLabelInternal(t2, true))
 ensures forall t1, t2 tm.Term :: { tm.exp(t1, t2) } term == tm.exp(t1, t2) ==>
     (t1.IsGenerator() && t2.IsRandom() ? res == label.Public() :
-        t1.IsGenerator() /* && !t2.IsRandom() */ ? res == ctx.GetLabel(t2) :
-            !(exists e1 tm.Term :: { tm.exp(tm.generator(), e1) } t1 == tm.exp(tm.generator(), e1)) ==> res == label.Meet(ctx.GetLabel(t1), ctx.GetLabel(t2)))
-ensures forall msg, sk tm.Term :: { tm.sign(msg, sk) } term == tm.sign(msg, sk) ==> res == ctx.GetLabel(msg)
+        t1.IsGenerator() /* && !t2.IsRandom() */ ? res == ctx.GetLabelInternal(t2, true) :
+            !(exists e1 tm.Term :: { tm.exp(tm.generator(), e1) } t1 == tm.exp(tm.generator(), e1)) ==> res == label.Meet(ctx.GetLabelInternal(t1, true), ctx.GetLabelInternal(t2, true)))
+ensures forall msg, sk tm.Term :: { tm.sign(msg, sk) } term == tm.sign(msg, sk) ==> res == ctx.GetLabelInternal(msg, true)
 /**
   * WARNING:
   * 2 terms that are equal based on the equational theory must return the same label!
   */
-pure func (ctx LabelingContext) GetLabel(term tm.Term) (res label.SecrecyLabel)
+pure func (ctx LabelingContext) GetLabelInternal(term tm.Term, mutualRecursionTrick bool) (res label.SecrecyLabel)
+
+// due to Gobra issue #956, we renamed GetLabel to GetLabelInternal in order to
+// introduce the `mutualRecursionTrick` parameter. In theory, the `mutualRecursionTrick`
+// parameter should only be added to `nestedMeetInternal` but because of this issue
+// we cannot introduce this additional element in termination measure tuples only
+// in that fuction, which required us to introduce this parameter already in `GetLabelInternal`
+ghost
+decreases tm.getTermHeight(term)
+requires ctx.Props()
+pure func (ctx LabelingContext) GetLabel(term tm.Term) (res label.SecrecyLabel) {
+    return ctx.GetLabelInternal(term, true)
+}
 
 
 ghost
@@ -526,16 +620,16 @@ decreases
 requires ctx.Props() && t.IsTuple() && terms == getTupleSeq(t)
 requires 0 <= startIdx && startIdx + 2 <= len(terms)
 pure func (ctx LabelingContext) nestedMeet(t tm.Term, terms seq[tm.Term], startIdx int) label.SecrecyLabel {
-    return ctx.nestedMeetInternal(t, terms, startIdx, true)
+    return ctx.nestedMeetInternal(t, terms, startIdx, false) // last argument used to be `true` before applying changes to work around Gobra issue #956
 }
 
 ghost
-decreases tm.getTermHeight(t), len(terms) - startIdx, mutualRecursionTrick
+decreases tm.getTermHeight(t), mutualRecursionTrick, len(terms) - startIdx
 requires ctx.Props() && t.IsTuple() && terms == getTupleSeq(t)
 requires 0 <= startIdx && startIdx + 2 <= len(terms)
 pure func (ctx LabelingContext) nestedMeetInternal(t tm.Term, terms seq[tm.Term], startIdx int, mutualRecursionTrick bool) label.SecrecyLabel {
-    return startIdx + 2 == len(terms) ? label.Meet(ctx.GetLabel(terms[startIdx]), ctx.GetLabel(terms[startIdx + 1])) :
-            label.Meet(ctx.GetLabel(terms[startIdx]), ctx.nestedMeetInternal(t, terms, startIdx + 1, mutualRecursionTrick))
+    return startIdx + 2 == len(terms) ? label.Meet(ctx.GetLabelInternal(terms[startIdx], true), ctx.GetLabelInternal(terms[startIdx + 1], true)) :
+            label.Meet(ctx.GetLabelInternal(terms[startIdx], true), ctx.nestedMeetInternal(t, terms, startIdx + 1, mutualRecursionTrick))
 }
 
 ghost
@@ -1505,12 +1599,12 @@ func (ctx LabelingContext) CanFlowMonotonicInternal(t1, t2 tr.TraceEntry, l1, l2
 ghost
 decreases
 requires ctx.CanFlow(t, label.Readers(set[p.Id]{ id }), label.Public())
-ensures  corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
+ensures  corruptedId elem t.getCorruptIds() && id.Covers(corruptedId)
 func (ctx LabelingContext) CanFlowToPublicImpliesCorruption(t tr.TraceEntry, id p.Id) (corruptedId p.Id) {
-    assert exists corruptedId p.Id :: corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
+    assert exists corruptedId p.Id :: corruptedId elem t.getCorruptIds() && id.Covers(corruptedId)
     // get witness
     corruptedId := arb.GetArbId()
-    assume corruptedId in t.getCorruptIds() && id.Covers(corruptedId)
+    assume corruptedId elem t.getCorruptIds() && id.Covers(corruptedId)
 }
 
 ghost
@@ -1519,10 +1613,10 @@ requires ids1 subset ids2 || includesIds(ids2, ids1)
 requires tr.containsCorruptId(corruptIds, ids1)
 ensures  tr.containsCorruptId(corruptIds, ids2)
 func (ctx LabelingContext) containsCorruptIdMonotonic(corruptIds, ids1, ids2 set[p.Id]) {
-    assert exists corruptedId p.Id :: { tr.containsId(ids1, corruptedId) } corruptedId in corruptIds && tr.containsId(ids1, corruptedId)
+    assert exists corruptedId p.Id :: { tr.containsId(ids1, corruptedId) } corruptedId elem corruptIds && tr.containsId(ids1, corruptedId)
     // get witness:
     corruptedId := arb.GetArbId()
-    assume corruptedId in corruptIds && tr.containsId(ids1, corruptedId)
+    assume corruptedId elem corruptIds && tr.containsId(ids1, corruptedId)
     if includesIds(ids2, ids1) {
         ctx.containsIdTransitive(ids1, ids2, corruptedId)
     }
@@ -1536,11 +1630,11 @@ requires corruptIds1 subset corruptIds2
 requires tr.containsCorruptId(corruptIds1, ids)
 ensures  tr.containsCorruptId(corruptIds2, ids)
 func (ctx LabelingContext) containsCorruptIdMonotonic2(corruptIds1, corruptIds2, ids set[p.Id]) {
-    assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds1 && tr.containsId(ids, corruptedId)
+    assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId elem corruptIds1 && tr.containsId(ids, corruptedId)
     // get witness:
     corruptedId := arb.GetArbId()
-    assume corruptedId in corruptIds1 && tr.containsId(ids, corruptedId)
-    assert corruptedId in corruptIds2
+    assume corruptedId elem corruptIds1 && tr.containsId(ids, corruptedId)
+    assert corruptedId elem corruptIds2
 }
 
 ghost
@@ -1549,10 +1643,10 @@ requires tr.containsCorruptId(corruptIds, ids1 union ids2)
 ensures  tr.containsCorruptId(corruptIds, ids1) || tr.containsCorruptId(corruptIds, ids2)
 func (ctx LabelingContext) containsCorruptIdSplit(corruptIds set[p.Id], ids1, ids2 set[p.Id]) {
     ids := ids1 union ids2
-    assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId in corruptIds && tr.containsId(ids, corruptedId)
+    assert exists corruptedId p.Id :: { tr.containsId(ids, corruptedId) } corruptedId elem corruptIds && tr.containsId(ids, corruptedId)
     // get witness:
     corruptedId := arb.GetArbId()
-    assume corruptedId in corruptIds && tr.containsId(ids, corruptedId)
+    assume corruptedId elem corruptIds && tr.containsId(ids, corruptedId)
     ctx.containsIdSplit(ids1, ids2, corruptedId)
 }
 
@@ -1596,23 +1690,23 @@ requires tr.containsId(ids1, corruptedId) && includesIds(ids2, ids1)
 ensures  tr.containsId(ids2, corruptedId)
 func (ctx LabelingContext) containsIdTransitive(ids1, ids2 set[p.Id], corruptedId p.Id) {
     // apply `containsId(ids1, corruptedId)`:
-    assert exists id1 p.Id :: { id1.Covers(corruptedId) } id1 in ids1 && id1.Covers(corruptedId)
+    assert exists id1 p.Id :: { id1.Covers(corruptedId) } id1 elem ids1 && id1.Covers(corruptedId)
     // get witness:
     id1 := arb.GetArbId()
-    assume id1 in ids1 && id1.Covers(corruptedId)
+    assume id1 elem ids1 && id1.Covers(corruptedId)
     
     // apply `includesIds(ids2, ids1)`:
-    assert forall id p.Id :: id in ids1 ==> tr.containsId(ids2, id)
+    assert forall id p.Id :: id elem ids1 ==> tr.containsId(ids2, id)
     assert tr.containsId(ids2, id1)
 
     // apply `containsId(ids2, id1)`:
-    assert exists id p.Id :: id in ids2 && id.Covers(id1)
+    assert exists id p.Id :: id elem ids2 && id.Covers(id1)
     // get witness:
     idX := arb.GetArbId()
-    assume idX in ids2 && idX.Covers(id1)
+    assume idX elem ids2 && idX.Covers(id1)
 
     idX.CoversTransitive(id1, corruptedId)
-    assert exists id p.Id :: { id.Covers(corruptedId) } id in ids2 && id.Covers(corruptedId)
+    assert exists id p.Id :: { id.Covers(corruptedId) } id elem ids2 && id.Covers(corruptedId)
 }
 
 ghost
@@ -1632,7 +1726,7 @@ decreases
  * quantifier is used for every ID contained in the first parameter.
  */
 pure func includesIds(haystack, ids set[p.Id]) bool {
-    return forall id p.Id :: { tr.containsId(haystack, id) } id in ids ==> tr.containsId(haystack, id)
+    return forall id p.Id :: { tr.containsId(haystack, id) } id elem ids ==> tr.containsId(haystack, id)
 }
 
 ghost
@@ -1640,12 +1734,12 @@ decreases
 ensures includesIds(ids, ids)
 func (ctx LabelingContext) includesIdsReflexive(ids set[p.Id]) {
     arbId := arb.GetArbId()
-    if arbId in ids {
+    if arbId elem ids {
         arbId.CoversReflexive()
     }
     // we have shown it for an arbitrary `arbId` and can thus perform forall introduction:
-    assert arbId in ids ==> tr.containsId(ids, arbId)
-    assume forall id p.Id :: { tr.containsId(ids, id) } id in ids ==> tr.containsId(ids, id)
+    assert arbId elem ids ==> tr.containsId(ids, arbId)
+    assume forall id p.Id :: { tr.containsId(ids, id) } id elem ids ==> tr.containsId(ids, id)
 }
 
 ghost
@@ -1653,19 +1747,19 @@ decreases
 requires includesIds(ids1, ids2) && includesIds(ids2, ids3)
 ensures  includesIds(ids1, ids3)
 func (ctx LabelingContext) includesIdsTransitive(ids1, ids2, ids3 set[p.Id]) {
-    assert forall id p.Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
-    assert forall id p.Id :: { tr.containsId(ids2, id) } id in ids3 ==> tr.containsId(ids2, id)
+    assert forall id p.Id :: { tr.containsId(ids1, id) } id elem ids2 ==> tr.containsId(ids1, id)
+    assert forall id p.Id :: { tr.containsId(ids2, id) } id elem ids3 ==> tr.containsId(ids2, id)
     
     arbId := arb.GetArbId()
-    if arbId in ids3 {
+    if arbId elem ids3 {
         // follows from `includesIds(ids2, ids3)`:
         assert tr.containsId(ids2, arbId)
         // use additionally the fact that `includesIds(ids1, ids2)`:
         ctx.containsIdTransitive(ids2, ids1, arbId)
     }
-    assert arbId in ids3 ==> tr.containsId(ids1, arbId)
+    assert arbId elem ids3 ==> tr.containsId(ids1, arbId)
     // we can do a forall introduction as `arbId` is unconstraint:
-    assume forall id p.Id :: { tr.containsId(ids1, id) } id in ids3 ==> tr.containsId(ids1, id)
+    assume forall id p.Id :: { tr.containsId(ids1, id) } id elem ids3 ==> tr.containsId(ids1, id)
 }
 
 ghost
@@ -1674,16 +1768,16 @@ requires ids2 subset ids1
 ensures  includesIds(ids1, ids2)
 func (ctx LabelingContext) includesIdsSubset(ids1, ids2 set[p.Id]) {
     arbId := arb.GetArbId()
-    if arbId in ids2 {
+    if arbId elem ids2 {
         // apply `ids2 subset ids1`:
-        assert arbId in ids1
+        assert arbId elem ids1
         arbId.CoversReflexive()
         // `arbId` is itself the witness for `containsId(ids1, arbId)`:
         assert tr.containsId(ids1, arbId)
     }
-    assert arbId in ids2 ==> tr.containsId(ids1, arbId)
+    assert arbId elem ids2 ==> tr.containsId(ids1, arbId)
     // perform a forall introduction since `arbId` is unconstraint:
-    assume forall id p.Id :: { tr.containsId(ids1, id) } id in ids2 ==> tr.containsId(ids1, id)
+    assume forall id p.Id :: { tr.containsId(ids1, id) } id elem ids2 ==> tr.containsId(ids1, id)
 }
 
 ghost
@@ -2286,23 +2380,23 @@ requires ctx.IsLabeledRelaxed(t, term, l)
 requires l.IsReaders()
 requires ctx.IsPublishable(t, term)
 ensures  tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l))
-ensures  corruptedId in t.getCorruptIds()
-ensures  id in label.GetReaders(l) && id.Covers(corruptedId)
+ensures  corruptedId elem t.getCorruptIds()
+ensures  id elem label.GetReaders(l) && id.Covers(corruptedId)
 func (ctx LabelingContext) PublishableImpliesCorruption(t tr.TraceEntry, term tm.Term, l label.SecrecyLabel) (corruptedId, id p.Id) {
     termL := ctx.GetLabel(term)
     readers := label.GetReaders(l)
     corruptIds := t.getCorruptIds()
     ctx.CanFlowTransitive(t, l, termL, label.Public())
     // apply `containsCorruptId(corruptIds, readers)`:
-    assert exists corruptedId p.Id :: { tr.containsId(readers, corruptedId) } corruptedId in corruptIds && tr.containsId(readers, corruptedId)
+    assert exists corruptedId p.Id :: { tr.containsId(readers, corruptedId) } corruptedId elem corruptIds && tr.containsId(readers, corruptedId)
     // get witness
     corruptedId = arb.GetArbId()
-    assume corruptedId in corruptIds && tr.containsId(readers, corruptedId)
+    assume corruptedId elem corruptIds && tr.containsId(readers, corruptedId)
     // apply `containsId(readers, corruptedId)`:
-    assert exists id p.Id :: { id.Covers(corruptedId) } id in readers && id.Covers(corruptedId)
+    assert exists id p.Id :: { id.Covers(corruptedId) } id elem readers && id.Covers(corruptedId)
     // get witness
     id = arb.GetArbId()
-    assume id in readers && id.Covers(corruptedId)
+    assume id elem readers && id.Covers(corruptedId)
 }
 
 ghost
@@ -2327,7 +2421,7 @@ requires ctx.IsLabeledRelaxed(t, term, label.Join(l1, l2))
 ensures  optCorruptedId == none[p.Id] ?
     !ctx.IsPublishable(t, term) :
     ((tr.containsId(label.GetReaders(l1), get(optCorruptedId)) || tr.containsId(label.GetReaders(l2), get(optCorruptedId))) &&
-        get(optCorruptedId) in t.getCorruptIds() &&
+        get(optCorruptedId) elem t.getCorruptIds() &&
         tr.containsCorruptId(t.getCorruptIds(), label.GetReaders(l1) union label.GetReaders(l2)))
 func (ctx LabelingContext) RelaxedLabelingImpliesNotPublishableOrCorruption(t tr.TraceEntry, term tm.Term, l1, l2 label.SecrecyLabel) (optCorruptedId option[p.Id]) {
     termL := ctx.GetLabel(term)
@@ -2337,14 +2431,14 @@ func (ctx LabelingContext) RelaxedLabelingImpliesNotPublishableOrCorruption(t tr
         // the following assert stmt is necessary:
         assert ctx.CanFlow(t, l1, label.Public()) || ctx.CanFlow(t, l2, label.Public())
         if ctx.CanFlow(t, l1, label.Public()) {
-            assert exists corruptedId p.Id :: { tr.containsId(label.GetReaders(l1), corruptedId) } corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
+            assert exists corruptedId p.Id :: { tr.containsId(label.GetReaders(l1), corruptedId) } corruptedId elem t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
             corruptedId := arb.GetArbId()
-            assume corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
+            assume corruptedId elem t.getCorruptIds() && tr.containsId(label.GetReaders(l1), corruptedId)
             optCorruptedId = some(corruptedId)
         } else {
-            assert exists corruptedId p.Id :: { tr.containsId(label.GetReaders(l2), corruptedId) } corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
+            assert exists corruptedId p.Id :: { tr.containsId(label.GetReaders(l2), corruptedId) } corruptedId elem t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
             corruptedId := arb.GetArbId()
-            assume corruptedId in t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
+            assume corruptedId elem t.getCorruptIds() && tr.containsId(label.GetReaders(l2), corruptedId)
             optCorruptedId = some(corruptedId)
         }
         ctx.containsCorruptIdNotUnion(t.getCorruptIds(), label.GetReaders(l1), label.GetReaders(l2))

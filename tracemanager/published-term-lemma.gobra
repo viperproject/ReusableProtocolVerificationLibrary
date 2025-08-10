@@ -42,7 +42,7 @@ pure func (ps PublishedTermSearcher) MatchProperties(snapshot, entry tr.TraceEnt
 ghost
 decreases
 pure func (ps PublishedTermSearcher) Occurs(entry tr.TraceEntry) bool {
-    return ps.term in entry.getTermsMadePublic()
+    return ps.term elem entry.getTermsMadePublic()
 }
 
 ghost
@@ -97,7 +97,7 @@ ghost
 decreases
 requires m.Mem(ctx, owner)
 requires snap.isSuffix(m.Snapshot(ctx, owner))
-requires term in snap.getTermsMadePublic()
+requires term elem snap.getTermsMadePublic()
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap)
 ensures  prev.isSuffix(m.Snapshot(ctx, owner))

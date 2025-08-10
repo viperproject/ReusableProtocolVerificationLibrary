@@ -6,7 +6,7 @@ import tr "github.com/viperproject/ReusableProtocolVerificationLibrary/trace"
 ghost
 decreases
 pure func attackerKnows(entry tr.TraceEntry, term tm.Term) bool {
-    return term in attackerKnowledge(entry)
+    return term elem attackerKnowledge(entry)
 }
 
 ghost

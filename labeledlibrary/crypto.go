@@ -20,7 +20,7 @@ import (
 //@ ensures  err == nil ==> lib.Mem(nonce) && lib.Size(nonce) == lib.NonceLength
 //@ ensures  err == nil ==> lib.Abs(nonce) == tm.gamma(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)))
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)))
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> (l.LabelCtx()).NonceForEventIsUnique(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
+//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> (l.LabelCtx()).NonceForEventIsUnique(tm.random(lib.Abs(nonce), nonceLabel, u.Nonce(usageString)), eventType)
 func (l *LabeledLibrary) CreateNonce( /*@ ghost nonceLabel label.SecrecyLabel, ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (nonce lib.ByteString, err error) {
 	//@ unfold l.Mem()
 	nonce, err = l.s.CreateNonce( /*@ tri.GetLabeling(l.ctx), nonceLabel, usageString, eventTypes @*/ )
@@ -69,7 +69,7 @@ func (l *LabeledLibrary) GeneratePkeKey( /*@ ghost usageString string @*/ ) (pk,
 //@ ensures  err == nil ==> lib.Abs(key) == tm.gamma(skT)
 //@ ensures  err == nil ==> skT == tm.random(lib.Abs(key), label.Readers(set[p.Id]{ l.OwnerWoThread() }), u.DhKey(usageString))
 //@ ensures  err == nil ==> l.Snapshot().isNonceAt(skT)
-//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType in eventTypes } eventType in eventTypes ==> l.LabelCtx().NonceForEventIsUnique(skT, eventType)
+//@ ensures  err == nil ==> forall eventType ev.EventType :: { eventType elem eventTypes } eventType elem eventTypes ==> l.LabelCtx().NonceForEventIsUnique(skT, eventType)
 func (l *LabeledLibrary) GenerateDHKey( /*@ ghost usageString string, ghost eventTypes set[ev.EventType] @*/ ) (key lib.ByteString, err error /*@, ghost skT tm.Term @*/) {
 	//@ ownerWoThread := l.OwnerWoThread()
 	//@ unfold l.Mem()

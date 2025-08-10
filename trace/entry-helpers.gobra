@@ -322,7 +322,7 @@ func (t1 TraceEntry) getMessagePayloadsMonotonic(t2 TraceEntry) {
 
 ghost
 decreases entry.traceLen()
-requires msg in entry.getMessagePayloads()
+requires msg elem entry.getMessagePayloads()
 ensures  entry.messageOccurs(sender, receiver, msg)
 func (entry TraceEntry) getMsgSenderReceiver(msg tm.Term) (sender, receiver p.Principal) {
     if entry.isMessage() && getPayload(entry) == msg {
@@ -335,7 +335,7 @@ func (entry TraceEntry) getMsgSenderReceiver(msg tm.Term) (sender, receiver p.Pr
 
 ghost
 decreases entry.traceLen()
-ensures forall msg tm.Term :: { msg in res } msg in res ==> entry.messageOccurs(sender, receiver, msg)
+ensures forall msg tm.Term :: { msg elem res } msg elem res ==> entry.messageOccurs(sender, receiver, msg)
 pure func (entry TraceEntry) getMessagePayloadsForCommChannel(sender, receiver p.Principal) (res set[tm.Term]) {
     return (entry.isRoot() ? set[tm.Term]{} : (getPrev(entry)).getMessagePayloadsForCommChannel(sender, receiver)) union (
         (entry.isMessage() && getSender(entry) == sender && getReceiver(entry) == receiver) ? set[tm.Term]{getPayload(entry)} : set[tm.Term]{})
@@ -347,7 +347,7 @@ decreases
 /** returns true iff at least one id in `ids` has been corrupted, i.e. is in `corruptIds` */
 pure func containsCorruptId(corruptIds set[p.Id], ids set[p.Id]) bool {
     // return len(corruptIds intersection ids) > 0
-    return exists corruptedId p.Id :: { containsId(ids, corruptedId) } corruptedId in corruptIds && containsId(ids, corruptedId)
+    return exists corruptedId p.Id :: { containsId(ids, corruptedId) } corruptedId elem corruptIds && containsId(ids, corruptedId)
 }
 
 ghost
@@ -359,5 +359,5 @@ decreases
 * corrupted. This relation is expressed by `Covers` because `owner` covers all its sessions
 */
 pure func containsId(ids set[p.Id], corruptedId p.Id) bool {
-    return exists id p.Id :: { id.Covers(corruptedId) } id in ids && id.Covers(corruptedId)
+    return exists id p.Id :: { id.Covers(corruptedId) } id elem ids && id.Covers(corruptedId)
 }

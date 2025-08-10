@@ -28,7 +28,7 @@ pure func (ps PublicTermSearcher) Ctx() (res tri.TraceContext) {
 ghost
 decreases
 pure func (ps PublicTermSearcher) Matches(entry tr.TraceEntry) bool {
-    return entry.isRoot() && ps.term in entry.getPublicTerms()
+    return entry.isRoot() && ps.term elem entry.getPublicTerms()
 }
 
 ghost
@@ -42,7 +42,7 @@ pure func (ps PublicTermSearcher) MatchProperties(snapshot, entry tr.TraceEntry)
 ghost
 decreases
 pure func (ps PublicTermSearcher) Occurs(entry tr.TraceEntry) bool {
-    return ps.term in entry.getPublicTerms()
+    return ps.term elem entry.getPublicTerms()
 }
 
 ghost
@@ -97,7 +97,7 @@ ghost
 decreases
 requires m.Mem(ctx, owner)
 requires snap.isSuffix(m.Snapshot(ctx, owner))
-requires term in snap.getPublicTerms()
+requires term elem snap.getPublicTerms()
 ensures  m.Mem(ctx, owner)
 ensures  prev.isSuffix(snap) && prev.isRoot()
 ensures  prev.isSuffix(m.Snapshot(ctx, owner))

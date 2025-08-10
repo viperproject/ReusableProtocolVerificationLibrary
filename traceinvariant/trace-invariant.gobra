@@ -120,7 +120,7 @@ decreases
 requires ctx != nil && ctx.Props()
 requires t.isRoot()
 pure func publicInv(ctx TraceContext, publicTerms set[tm.Term], t TraceEntry) bool {
-    return forall publicTerm tm.Term :: { publicTerm in publicTerms } publicTerm in publicTerms ==> GetLabeling(ctx).IsPublishable(t, publicTerm)
+    return forall publicTerm tm.Term :: { publicTerm elem publicTerms } publicTerm elem publicTerms ==> GetLabeling(ctx).IsPublishable(t, publicTerm)
 }
 
 ghost
