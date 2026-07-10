@@ -12,9 +12,6 @@ jobs:
     container:
       image: ghcr.io/viperproject/gobra:v26.02
     steps:
-      - name: Install git
-        run: apt-get update && apt-get install -y git
-
       - name: Checkout repo
         uses: actions/checkout@v3
 
