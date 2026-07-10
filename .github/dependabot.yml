@@ -5,7 +5,6 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
-      day: monday
     groups:
       all:
         patterns:
