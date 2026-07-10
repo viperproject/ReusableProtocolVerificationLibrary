@@ -612,7 +612,7 @@ func ExtendKnowledgeByDeconstruction(l *ll.LabeledLibrary, t tm.Term) {
 ghost
 decreases
 requires l.Mem()
-requires forall i uint :: { terms[i] } 0 <= i && i < len(terms) ==> l.LabelCtx().IsPublishable(l.Snapshot(), terms[i])
+requires forall i int :: { terms[i] } 0 <= i && i < len(terms) ==> l.LabelCtx().IsPublishable(l.Snapshot(), terms[i])
 ensures  l.Mem()
 ensures  l.ImmutableState() == old(l.ImmutableState())
 func MultiPublish(l *ll.LabeledLibrary, terms seq[tm.Term]) {
@@ -620,7 +620,7 @@ func MultiPublish(l *ll.LabeledLibrary, terms seq[tm.Term]) {
 
     invariant 0 <= i && i <= len(terms)
     invariant l.Mem()
-    invariant forall j uint :: { terms[j] } i <= j && j < len(terms) ==> l.LabelCtx().IsPublishable(snap, terms[j])
+    invariant forall j int :: { terms[j] } i <= j && j < len(terms) ==> l.LabelCtx().IsPublishable(snap, terms[j])
     invariant snap.isSuffix(l.Snapshot())
     invariant l.ImmutableState() == old(l.ImmutableState())
     decreases len(terms) - i
