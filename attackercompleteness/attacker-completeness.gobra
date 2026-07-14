@@ -27,22 +27,15 @@ import u "github.com/viperproject/ReusableProtocolVerificationLibrary/usage"
  * attacker completeness.
  */
 
-ghost
-decreases if false // does not terminate
 requires l.Mem()
 ensures  l.Mem()
+// our attacker is non-ghost such that it can be non-terminating
 func Attacker(l *ll.LabeledLibrary) {
-    // to make Gobra happy, we introduce the notion of a bound on the number of steps
-    // the attacker can perform. However, this bound is arbitrary and, thus, does not
-    // affect soundness.
-    numberOfSteps := arb.GetArbInt()
 
     invariant l.Mem()
-    invariant 0 <= i && (i <= numberOfSteps || numberOfSteps < 0)
-    decreases numberOfSteps - i
-    for i := 0; i < numberOfSteps; i++ {
+    for {
         // the attacker chooses non-deterministically an operation it wants to perform
-        nonDeterministicChoice := arb.GetArbInt()
+        nonDeterministicChoice := GetArbInt()
         if nonDeterministicChoice == 1 {
             CreateNonce(l, arb.GetArbString())
         } else if nonDeterministicChoice == 2 {
@@ -86,6 +79,10 @@ func Attacker(l *ll.LabeledLibrary) {
         }
     }
 }
+
+decreases
+// non-ghost non-deterministic choice
+func GetArbInt() int
 
 // operation 1: create nonce
 ghost
