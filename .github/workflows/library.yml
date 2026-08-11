@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
-      image: ghcr.io/viperproject/gobra:v26.02
+      image: ghcr.io/viperproject/gobra:sha-36e39e3
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7

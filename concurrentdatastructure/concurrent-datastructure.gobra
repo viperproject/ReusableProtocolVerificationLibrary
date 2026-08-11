@@ -23,7 +23,7 @@ pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateInit() {
 
 pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateInitWithInv(inv ClientHistoryInv, ghost clients set[ClientId]) {
     acc(m) &&
-    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
+    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv{inv, m.currentValue, range(m.snapshots)} &&
     clients == domain(m.snapshots) &&
     (forall client1, client2 ClientId :: client1 elem domain(m.snapshots) && client2 elem domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]) &&
     (forall snapshot gpointer[ValueType] :: snapshot elem range(m.snapshots) ==> acc(snapshot, 1/2))
@@ -33,7 +33,7 @@ pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateInitWithInv(inv Cli
 pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexState(inv ClientHistoryInv, client ClientId) {
     // the idea is that each client get 1/len(clients) many permissions
     acc(m, _) && inv != nil &&
-    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
+    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv{inv, m.currentValue, range(m.snapshots)} &&
     client elem domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
     acc((m.snapshots)[client], 1/2)
@@ -43,7 +43,7 @@ pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexState(inv ClientHistoryI
 pred (m gpointer[ClientHistoryMutex]) ClientHistoryMutexStateLocked(inv ClientHistoryInv, client ClientId, currentValue ValueType) {
     // beginning copy of clientHistoryMutexState
     acc(m, _) && inv != nil &&
-    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!> &&
+    acc(m.mutex.LockP(), _) && m.mutex.LockInv() == ClientHistoryMutexInv{inv, m.currentValue, range(m.snapshots)} &&
     client elem domain(m.snapshots) &&
     // remaining 1/2 permission to value in snapshot belonging to current client:
     acc((m.snapshots)[client], 1/2) &&
@@ -191,8 +191,8 @@ func (m gpointer[ClientHistoryMutex]) SetInv(inv ClientHistoryInv, clients seq[C
     }
 
     *m.currentValue = initVal
-    fold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
-    m.mutex.SetInv(ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>)
+    fold ClientHistoryMutexInv{inv, m.currentValue, range(m.snapshots)}()
+    m.mutex.SetInv(ClientHistoryMutexInv{inv, m.currentValue, range(m.snapshots)})
 
     fold m.ClientHistoryMutexStateInitWithInv(inv, set(clients))
     m.split(inv, clients)
@@ -216,7 +216,7 @@ func (m gpointer[ClientHistoryMutex]) split(inv ClientHistoryInv, ghost clients 
     invariant forall j, k int :: { clients[j], clients[k] } 0 <= j && j < k && k < len(clients) ==> clients[j] != clients[k]
     invariant acc(m, _)
     invariant m.currentValue == currentValue && m.mutex == mutex
-    invariant acc(mutex.LockP(), _) && mutex.LockInv() == ClientHistoryMutexInv!<inv, currentValue, range(m.snapshots)!>;
+    invariant acc(mutex.LockP(), _) && mutex.LockInv() == ClientHistoryMutexInv{inv, currentValue, range(m.snapshots)}
     invariant forall j int :: { clients[j] } 0 <= j && j < len(clients) ==> clients[j] elem domain(m.snapshots)
     invariant forall client1, client2 ClientId :: { (m.snapshots)[client1], (m.snapshots)[client2] } client1 elem domain(m.snapshots) && client2 elem domain(m.snapshots) && client1 != client2 ==> (m.snapshots)[client1] != (m.snapshots)[client2]
     invariant forall j int :: { clients[j] } i <= j && j < len(clients) ==> acc((m.snapshots)[clients[j]], 1/2)
@@ -243,7 +243,7 @@ ensures  m.ClientsLocked(inv, client, currentValue) == old(m.Clients(inv, client
 func (m gpointer[ClientHistoryMutex]) Lock(inv ClientHistoryInv, client ClientId) (currentValue ValueType) {
     unfold m.ClientHistoryMutexState(inv, client)
     m.mutex.Lock()
-    unfold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
+    unfold ClientHistoryMutexInv{inv, m.currentValue, range(m.snapshots)}()
     currentValue = *m.currentValue
     fold m.ClientHistoryMutexStateLocked(inv, client, currentValue)
 }
@@ -288,7 +288,7 @@ func (m gpointer[ClientHistoryMutex]) UnlockWithSnapshot(inv ClientHistoryInv, c
     // the following assert statement is necessary due to an incompleteness:
     assert *(m.snapshots)[client] == snapshot
     *m.currentValue = newValue
-    fold ClientHistoryMutexInv!<inv, m.currentValue, range(m.snapshots)!>()
+    fold ClientHistoryMutexInv{inv, m.currentValue, range(m.snapshots)}()
     m.mutex.Unlock()
     fold m.ClientHistoryMutexState(inv, client)
 }
